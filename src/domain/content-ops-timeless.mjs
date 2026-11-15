@@ -79,6 +79,7 @@ export function timelessReviewProblem(review) {
     if (criterion.status !== "passed") return `十年内容检验未通过：${criterion.id}。`;
     if (!plainText(criterion.evidence, 12, 4000)) return `十年内容检验缺少可复核依据：${criterion.id}。`;
   }
+  if (review.criteria.some((criterion, index) => criterion.id !== TIMELESS_CRITERION_IDS[index])) return "十年内容检验未按固定标准顺序完整覆盖。";
   if (TIMELESS_CRITERION_IDS.some(criterionId => !seen.has(criterionId))) return "十年内容检验未按标准顺序完整覆盖。";
   if (!Array.isArray(review.decayTriggers) || review.decayTriggers.length < 1 || review.decayTriggers.length > 8) return "十年内容检验必须给出 1 至 8 个失效触发条件。";
   if (review.decayTriggers.some(trigger => !plainText(trigger, 8, 1000))) return "十年内容检验的失效触发条件缺少具体可核对描述。";
