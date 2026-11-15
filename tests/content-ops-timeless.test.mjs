@@ -119,3 +119,19 @@ test("backend passes a complete article report at checker v2 and revokes it when
   assert.equal(candidate.status, "needs_input");
   assert.equal(candidate.reviewSnapshotHash, null);
 });
+
+test("non-article forms cannot attach a fabricated timeless review", async t => {
+  const f = await contentOpsFixture(t, { allDestinations: true });
+  const { job } = await createOpsJob(f, { targets: [{ destinationId: f.destinationIds.x, locale: "zh-CN", nativeForm: "thread" }] });
+  await finishTextOpsJob(f, job.id);
+  const candidate = f.ops.getCandidate(f.ops.getJob(job.id, opsContext()).candidates[0].id, opsContext());
+  await assert.rejects(f.ops.submitQualityReport(candidate.id, {
+    checkedPackageHash: candidate.packageHash,
+    checkContextHash: candidate.checkContextHash,
+    reviewed: true,
+    coverage: { textKeys: qualityTextKeys(candidate.package), artifactHashes: [], semantic: "checked", artistic: "checked", timeless: "not_applicable" },
+    mediaEvidence: [],
+    timelessReview: validReview(),
+    assessment: "隔离负例：非文章形式不得伪造十年内容检验。",
+  }, opsContext(candidate, "independent non-article reviewer")), { code: "QUALITY_REPORT_INVALID" });
+});
