@@ -7,10 +7,17 @@ import { loadSeedState, migrateEditorialState } from "../src/services/bootstrap.
 import { GeoOsService } from "../src/services/geo-os-service.mjs";
 import { EditorialService } from "../src/services/editorial-service.mjs";
 import { AccountOperationsService } from "../src/services/account-operations.mjs";
+import { TIMELESS_GATE_VERSION, TIMELESS_CRITERIA } from "../src/domain/content-ops-timeless.mjs";
 
 export const ROOT = resolve(import.meta.dirname, "..");
 export const FIXED_TIME = new Date("2026-10-25T10:00:00.000Z");
 export const clock = () => new Date(FIXED_TIME);
+export const timelessReviewFixture = () => ({
+  schema: TIMELESS_GATE_VERSION,
+  criteria: TIMELESS_CRITERIA.map(criterion => ({ id: criterion.id, status: "passed", evidence: `隔离测试逐项核对 ${criterion.id}：依据来自长期经营机制、明确边界与可迁移方法。` })),
+  decayTriggers: ["经营机制、决策责任或读者核心问题发生根本变化时重新检验。"],
+  longHorizonVerdict: "这份内容围绕长期经营机制、判断框架与行动闭环展开，具体工具和平台变化后仍能帮助读者判断与行动。",
+});
 export function context(row, key = randomUUID()) {
   return { actor: "isolated unit reviewer", method: "local", idempotencyKey: key, ...(row ? { ifMatch: row.etag } : {}) };
 }
@@ -50,12 +57,13 @@ export async function readyWebsite(fixture) {
 
 export async function createEditionVariant(fixture, { story, locale = "zh-CN", format = "article", title = "隔离测试中的正式文章",
   body = "这是一篇只存在于临时测试目录的完整正文。\n\n它用于核对独立语言修订、审批快照和公开投影，不是一次真实外部发布。",
-  summary = "隔离测试资料", assetRefs = [], blocks, sourceEditionId, supersedesEditionId,
+  summary = "隔离测试资料", assetRefs = [], blocks, sourceEditionId, supersedesEditionId, timelessReview,
   destinationId = "official-site", supersedesContentId } = {}) {
   story ??= await fixture.service.createStory({ workingTitle: "Isolated editorial scenario", claimIds: ["C003"] }, context());
   const currentStory = fixture.service.getStory(story.id);
   const input = { locale, format, title, body, summary, claimIds: ["C003"], assetRefs,
-    ...(blocks ? { blocks } : {}), ...(sourceEditionId ? { sourceEditionId } : {}), ...(supersedesEditionId ? { supersedesEditionId } : {}) };
+    ...(blocks ? { blocks } : {}), ...(sourceEditionId ? { sourceEditionId } : {}), ...(supersedesEditionId ? { supersedesEditionId } : {}),
+    ...(timelessReview !== undefined ? { timelessReview } : ["article", "image_text"].includes(format) ? { timelessReview: timelessReviewFixture() } : {}) };
   const edition = await fixture.service.createEdition(story.id, input, context(currentStory));
   const variant = await fixture.service.createVariant(edition.id, { destinationId,
     ...(supersedesContentId ? { supersedesContentId } : {}) }, context(edition));

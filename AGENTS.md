@@ -47,6 +47,15 @@ documented browser or local process has actually written and verified it.
 - Live scripts may spend model tokens or write to external platforms. Run them only when the user authorized that action.
 - Store full live evidence under `var/`; commit only sanitized receipts under `docs/evidence/`.
 
+## Article and image-text quality gate
+
+Every `article` or `image_text` candidate must pass the complete
+[ten-year content standard](docs/TIMELESS-CONTENT-STANDARD.md). Final review
+must cover all six criteria with evidence, list concrete decay triggers and
+provide a long-horizon verdict. Do not approve, materialize or publish when
+the `timeless` dimension is missing or unverified. Non-applicable native forms
+must report `not_applicable`; never fabricate a passed timeless review.
+
 ## Before committing
 
 ```bash

@@ -14,6 +14,7 @@ import { createWebsiteReadback } from "../src/services/website-readback.mjs";
 import { createGeoOsServer } from "../src/http/server.mjs";
 import { createAdminAuth, hashAdminPassword, hashAgentToken } from "../src/security/admin-auth.mjs";
 import { PNG, MP4 } from "./fixtures/synthetic-media.mjs";
+import { timelessReviewFixture } from "./editorial-fixtures.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -93,7 +94,8 @@ async function release(f, { locale = "zh-CN", format = "article", assetRefs = []
   const blocks = [{ type: "heading", level: 2, text: "00:00 A real section" }, { type: "paragraph", text: body },
     ...assetRefs.filter(row => row.role === "image").map(row => ({ type: "image", assetId: row.assetId, alt: row.alt }))];
   const edition = await f.ok(`/api/stories/${story.id}/editions`, { method: "POST", etag: story.etag,
-    body: { locale, format, title, body, blocks, claimIds: ["C-T1"], assetRefs } }, 201);
+    body: { locale, format, title, body, blocks, claimIds: ["C-T1"], assetRefs,
+      ...(["article", "image_text"].includes(format) ? { timelessReview: timelessReviewFixture() } : {}) } }, 201);
   let variant = await f.ok(`/api/editions/${edition.id}/variants`, { method: "POST", etag: edition.etag, body: { destinationId: "official-site" } }, 201);
   for (const target of ["fact_check", "approved", "scheduled"]) variant = await f.ok(`/api/content/${variant.id}/transition`, {
     method: "POST", etag: variant.etag, body: { target, ...(target === "approved" ? { reviewed: true, snapshotHash: variant.snapshotHash } : {}) },

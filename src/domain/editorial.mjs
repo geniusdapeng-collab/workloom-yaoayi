@@ -3,6 +3,7 @@ import { hashObject } from "./hash.mjs";
 import { isClaimPubliclyExportable, scanSensitiveText, validateContentForApproval } from "./policy.mjs";
 import { requirePublicUrl } from "./public-url.mjs";
 import { validateCandidateForReview } from "./content-ops-quality.mjs";
+import { requiresTimelessGate, timelessReviewProblem } from "./content-ops-timeless.mjs";
 
 export const EDITORIAL_SCHEMA = "pengmanager.editorial-snapshot/v2";
 export const EDITORIAL_NATIVE_SCHEMA = "pengmanager.editorial-variant/v3";
@@ -208,7 +209,8 @@ export function editorialEditionSnapshot(edition) {
     locale: edition.locale, format: edition.format, editorialRevision: edition.editorialRevision,
     sourceEditionId: edition.sourceEditionId, supersedesEditionId: edition.supersedesEditionId,
     title: edition.title, summary: edition.summary, body: edition.body, blocks: edition.blocks,
-    claimIds: edition.claimIds, claimBindings: edition.claimBindings, assetRefs: edition.assetRefs };
+    claimIds: edition.claimIds, claimBindings: edition.claimBindings, assetRefs: edition.assetRefs,
+    ...(edition.timelessReview ? { timelessReview: edition.timelessReview } : {}) };
   return edition.snapshotSchema === EDITORIAL_NATIVE_EDITION_SCHEMA ? { ...snapshot, schema: EDITORIAL_NATIVE_EDITION_SCHEMA,
     formatLineage: edition.formatLineage, formatTransformKey: edition.formatTransformKey } : snapshot;
 }
@@ -219,7 +221,8 @@ export function editorialVariantSnapshot(content) {
     title: content.title, summary: content.summary, body: content.body, blocks: content.blocks,
     platforms: content.platforms, opinion: content.opinion,
     claimIds: content.claimIds, claimBindings: content.claimBindings, assetRefs: content.assetRefs,
-    destinationSnapshot: content.destinationSnapshot, accountSnapshot: content.accountSnapshot };
+    destinationSnapshot: content.destinationSnapshot, accountSnapshot: content.accountSnapshot,
+    ...(content.timelessReview ? { timelessReview: content.timelessReview } : {}) };
   return content.snapshotSchema === EDITORIAL_NATIVE_SCHEMA ? { ...snapshot, schema: EDITORIAL_NATIVE_SCHEMA,
     candidateId: content.candidateId, publicationPackage: content.publicationPackage, packageHash: content.packageHash,
     qualityReportHashes: content.qualityReportHashes, reviewEnvelope: content.reviewEnvelope,
@@ -241,6 +244,10 @@ export function assertEditorialAssets(state, refs, { reviewed = false } = {}) {
 export function validateEditorialVariant(state, content, account, { now = new Date(), requireReady = true, requireApproval = false } = {}) {
   if (!isEditorialVariantSchema(content?.snapshotSchema)) return;
   if (hashObject(editorialVariantSnapshot(content)) !== content.snapshotHash) throw new PolicyError("EDITORIAL_SNAPSHOT_CHANGED", "渠道版本与原快照不一致。");
+  if (requireReady && requiresTimelessGate({ nativeForm: content.format })) {
+    const timelessProblem = timelessReviewProblem(content.timelessReview);
+    if (timelessProblem) throw new PolicyError("TIMELESS_REVIEW_REQUIRED", timelessProblem);
+  }
   if (content.snapshotSchema === EDITORIAL_NATIVE_SCHEMA) {
     const review = validateCandidateForReview(state, content.candidateId, { packageHash: content.packageHash,
       qualityReportHashes: content.qualityReportHashes, reviewSnapshotHash: content.reviewSnapshotHash, now, assertCurrentBindings: requireReady });

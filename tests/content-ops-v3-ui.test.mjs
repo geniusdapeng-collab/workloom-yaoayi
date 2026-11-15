@@ -9,6 +9,7 @@ import { AccountOperationsService } from "../src/services/account-operations.mjs
 import { localGrantHash, validateLocalGrant } from "../src/content-ops-worker/worker.mjs";
 import { MediaAssets } from "../src/services/media-assets.mjs";
 import { qualityTextKeys } from "../src/domain/content-ops-coverage.mjs";
+import { TIMELESS_CRITERIA } from "../src/domain/content-ops-timeless.mjs";
 
 // Isolated contract/UI fixtures. They are not a rights approval or platform receipt.
 const a = "a".repeat(64), b = "b".repeat(64), c = "c".repeat(64), d = "d".repeat(64);
@@ -19,11 +20,16 @@ const artifacts = [
   { id: notebook, role: "notebook", mime: "application/x-ipynb+json", bytes: 100, size: 100, sha256: b, status: "reviewed", rightsReviewHash: b, privacyReviewHash: c, etag: '"notebook"', inspection: { preview: "cell source <script>literal</script>", executeCode: false } },
 ];
 const pkg = { schema: "pengmanager.publication-package/v3", candidateId: "CAND-fixture", targetKey: "fixture-target", storyId: "STY-fixture", platformId: "kaggle", locale: "en-US", editorialFormat: "article", nativeForm: "notebook", title: "Exact native title", summary: "Exact introduction", body: "Complete original native text\nThe actual final tail <img onerror=bad>", orderedBlocks: [{ type: "paragraph", text: "Exact structured text" }], orderedMediaRefs: [{ assetId: media, sha256: c, role: "image", alt: "Actual ordered media", caption: "An actual caption" }], nativeManifest: { kind: "notebook", settings: { executeCode: false, inputDatasetRefs: [] }, files: [{ artifactId: notebook, sha256: b }, { artifactId: image, sha256: a }], note: "<script>cannot execute</script>" }, sourceEditionRefs: [{ id: source.id, revision: 1, sha256: d }], artifactRefs: artifacts.map(({ id, role, mime, bytes, sha256, rightsReviewHash, privacyReviewHash }) => ({ id, role, mime, bytes, sha256, rightsReviewHash, privacyReviewHash })), packageHash: a };
-const quality = { id: "QC-fixture", candidateId: "CAND-fixture", status: "passed", checkedPackageHash: a, reportHash: c, checkerVersion: "pengmanager.independent-checker/v1", checkContextHash: d, dimensions: { deterministic: "passed", semantic: "passed", media: "passed", artistic: "passed" }, coverage: { textKeys: ["title", "summary", "body", "block:0"], artifactHashes: [a, b] }, semanticFindings: [], mediaEvidence: [{ artifactId: notebook, sha256: b, method: "human_full_read", coverage: "full", note: "Fixture inspected all cells" }] };
+const quality = { id: "QC-fixture", candidateId: "CAND-fixture", status: "passed", checkedPackageHash: a, reportHash: c, checkerVersion: "pengmanager.independent-checker/v1", checkContextHash: d, dimensions: { deterministic: "passed", semantic: "passed", media: "passed", artistic: "passed", timeless: "not_applicable" }, coverage: { textKeys: ["title", "summary", "body", "block:0"], artifactHashes: [a, b], timeless: { status: "not_applicable" } }, semanticFindings: [], mediaEvidence: [{ artifactId: notebook, sha256: b, method: "human_full_read", coverage: "full", note: "Fixture inspected all cells" }] };
 const candidate = { id: "CAND-fixture", etag: '"candidate"', package: pkg, packageHash: a, status: "ready_for_review", qualityReportHashes: [c], reviewEnvelope: { schema: "pengmanager.review-envelope/v1", packageHash: a, qualityReportHashes: [c], checkContextHash: d }, reviewSnapshotHash: b, reports: [quality] };
 const variant = (extra = {}) => ({ id: "CNT-fixture", storyId: "STY-fixture", editionId: source.id, status: "fact_check", snapshotSchema: EDITORIAL_NATIVE_SCHEMA, snapshotHash: c, candidateId: candidate.id, publicationPackage: pkg, packageHash: a, qualityReportHashes: [c], reviewEnvelope: candidate.reviewEnvelope, reviewSnapshotHash: b, ...extra });
 const operation = (extra = {}) => ({ id: "OP-fixture", type: "publish", status: "in_progress", accountId: "actual-account", platform: "Kaggle", executionMode: "browser", snapshotSchema: EDITORIAL_NATIVE_SCHEMA, editorialSnapshotHash: c, contentHash: d, packageHash: a, reviewSnapshotHash: b, editorialSnapshot: { ...variant(), assetRefs: pkg.orderedMediaRefs }, contentSnapshot: { title: pkg.title, body: pkg.body }, accountSnapshot: { id: "actual-account", platform: "Kaggle", handle: "actual-original", profileUrl: "https://www.kaggle.com/actual-original" }, approval: { authorizationNote: "Fixture exact authorization", editorialSnapshotHash: c, packageHash: a, reviewSnapshotHash: b }, execution: { actor: "Fixture executor", startedAt: "2026-10-26T00:00:00.000Z" }, etag: '"operation"', ...extra });
 const fields = (extra = {}) => ({ contentConfirmed: "on", nativePackageConfirmed: "on", [`assetConfirmed-${media}`]: c, [`artifactConfirmed-${image}`]: a, [`artifactConfirmed-${notebook}`]: b, url: "https://www.kaggle.com/code/actual-original/actual-result", publishedAt: "2026-10-26T08:00", verifiedAt: "2026-10-26T08:01", capturedBy: "Fixture actual collector", verifiedBy: "Fixture actual verifier", dataMode: "imported", verificationMethod: "browser_readback", ...extra });
+const timelessFields = () => Object.fromEntries([
+  ...TIMELESS_CRITERIA.flatMap(criterion => [[`timeless-${criterion.id}`, "on"], [`timelessEvidence-${criterion.id}`, `独立测试逐项核对 ${criterion.id}，确认其依据不依赖某一代工具。`]]),
+  ["timelessDecayTriggers", "当经营目标、决策权与组织约束发生根本变化时重新检验。\n当文章依赖的长期客户问题被彻底替代时重新检验。"],
+  ["timelessVerdict", "文章围绕长期经营机制、判断框架和行动闭环展开，工具变化后仍能帮助读者识别盘面与组织风险。"],
+]);
 
 test("v3 receipt carries exact editorial, package, review, MED and all native ART hashes", () => {
   const receipt = buildOperationReceipt(operation(), fields());
@@ -187,6 +193,7 @@ test("independent quality builder requires exact full text, every real file, exp
   const input = buildHumanQualityReview(row, base);
   assert.deepEqual(input.coverage.textKeys, nativeTextReviewKeys(pkg));
   assert.deepEqual(input.coverage.artifactHashes, [a, b]);
+  assert.equal(input.coverage.timeless, "not_applicable");
   assert.equal(input.dimensions, undefined);
   assert.equal(input.mediaEvidence.length, 2);
   for (const name of ["independent", "fullText", "semantic", "artistic", "reviewed", `qualityArtifact-${notebook}`]) assert.throws(() => buildHumanQualityReview(row, { ...base, [name]: "" }));
@@ -274,7 +281,7 @@ test("real isolated backend consumes UI quality, approval and receipt payloads w
   await finishTextOpsJob(f, job.id);
   let row = f.ops.getCandidate(f.ops.getJob(job.id, opsContext()).candidates[0].id, opsContext());
   assert.ok(row.package.artifactRefs.some(ref => ref.id === sourceArtifact.id && ref.sha256 === sourceArtifact.sha256));
-  const qcFields = { independent: "on", fullText: "on", semantic: "on", artistic: "on", reviewed: "on", findings: "[]", assessment: "Independent isolated reviewer read the exact full source bytes and final package.", [`qualityArtifact-${sourceArtifact.id}`]: sourceArtifact.sha256, [`qualityMethod-${sourceArtifact.id}`]: "human_full_read", [`qualityNote-${sourceArtifact.id}`]: bytes.toString("utf8") };
+  const qcFields = { independent: "on", fullText: "on", semantic: "on", artistic: "on", reviewed: "on", findings: "[]", assessment: "Independent isolated reviewer read the exact full source bytes and final package.", ...timelessFields(), [`qualityArtifact-${sourceArtifact.id}`]: sourceArtifact.sha256, [`qualityMethod-${sourceArtifact.id}`]: "human_full_read", [`qualityNote-${sourceArtifact.id}`]: bytes.toString("utf8") };
   const input = buildHumanQualityReview(row, qcFields);
   const report = await f.ops.submitQualityReport(row.id, input, opsContext(row, "independent UI fixture reviewer"));
   assert.equal(report.status, "passed");

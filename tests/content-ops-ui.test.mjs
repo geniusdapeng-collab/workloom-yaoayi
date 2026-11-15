@@ -12,7 +12,7 @@ import {
 // These are isolated rendering/request fixtures, not model, rights or publication evidence.
 const h = "a".repeat(64);
 const candidate = (extra = {}) => ({ id: "CAN-test", targetKey: "target-test", etag: '"candidate-one"', status: "ready_for_review", packageHash: h, reviewSnapshotHash: "b".repeat(64), qualityReportHashes: ["c".repeat(64)], package: { title: "完整标题 <img src=x onerror=alert(1)>", body: "首段\n完整第二段\n完整尾部", locale: "zh-CN", platformId: "x", nativeForm: "thread", orderedBlocks: [{ key: "one", type: "paragraph", text: "第一项" }, { key: "two", type: "paragraph", text: "第二项" }], nativeManifest: { kind: "thread", orderedSegmentKeys: ["one", "two"], settings: { visibility: "public" } }, artifactRefs: [] }, ...extra });
-const report = (extra = {}) => ({ id: "QC-test", candidateId: "CAN-test", checkedPackageHash: h, reportHash: "c".repeat(64), checkerVersion: "independent-checker-test", checkContextHash: "d".repeat(64), status: "passed", coverage: { deterministic: { status: "passed", description: "实际合同检查" }, semantic: { status: "passed" }, media: { status: "unverified", description: "尚未覆盖全片" }, artistic: { status: "unverified" } }, semanticFindings: [{ severity: "major", message: "未覆盖的真实附件" }], ...extra });
+const report = (extra = {}) => ({ id: "QC-test", candidateId: "CAN-test", checkedPackageHash: h, reportHash: "c".repeat(64), checkerVersion: "independent-checker-test", checkContextHash: "d".repeat(64), status: "passed", coverage: { deterministic: { status: "passed", description: "实际合同检查" }, semantic: { status: "passed" }, media: { status: "unverified", description: "尚未覆盖全片" }, artistic: { status: "unverified" }, timeless: { status: "unverified" } }, semanticFindings: [{ severity: "major", message: "未覆盖的真实附件" }], ...extra });
 
 test("all 28 profiles remain visible independently of missing accounts and archived destinations", () => {
   const profiles = Array.from({ length: 28 }, (_, n) => ({ platformId: `platform-${n}`, nameZh: `岗位 ${n}`, version: 1, supportedNativeForms: [n % 2 ? "video" : "article"], boundaries: ["不得外发"] }));
@@ -34,6 +34,7 @@ test("actual bundled 28 role profiles display platform-specific reader task, ada
   }
   assert.match(output, /公众号|wechat-official/);
   assert.match(output, /真实notebook|notebook|Notebook/);
+  assert.match(output, /十年长期有效性/);
 });
 
 test("unknown actual costs are never rendered as zero and pending unknown reservations survive cancellation", () => {
@@ -133,12 +134,15 @@ test("definite version conflict renews key only after refreshed version; raw JSO
   assert.equal(calls.at(-1).body, raw);
 });
 
-test("only exact final reports with all four dimensions passed permit materialization", () => {
+test("only exact final reports with all five dimensions passed or timeless not applicable permit materialization", () => {
   assert.equal(candidateReviewReady(candidate(), [report()]), false);
-  const exact = report({ coverage: Object.fromEntries(["deterministic", "semantic", "media", "artistic"].map(key => [key, { status: "passed" }])), semanticFindings: [] });
+  const exact = report({ coverage: Object.fromEntries(["deterministic", "semantic", "media", "artistic"].map(key => [key, { status: "passed" }]).concat([["timeless", { status: "not_applicable" }]])), semanticFindings: [] });
   assert.equal(candidateReviewReady(candidate(), [exact]), true);
   for (const changed of [candidate({ packageHash: "e".repeat(64) }), candidate({ reviewSnapshotHash: null }), candidate({ etag: null }), candidate({ status: "polishing" })]) assert.equal(candidateReviewReady(changed, [exact]), false);
   assert.equal(candidateReviewReady(candidate(), [{ ...exact, semanticFindings: [{ severity: "major", message: "still open" }] }]), false);
+  const article = candidate({ package: { ...candidate().package, nativeForm: "article" } });
+  assert.equal(candidateReviewReady(article, [exact]), false);
+  assert.equal(candidateReviewReady(article, [{ ...exact, coverage: { ...exact.coverage, timeless: { status: "passed" } } }]), true);
 });
 
 test("mixed target outcomes and worker readiness keep their independent denominators", () => {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { editorialEditionSnapshot, EDITORIAL_SCHEMA } from "../src/domain/editorial.mjs";
 import { hashObject } from "../src/domain/hash.mjs";
-import { editorialFixture, readyWebsite, createEditionVariant, scheduleVariant, approvedRelease, activateRelease,
+import { editorialFixture, readyWebsite, createEditionVariant, scheduleVariant, approvedRelease, activateRelease, timelessReviewFixture,
   context, FIXED_TIME } from "./editorial-fixtures.mjs";
 
 test("isolated article flow has separate language/content/public approvals, true activation state and a trusted-verifier receipt", async t => {
@@ -26,6 +26,17 @@ test("isolated article flow has separate language/content/public approvals, true
   assert.equal(verified.status, "published"); assert.equal(verified.receipt.verificationMethod, "server_readback");
   assert.equal(f.calls.readbacks, 1); assert.equal(f.service.getVariant(variant.id).status, "published");
   assert.equal(f.store.snapshot().publications.length, 0, "website revisions use their own ledger");
+});
+
+test("legacy article and image-text editorial approvals cannot bypass the timeless gate", async t => {
+  const f = await editorialFixture(t); await readyWebsite(f);
+  const { variant } = await createEditionVariant(f, { timelessReview: null });
+  const checked = await f.service.transitionVariant(variant.id, { target: "fact_check" }, context(variant));
+  await assert.rejects(
+    f.service.transitionVariant(checked.id, { target: "approved", reviewed: true, snapshotHash: checked.snapshotHash }, context(checked)),
+    { code: "TIMELESS_REVIEW_REQUIRED" },
+  );
+  assert.equal(f.service.getVariant(variant.id).status, "fact_check");
 });
 
 test("new writes enforce principal scope, exact ETags and durable idempotency before stale-retry checks", async t => {
@@ -123,7 +134,7 @@ test("public projection rechecks Claim approval/source/expiry and never exports 
 
 test("safe URL and text checks block sensitive input, raw HTML blocks, malformed UTF16 and unbound media before any write", async t => {
   const f = await editorialFixture(t), story = await f.service.createStory({ workingTitle: "Input boundaries" }, context());
-  const base = { locale: "zh-CN", format: "article", title: "测试", body: "有效正文。", claimIds: ["C003"] };
+  const base = { locale: "zh-CN", format: "article", title: "测试", body: "有效正文。", claimIds: ["C003"], timelessReview: timelessReviewFixture() };
   const before = f.store.snapshot();
   for (const patch of [
     { body: "" }, { body: "x".repeat(50_001) }, { body: "\uD800" },

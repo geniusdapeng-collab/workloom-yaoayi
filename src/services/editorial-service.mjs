@@ -13,6 +13,7 @@ import {
 } from "../domain/editorial.mjs";
 import { JsonStore } from "../storage/json-store.mjs";
 import { validateCandidateForReview } from "../domain/content-ops-quality.mjs";
+import { requiresTimelessGate, timelessReviewProblem } from "../domain/content-ops-timeless.mjs";
 
 export { editorialEtag, editorialVariantSnapshot, validateEditorialVariant } from "../domain/editorial.mjs";
 
@@ -391,13 +392,16 @@ export class EditorialService {
   }
 
   async createEdition(storyId, input, ctx) {
-    editorialInput(input, ["locale", "format", "title", "summary", "body", "blocks", "claimIds", "assetRefs", "sourceEditionId", "supersedesEditionId"]);
+    editorialInput(input, ["locale", "format", "title", "summary", "body", "blocks", "claimIds", "assetRefs", "sourceEditionId", "supersedesEditionId", "timelessReview"]);
     assertLocaleFormat(input.locale, input.format);
     const title = editorialText(input.title, "title", 240), body = editorialText(input.body, "body", 50_000, { preserve: true });
     const summary = editorialText(input.summary ?? "", "summary", 2000, { empty: true });
     const ids = stringArray(input.claimIds ?? [], "claimIds");
     const refs = normalizeEditorialAssetRefs(input.assetRefs ?? [], input.locale);
     const blocks = normalizeEditorialBlocks(input.blocks, body, refs);
+    const timelessReview = input.timelessReview === undefined ? null : structuredClone(input.timelessReview);
+    if (timelessReview && timelessReviewProblem(timelessReview)) throw new PolicyError("TIMELESS_REVIEW_REQUIRED", timelessReviewProblem(timelessReview));
+    if (timelessReview && !requiresTimelessGate({ nativeForm: input.format })) throw new PolicyError("TIMELESS_REVIEW_NOT_APPLICABLE", "只有文章或图文可以提交十年内容检验。");
     return this.#write(`edition_created:${storyId}`, input, ctx, (state, { actor, ifMatch, now, payload }) => {
       const story = record(state.stories, storyId, "STORY_NOT_FOUND"); assertMatch(story, ifMatch);
       if (story.status === "archived") throw new PolicyError("STORY_ARCHIVED", "归档选题不能继续创建修订。");
@@ -414,7 +418,7 @@ export class EditorialService {
       assertEditorialAssets(state, refs);
       const row = { id: nextId("ED", state.editions), familyId, storyId, locale: input.locale, format: input.format,
         editorialRevision: (previous?.editorialRevision ?? 0) + 1, supersedesEditionId: previous?.id ?? null,
-        sourceEditionId, title, summary, body, blocks, claimIds: ids, claimBindings: claimBindings(state, ids), assetRefs: refs,
+        sourceEditionId, title, summary, body, blocks, claimIds: ids, claimBindings: claimBindings(state, ids), assetRefs: refs, timelessReview,
         snapshotSchema: EDITORIAL_SCHEMA, createdBy: actor, createdAt: now.toISOString() };
       row.snapshotHash = hashObject(editorialEditionSnapshot(row)); state.editions.push(row);
       story.revision += 1; story.updatedAt = now.toISOString(); payload.storyId = storyId; payload.editionId = row.id;
@@ -423,7 +427,7 @@ export class EditorialService {
   }
 
   async createVariant(editionId, input, ctx) {
-    editorialInput(input, ["destinationId", "title", "summary", "body", "blocks", "assetRefs", "adaptationNote", "supersedesContentId"]);
+    editorialInput(input, ["destinationId", "title", "summary", "body", "blocks", "assetRefs", "adaptationNote", "supersedesContentId", "timelessReview"]);
     return this.#write(`variant_created:${editionId}`, input, ctx, (state, { actor, ifMatch, now, payload }) => {
       const edition = record(state.editions, editionId, "EDITION_NOT_FOUND"); assertMatch(edition, ifMatch);
       if (edition.snapshotSchema === EDITORIAL_NATIVE_EDITION_SCHEMA) throw new PolicyError("NATIVE_CANDIDATE_REQUIRED", "自动派生的中立形式稿须通过完整原生候选与独立终检形成渠道稿。");
@@ -437,6 +441,9 @@ export class EditorialService {
       const body = input.body === undefined ? edition.body : editorialText(input.body, "body", 50_000, { preserve: true });
       const blocks = input.blocks === undefined && input.body === undefined && input.assetRefs === undefined
         ? structuredClone(edition.blocks) : normalizeEditorialBlocks(input.blocks, body, refs);
+      const timelessReview = input.timelessReview === undefined ? structuredClone(edition.timelessReview ?? null) : structuredClone(input.timelessReview);
+      if (timelessReview && timelessReviewProblem(timelessReview)) throw new PolicyError("TIMELESS_REVIEW_REQUIRED", timelessReviewProblem(timelessReview));
+      if (timelessReview && !requiresTimelessGate({ nativeForm: edition.format })) throw new PolicyError("TIMELESS_REVIEW_NOT_APPLICABLE", "只有文章或图文可以提交十年内容检验。");
       assertEditorialAssets(state, refs);
       if (input.supersedesContentId) {
         const previous = record(state.content, input.supersedesContentId, "CONTENT_NOT_FOUND");
@@ -451,7 +458,7 @@ export class EditorialService {
         status: "draft", version: 1, approval: null, storyId: edition.storyId, editionId,
         editionHash: edition.snapshotHash, locale: edition.locale, format: edition.format, destinationId: destination.id,
         destinationSnapshot: destinationEditorialIdentity(destination), accountSnapshot: account ? accountEditorialIdentity(account) : null,
-        assetRefs: refs, snapshotSchema: EDITORIAL_SCHEMA, supersedesContentId: input.supersedesContentId ?? null,
+        assetRefs: refs, timelessReview, snapshotSchema: EDITORIAL_SCHEMA, supersedesContentId: input.supersedesContentId ?? null,
         adaptationNote: editorialText(input.adaptationNote ?? "", "adaptationNote", 2000, { empty: true }),
         createdAt: now.toISOString(), updatedAt: now.toISOString() };
       editorialInput({ title: row.title, body: row.body, summary: row.summary, blocks: row.blocks }, ["title", "body", "summary", "blocks"]);
@@ -473,6 +480,8 @@ export class EditorialService {
       const candidate = record(state.nativeCandidatePackages, candidateId, "CANDIDATE_NOT_FOUND"); assertMatch(candidate, ifMatch);
       const review = validateCandidateForReview(state, candidateId, { ...input, now });
       const pkg = review.package, story = record(state.stories, pkg.storyId, "STORY_NOT_FOUND");
+      const timelessReview = review.reports.find(report => report.timelessReview)?.timelessReview ?? null;
+      if (requiresTimelessGate(pkg) && timelessReviewProblem(timelessReview)) throw new PolicyError("TIMELESS_REVIEW_REQUIRED", timelessReviewProblem(timelessReview));
       if (story.status === "archived") throw new PolicyError("STORY_ARCHIVED", "归档选题不能创建新渠道稿。");
       const effectKey = hashObject({ candidateId, packageHash: pkg.packageHash, reviewSnapshotHash: review.reviewSnapshotHash });
       const previous = state.draftMaterializations.find(row => row.effectKey === effectKey);
@@ -520,6 +529,7 @@ export class EditorialService {
             blocks: neutralBlocks, claimIds: pkg.sourceClaimBindings.map(binding => binding.claimId),
             claimBindings: pkg.sourceClaimBindings.map(binding => ({ claimId: binding.claimId, hash: binding.fingerprint ?? binding.hash })), assetRefs: [],
             snapshotSchema: EDITORIAL_NATIVE_EDITION_SCHEMA, formatLineage: lineage, formatTransformKey: transform.formatTransformKey,
+            timelessReview,
             createdBy: actor, createdAt: now.toISOString() };
           edition.snapshotHash = hashObject(editorialEditionSnapshot(edition)); state.editions.push(edition);
           state.formatLineage.push({ id: `LIN-${hashObject({ editionId: edition.id, lineage }).slice(0, 24)}`, formatEditionId: edition.id, ...lineage });
@@ -531,7 +541,7 @@ export class EditorialService {
         platforms: [account?.platform ?? "个人官网"], owner: actor, opinion: false, visibility: "private", status: "draft", version: 1,
         approval: null, storyId: story.id, editionId: edition.id, editionHash: edition.snapshotHash, locale: pkg.locale, format: pkg.editorialFormat,
         destinationId: destination.id, destinationSnapshot: structuredClone(pkg.destinationIdentitySnapshot), accountSnapshot: structuredClone(pkg.accountIdentitySnapshot),
-        assetRefs: refs, snapshotSchema: EDITORIAL_NATIVE_SCHEMA, supersedesContentId: null, adaptationNote: "来自受控平台准备工单；独立终检完成，等待完整人工审核。",
+        assetRefs: refs, timelessReview, snapshotSchema: EDITORIAL_NATIVE_SCHEMA, supersedesContentId: null, adaptationNote: "来自受控平台准备工单；独立终检完成，等待完整人工审核。",
         candidateId, publicationPackage: structuredClone(pkg), packageHash: pkg.packageHash, qualityReportHashes: [...review.envelope.qualityReportHashes],
         reviewEnvelope: structuredClone(review.envelope), reviewSnapshotHash: review.reviewSnapshotHash, createdAt: now.toISOString(), updatedAt: now.toISOString() };
       row.snapshotHash = hashObject(editorialVariantSnapshot(row));

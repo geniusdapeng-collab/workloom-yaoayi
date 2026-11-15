@@ -9,6 +9,7 @@ import { context } from "./editorial-fixtures.mjs";
 import { AccountOperationsService } from "../src/services/account-operations.mjs";
 import { EDITORIAL_NATIVE_SCHEMA, EDITORIAL_NATIVE_EDITION_SCHEMA, editorialInput } from "../src/domain/editorial.mjs";
 import { qualityTextKeys } from "../src/domain/content-ops-quality.mjs";
+import { TIMELESS_GATE_VERSION, TIMELESS_CRITERIA } from "../src/domain/content-ops-timeless.mjs";
 import { createEditorialBackup, verifyEditorialBackup, restoreEditorialBackupToIsolatedDirectory } from "../src/services/editorial-backup.mjs";
 import { hashObject } from "../src/domain/hash.mjs";
 import { JsonStore } from "../src/storage/json-store.mjs";
@@ -119,7 +120,8 @@ test("a human-created newer edition is preserved when a previously checked cross
   const f = await fixture(t), { job } = await createOpsJob(f, { targets: [{ destinationId: "official-site", locale: "en-US", nativeForm: "article" }] });
   await finishTextOpsJob(f, job.id); const row = candidate(f, job.id);
   const human = await f.service.createEdition(f.storyId, { locale: "en-US", format: "article", title: "A complete human replacement",
-    summary: "Isolated author version.", body: "A complete human version created after the automatic plan was checked.", claimIds: ["C003"], assetRefs: [] }, context(f.service.getStory(f.storyId)));
+    summary: "Isolated author version.", body: "A complete human version created after the automatic plan was checked.", claimIds: ["C003"], assetRefs: [],
+    timelessReview: row.reports.find(report => report.timelessReview)?.timelessReview }, context(f.service.getStory(f.storyId)));
   await assert.rejects(materialize(f, row), error => ["SOURCE_OUTDATED", "EDITION_FAMILY_CHANGED"].includes(error.code));
   assert.equal(f.service.getEdition(human.id).body, human.body); assert.equal(f.store.snapshot().draftMaterializations.length, 0);
 });
@@ -133,7 +135,8 @@ test("native source attachments require actual independent coverage and exact by
   let row = candidate(f, job.id);
   if (row.status !== "ready_for_review") {
     await f.ops.submitQualityReport(row.id, { checkedPackageHash: row.packageHash, checkContextHash: row.checkContextHash, reviewed: true,
-      coverage: { textKeys: qualityTextKeys(row.package), artifactHashes: [sha256], semantic: "checked", artistic: "checked" },
+      coverage: { textKeys: qualityTextKeys(row.package), artifactHashes: [sha256], semantic: "checked", artistic: "checked", timeless: "checked" },
+      timelessReview: { schema: TIMELESS_GATE_VERSION, criteria: TIMELESS_CRITERIA.map(criterion => ({ id: criterion.id, status: "passed", evidence: `独立测试逐项核对 ${criterion.id}，其结论由长期经营机制而非具体工具支持。` })), decayTriggers: ["当经营机制、客户问题或组织责任发生根本变化时重新检验。"], longHorizonVerdict: "文章围绕长期经营机制与可迁移判断展开，具体工具变化后仍可帮助读者采取行动。" },
       mediaEvidence: [{ artifactId: source.id, sha256, method: "human_full_read", coverage: "full", note: "Actual isolated fixture bytes were read in full." }],
       assessment: "Independent full text and source review in an isolated test." }, opsContext(row, "independent isolated human"));
     row = f.ops.getCandidate(row.id, opsContext());

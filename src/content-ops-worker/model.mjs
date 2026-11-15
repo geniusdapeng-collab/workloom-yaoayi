@@ -3,6 +3,7 @@ import { boundedResponseBytes, bytesHash, dataHash, decodeJson, fail, identifier
 import { createModelDispatcher } from '../model-routing/dispatcher.mjs';
 import { DEEPSEEK_FLASH_CONTEXT_TOKENS, DEEPSEEK_FLASH_MAX_OUTPUT_TOKENS,
   normalizeTextModelId } from '../model-routing/registry.mjs';
+import { checkerVersionForPackage, requiresTimelessGate, timelessGateForPackage, timelessReviewProblem } from '../domain/content-ops-timeless.mjs';
 
 const TASK_PROMPTS = Object.freeze({
   'strategy.plan': 'Plan platform-specific content using only supplied facts, author material and policy. Return decision, rationale, outline, requiredInputs, skipReason. Never invent evidence, execute tools, or claim production. decision is prepare, needs_input, or skip.',
@@ -11,8 +12,8 @@ const TASK_PROMPTS = Object.freeze({
   'translation.localize': 'Translate and localize the complete source for the supplied audience and native format. Preserve factual meaning, named entities, qualifications and claim links. Return title, summary, body, blocks, claimMappings, disclosure. Do not invent sources or new claims.',
   'text.revise': 'Revise the complete candidate against the supplied independent findings. Preserve source facts and genuine author contribution; do not hide unresolved issues. Return title, summary, body, blocks, claimMappings, disclosure.',
   'text.polish': 'Polish the complete candidate for clarity, native expression and rhythm without changing factual meaning, approved claims, media order or disclosure. Return title, summary, body, blocks, claimMappings, disclosure.',
-  'quality.check': 'Act as an independent checker, never as the author. Read the complete supplied candidate and source evidence. Do not rewrite. Return checkedPackageHash, findings, coverage, assessment. Report unresolved facts, policy, native structure and expression issues. Mark media unverified unless actual media was inspected.',
-  'quality.final': 'Act as the final independent checker after polishing. Check exactly the complete frozen package and current authorized evidence. Do not rewrite, approve, or infer missing media. Return checkedPackageHash, findings, coverage, assessment. Findings include severity, dimension, code, message, location. Explicitly mark uninspected media unverified.',
+  'quality.check': 'Act as an independent checker, never as the author. Read the complete supplied candidate and source evidence. Do not rewrite. Return checkedPackageHash, findings, coverage, assessment. Report unresolved facts, policy, native structure, timelessness and expression issues. Mark media unverified unless actual media was inspected. For article and image_text, apply the supplied ten-year content gate and return timelessReview with concrete evidence for every criterion plus decayTriggers and longHorizonVerdict.',
+  'quality.final': 'Act as the final independent checker after polishing. Check exactly the complete frozen package and current authorized evidence. Do not rewrite, approve, or infer missing media. Return checkedPackageHash, findings, coverage, timelessReview when required, assessment. Findings include severity, dimension, code, message, location. Explicitly mark uninspected media unverified. For article and image_text, the timeless dimension passes only when every supplied ten-year criterion has concrete evidence, decayTriggers says what would invalidate the advice, and longHorizonVerdict explains why it remains useful after tools and platforms change.',
 });
 const CHECK_KINDS = new Set(['quality.check', 'quality.final']);
 const COVERAGE_STATES = new Set(['checked', 'unverified', 'not_applicable']);
@@ -33,20 +34,29 @@ function validateModelResult(kind, value, input) {
     return value;
   }
   if (CHECK_KINDS.has(kind)) {
-    record(value, 'Independent check', ['checkedPackageHash', 'findings', 'coverage', 'assessment']);
+    record(value, 'Independent check', ['checkedPackageHash', 'findings', 'coverage', 'timelessReview', 'assessment']);
     sha256(value.checkedPackageHash);
     requireCondition(value.checkedPackageHash === input.packageHash, 'QUALITY_REPORT_STALE', 'The checker did not inspect the requested exact package.');
     requireCondition(Array.isArray(value.findings) && value.findings.length <= 200, 'MODEL_OUTPUT_INVALID', 'The checker findings exceed their limit.');
     for (const row of value.findings) {
       record(row, 'Check finding', ['severity', 'dimension', 'code', 'message', 'location']);
       requireCondition(['blocker', 'major', 'minor', 'suggestion'].includes(row.severity), 'MODEL_OUTPUT_INVALID', 'A finding severity is invalid.');
-      requireCondition(['facts', 'policy', 'structure', 'media', 'expression', 'disclosure'].includes(row.dimension), 'MODEL_OUTPUT_INVALID', 'A finding dimension is invalid.');
+      requireCondition(['facts', 'policy', 'structure', 'media', 'expression', 'disclosure', 'timeless'].includes(row.dimension), 'MODEL_OUTPUT_INVALID', 'A finding dimension is invalid.');
       identifier(row.code, 'Finding code'); text(row.message, 'Finding message', { max: 10_000 });
       text(row.location, 'Finding location', { max: 1000 });
     }
-    record(value.coverage, 'Check coverage', ['deterministic', 'semantic', 'media', 'artistic']);
-    for (const dimension of ['deterministic', 'semantic', 'media', 'artistic']) {
+    record(value.coverage, 'Check coverage', ['deterministic', 'semantic', 'media', 'artistic', 'timeless']);
+    for (const dimension of ['deterministic', 'semantic', 'media', 'artistic', 'timeless']) {
       requireCondition(COVERAGE_STATES.has(value.coverage[dimension]), 'MODEL_OUTPUT_INVALID', 'A check coverage dimension is missing or invalid.');
+    }
+    const timelessRequired = input.timelessGate?.required === true;
+    if (timelessRequired) {
+      requireCondition(value.coverage.timeless === 'checked', 'QUALITY_RECHECK_REQUIRED', 'The timeless gate must be actually checked for article or image_text.');
+      const problem = timelessReviewProblem(value.timelessReview);
+      requireCondition(problem === null, 'QUALITY_RECHECK_REQUIRED', problem ?? 'The timeless gate is incomplete.');
+    } else {
+      requireCondition(value.coverage.timeless === 'not_applicable', 'MODEL_OUTPUT_INVALID', 'The timeless gate is not applicable to this native form.');
+      requireCondition(value.timelessReview === undefined || value.timelessReview === null, 'MODEL_OUTPUT_INVALID', 'A non-text long-form package cannot claim a timeless review.');
     }
     // This adapter sends text only. It cannot turn a model's claim into visual/audio inspection.
     const hasMedia = (input.package?.artifactRefs ?? []).some(row => /^(?:image\/|video\/|audio\/)|^application\/(?:pdf|zip|x-safetensors)$/.test(row.mime ?? ''));

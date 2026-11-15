@@ -12,6 +12,7 @@ import { SingleRequestModel } from '../src/content-ops-worker/model.mjs';
 import { bytesHash, dataHash } from '../src/content-ops-worker/protocol.mjs';
 import { validateCandidateForReview } from '../src/domain/content-ops-quality.mjs';
 import { qualityTextKeys } from '../src/domain/content-ops-coverage.mjs';
+import { TIMELESS_GATE_VERSION, TIMELESS_CRITERIA } from '../src/domain/content-ops-timeless.mjs';
 import { MediaAssets } from '../src/services/media-assets.mjs';
 import { inspectPngBytes } from '../src/content-ops-worker/renderers.mjs';
 import { PNG } from './fixtures/synthetic-media.mjs';
@@ -23,7 +24,14 @@ function supplierOutput(input, prompt) {
   if (prompt.startsWith('Plan platform-specific')) return { decision: 'prepare', rationale: 'The complete isolated source can be prepared.',
     outline: input.workerPolicy.outlineFromAuthorOnly ? input.target.structure.map(row => row.purpose) : ['Exact source', 'Limitations'], requiredInputs: [], skipReason: null };
   if (/^Act as (?:an independent|the final independent) checker/.test(prompt)) return { checkedPackageHash: input.packageHash, findings: [],
-    coverage: { deterministic: 'checked', semantic: 'checked', media: 'not_applicable', artistic: 'checked' }, assessment: 'The complete isolated package and attached text were read by a fixture checker, with no live supplier request.' };
+    coverage: { deterministic: 'checked', semantic: 'checked', media: 'not_applicable', artistic: 'checked', timeless: input.timelessGate?.required ? 'checked' : 'not_applicable' },
+    ...(input.timelessGate?.required ? { timelessReview: {
+      schema: TIMELESS_GATE_VERSION,
+      criteria: TIMELESS_CRITERIA.map(criterion => ({ id: criterion.id, status: 'passed', evidence: `Isolated checker reviewed ${criterion.id}: the business mechanism and reader action remain durable after tool changes.` })),
+      decayTriggers: ['Revisit if the underlying business incentives, decision rights or reader problem materially change.'],
+      longHorizonVerdict: 'The article is grounded in recurring business mechanisms and a reusable decision loop, so it remains useful after specific AI tools and platform conventions change.',
+    } } : {}),
+    assessment: 'The complete isolated package and attached text were read by a fixture checker, with no live supplier request.' };
   const source = input.sourceEditions[0];
   return { title: source.title, summary: source.summary, body: source.body, blocks: source.blocks, claimMappings: [],
     disclosure: { aiUse: input.workerPolicy.authorEditingOnly ? 'copyedit' : 'generated_text' },
@@ -78,7 +86,6 @@ async function actualWorker(t, f, job, { checker = false, onProvider, tamperLeas
   const worker = new ContentOpsWorker({ store, adapters, transport, localGrant: grant, origin: grant.origin, workerId, clock: () => f.clock().getTime() });
   return { worker, calls, store };
 }
-
 test('actual worker and backend process a real source-backed text DAG with independent identities and reserved unknown costs', async t => {
   const f = await contentOpsFixture(t), sourceBytes = Buffer.from('# Actual isolated source\n\nThis complete source is included in the final independent checker input.\n');
   const source = await uploadOpsSource(f, { role: 'transcript', mime: 'text/markdown', bytes: sourceBytes });
@@ -174,7 +181,8 @@ test('actual image worker output needs separate artifact/media reviews and genui
       note: 'Complete real PNG bytes decoded. Semantic and artistic signoff here is an isolated administrator-attestation fixture, not a production human review.' });
   }
   await f.ops.submitQualityReport(candidate.id, { checkedPackageHash: candidate.packageHash, checkContextHash: candidate.checkContextHash, reviewed: true,
-    coverage: { textKeys: qualityTextKeys(candidate.package), artifactHashes: candidate.package.artifactRefs.map(ref => ref.sha256), semantic: 'checked', artistic: 'checked' },
+    coverage: { textKeys: qualityTextKeys(candidate.package), artifactHashes: candidate.package.artifactRefs.map(ref => ref.sha256), semantic: 'checked', artistic: 'checked', timeless: 'checked' },
+    timelessReview: { schema: TIMELESS_GATE_VERSION, criteria: TIMELESS_CRITERIA.map(criterion => ({ id: criterion.id, status: 'passed', evidence: `独立全程核对 ${criterion.id}，确认长期机制在工具更替后仍成立。` })), decayTriggers: ['经营机制、组织职责或目标客户问题发生变化时重新检验。'], longHorizonVerdict: '这份图文围绕长期经营机制与可迁移判断展开，平台工具变化后仍能指导读者采取行动。' },
     mediaEvidence: evidence, assessment: 'Independent final-review fixture after all actual isolated text and native files were available; no platform publication or real customer approval is asserted.' },
   opsContext(candidate, 'independent final-review fixture'));
   candidate = f.ops.getCandidate(candidate.id, opsContext()); assert.equal(candidate.status, 'ready_for_review');

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-15 — Ten-year article and image-text gate
+
+- Add `pengmanager.timeless-content-gate/v1` for every `article` and
+  `image_text` candidate.
+- Require six evidence-backed criteria, concrete decay triggers and a
+  long-horizon verdict in both independent checker and human review payloads.
+- Bind article and image-text final reports to
+  `pengmanager.independent-checker/v2`; a missing or unverified `timeless`
+  dimension blocks materialization and publication.
+- Mark non-applicable native forms explicitly instead of fabricating a pass,
+  and show the new quality dimension in the content-operations workbench.
+
 ## 2026-11-05 — Codex and Qoder conversation workflow
 
 - Add read-only, absolute-path MCP configuration export for Codex, Qoder and

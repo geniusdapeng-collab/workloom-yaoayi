@@ -3,10 +3,19 @@ const LABELS = {
   idle: "等待任务", queued: "排队中", planning: "平台策划", drafting: "深度改写", checking: "独立核验", revising: "返修中", polishing: "最终润色", final_checking: "独立终检", running: "执行中", leased: "工位已领取", pending: "等待依赖", succeeded: "步骤完成", completed: "准备完成", ready_for_review: "等待完整人审", materialized: "已转待核草稿", skipped: "已跳过", skip: "跳过", needs_input: "等待真实输入", blocked: "已阻断", blocked_budget: "预算待配置", failed: "失败", cancelled: "已取消", cancel_requested: "取消已记录", deadline_exceeded: "已到期", needs_reconcile: "需要核对原结果", unknown: "结果未知", unknown_usage: "用量未知 · 预留保留", reserved: "已预留", settled: "已结算", approved: "已批准", draft: "草稿", reviewed: "使用范围已审", revoked: "已撤销", staged: "待使用权审核", committed: "真实文件已入库", active: "有效", expired: "已过期", passed: "通过", failed_known: "已知失败", unverified: "未验证", prepare: "准备", prepare_only: "仅准备", manual_only: "仅人工外发", separately_authorized: "外发另行授权", ineligible: "不适用", ai_assisted_draft: "允许范围内辅助起草", author_led_editor_assist: "作者主导，限定编辑辅助", human_original_copyedit: "本人原稿限定校对", human_only: "仅本人创作",
 };
 const FORMS = { article: "文章", image_text: "图文卡片", video: "真实视频包", thread: "有序串文", document: "分页文档", repository_change: "仓库变更包", model_card: "模型卡", dataset_card: "数据集卡", notebook: "Notebook", demo_bundle: "Demo 文件包", community_message: "社区消息" };
-const DIMENSIONS = { deterministic: "确定性合同", semantic: "语义与事实", media: "实际媒体内容", artistic: "表达与艺术" };
+const DIMENSIONS = { deterministic: "确定性合同", semantic: "语义与事实", media: "实际媒体内容", artistic: "表达与艺术", timeless: "十年长期有效性" };
+const TIMELESS_CRITERIA = [
+  ["durable_question", "长期问题", "十年后，目标读者是否仍会面对同一个经营或决策问题？"],
+  ["stable_mechanism", "稳定机制", "结论是否建立在商业机制、组织约束、人性与资源配置上，而不是只依赖当前工具、平台或流量红利？"],
+  ["bounded_context", "时间边界", "案例、数字、产品、政策和行业背景是否标明了时间、版本与适用边界，没有被写成永恒事实？"],
+  ["transferable_method", "可迁移方法", "读者拿到的是可迁移的判断框架、检查问题或行动方法，而不是一条很快过期的操作技巧？"],
+  ["decay_triggers", "失效条件", "文章是否明确写出哪些条件变化会让结论失效，并给出未来复检的触发信号？"],
+  ["future_action", "未来可用", "十年后的读者即使工具全变了，是否仍能据此判断、取舍或采取行动？"],
+];
+const TIMELESS_STANDARD_ID = "pengmanager.timeless-content-gate/v1";
 const TERMINAL = new Set(["completed", "cancelled", "deadline_exceeded", "failed", "skipped", "materialized"]);
 const array = value => Array.isArray(value) ? value : [];
-const label = value => LABELS[value] || ({ awaiting_quality: "等待最终独立检查", pending_review: "待审核", research: "研究", outline: "组织结构", copyedit: "限定校对", translate: "翻译", draft: "辅助起草", generate_media: "媒体制作", deterministic: "确定性合同", semantic: "语义与事实", media: "实际媒体内容", artistic: "表达与艺术" })[value] || value || "未记录";
+const label = value => LABELS[value] || ({ awaiting_quality: "等待最终独立检查", pending_review: "待审核", research: "研究", outline: "组织结构", copyedit: "限定校对", translate: "翻译", draft: "辅助起草", generate_media: "媒体制作", deterministic: "确定性合同", semantic: "语义与事实", media: "实际媒体内容", artistic: "表达与艺术", timeless: "十年长期有效性", not_applicable: "不适用" })[value] || value || "未记录";
 const json = value => html(JSON.stringify(value ?? null, null, 2));
 const timestamp = value => value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false }) : "未记录";
 const hash = (name, value) => `<p class="co-hash"><span>${html(name)}</span><code>${html(value || "服务未返回；不能据此审核")}</code></p>`;
@@ -43,7 +52,9 @@ export function renderOperatorProfiles(profiles = [], { query = "", destinations
     const active = localDestinations.filter(row => row.status === "active");
     const localAccounts = accounts.filter(row => row.platformId === platformId && row.status !== "archived");
     const strategy = profile.strategy || {};
-    return `<article class="co-profile" data-operator-platform="${html(platformId)}"><header><span class="co-ordinal">${String(index + 1).padStart(2, "0")}</span><span class="co-muted">版本 ${html(profile.version || profile.revision || 1)}</span></header><h4>${html(profile.nameZh || profile.name || profile.title || platformId)}</h4><p>${html(profile.readerNeed || profile.readerTask || strategy.readerNeed || profile.purpose || profile.description || "围绕真实母版，为具体读者准备可逐项审核的原生成品。")}</p><div class="co-tags">${array(profile.supportedNativeForms || profile.nativeForms).map(value => `<span>${html(FORMS[value] || value)}</span>`).join("")}</div><p class="co-config">${localAccounts.length} 个当前账号 · ${active.length} / ${localDestinations.length} 个启用目的地</p><details><summary>岗位职责、规则与质量要求</summary><dl class="co-definition"><dt>深度适配</dt><dd>${html(profile.adaptationStrategy || (typeof strategy === "string" ? strategy : strategy.adaptation || strategy.angle) || "按目的地、真实输入与已锁定规则执行。")}</dd><dt>质量检查</dt><dd>${bullets(profile.qualityGates || strategy.qualityGates)}</dd><dt>输入与边界</dt><dd>${bullets(profile.requiredInputs || profile.requirements || profile.prerequisites || profile.boundaries)}</dd></dl><pre class="co-json">${json(profile)}</pre></details></article>`;
+    const forms = array(profile.supportedNativeForms || profile.nativeForms);
+    const qualityGates = [...new Set([...array(profile.qualityGates || strategy.qualityGates), ...(forms.some(form => ["article", "image_text"].includes(form)) ? ["timeless"] : [])])];
+    return `<article class="co-profile" data-operator-platform="${html(platformId)}"><header><span class="co-ordinal">${String(index + 1).padStart(2, "0")}</span><span class="co-muted">版本 ${html(profile.version || profile.revision || 1)}</span></header><h4>${html(profile.nameZh || profile.name || profile.title || platformId)}</h4><p>${html(profile.readerNeed || profile.readerTask || strategy.readerNeed || profile.purpose || profile.description || "围绕真实母版，为具体读者准备可逐项审核的原生成品。")}</p><div class="co-tags">${forms.map(value => `<span>${html(FORMS[value] || value)}</span>`).join("")}</div><p class="co-config">${localAccounts.length} 个当前账号 · ${active.length} / ${localDestinations.length} 个启用目的地</p><details><summary>岗位职责、规则与质量要求</summary><dl class="co-definition"><dt>深度适配</dt><dd>${html(profile.adaptationStrategy || (typeof strategy === "string" ? strategy : strategy.adaptation || strategy.angle) || "按目的地、真实输入与已锁定规则执行。")}</dd><dt>质量检查</dt><dd>${bullets(qualityGates)}</dd><dt>输入与边界</dt><dd>${bullets(profile.requiredInputs || profile.requirements || profile.prerequisites || profile.boundaries)}</dd></dl><pre class="co-json">${json(profile)}</pre></details></article>`;
   }).join("") : empty("没有匹配的岗位", "调整搜索词；完整目录与真实账号分别登记。")}</div>`;
 }
 
@@ -109,14 +120,16 @@ export function renderQualityReports(reports = [], candidate = {}) {
       const dimension = coverage[key] ?? coverage[`${key}Quality`] ?? report.dimensions?.[key];
       return `<div><strong>${title}</strong>${chip(typeof dimension === "string" ? dimension : dimension?.status || "unverified")}<p>${html(typeof dimension === "object" ? dimension.description || dimension.summary || JSON.stringify(dimension) : "覆盖范围见下方完整报告")}</p></div>`;
     }).join("")}</div>${bullets(report.semanticFindings || report.findings)}${hash("被检查包", report.checkedPackageHash)}${hash("检查上下文", report.checkContextHash)}${hash("完整报告", report.reportHash)}<details><summary>完整覆盖、问题定位、媒体依据与执行回执</summary><pre class="co-json">${json(report)}</pre></details></article>`;
-  }).join("") : empty("尚无独立最终报告", "起草、技术检查或自评分不能代替对最终完整包的四维终检。")}</section>`;
+  }).join("") : empty("尚无独立最终报告", "起草、技术检查或自评分不能代替对最终完整包的五维终检；文章与图文还必须通过十年内容检验。")}</section>`;
 }
 
 export function candidateReviewReady(candidate = {}, reports = []) {
   if (candidate.status !== "ready_for_review" || !candidate.etag || !candidate.reviewSnapshotHash || !candidate.packageHash || !reports.length) return false;
+  const timelessRequired = ["article", "image_text"].includes(candidate.package?.nativeForm);
   return reports.every(report => report.status === "passed" && report.checkedPackageHash === candidate.packageHash && Object.keys(DIMENSIONS).every(key => {
     const dimension = report.coverage?.[key] ?? report.coverage?.[`${key}Quality`] ?? report.dimensions?.[key];
-    return (typeof dimension === "string" ? dimension : dimension?.status) === "passed";
+    const status = typeof dimension === "string" ? dimension : dimension?.status;
+    return status === "passed" || key === "timeless" && !timelessRequired && status === "not_applicable";
   }) && !array(report.semanticFindings || report.findings).some(finding => ["blocker", "major"].includes(finding.severity) && !finding.resolved));
 }
 
@@ -198,11 +211,38 @@ export function nativeTextReviewKeys(pkg = {}) {
   return keys;
 }
 
+function timelessGateForCandidate(candidate = {}) {
+  const pkg = nativePublicationPackage(candidate);
+  const required = candidate.standards?.timeless?.required ?? ["article", "image_text"].includes(pkg?.nativeForm);
+  const criteria = array(candidate.standards?.timeless?.criteria).length
+    ? candidate.standards.timeless.criteria.map(row => [row.id, row.title, row.question])
+    : TIMELESS_CRITERIA;
+  return { required, criteria };
+}
+
+function buildTimelessReview(fields, gate) {
+  if (!gate.required) return { coverage: "not_applicable", review: null };
+  const value = key => typeof fields.get === "function" ? fields.get(key) : fields[key];
+  const criteria = gate.criteria.map(([id, title]) => {
+    if (value(`timeless-${id}`) !== "on") throw new Error(`请实际完成十年内容检验：${title}。`);
+    const evidence = String(value(`timelessEvidence-${id}`) || "");
+    if (evidence.trim().length < 12) throw new Error(`请为十年内容检验“${title}”写出可复核依据。`);
+    return { id, status: "passed", evidence };
+  });
+  const decayTriggers = String(value("timelessDecayTriggers") || "").split("\n").map(row => row.trim()).filter(Boolean);
+  if (!decayTriggers.length || decayTriggers.length > 8 || decayTriggers.some(row => row.length < 8)) throw new Error("请写出 1 至 8 个会使文章结论失效的具体触发条件。");
+  const longHorizonVerdict = String(value("timelessVerdict") || "");
+  if (longHorizonVerdict.trim().length < 24) throw new Error("请写出十年后仍然可用的结论、依据与适用边界。");
+  return { coverage: "checked", review: { schema: TIMELESS_STANDARD_ID, criteria, decayTriggers, longHorizonVerdict } };
+}
+
 export function buildHumanQualityReview(candidate, fields) {
   const value = key => typeof fields.get === "function" ? fields.get(key) : fields[key];
   for (const name of ["independent", "fullText", "semantic", "artistic", "reviewed"]) if (value(name) !== "on") throw new Error("只有独立检查者实际读完最终全文、证据、全部附件并逐项核对后，才能提交这份人工终检。");
   const pkg = nativePublicationPackage(candidate);
   if (!pkg || !candidate.packageHash || !candidate.checkContextHash) throw new Error("未读取到准确最终包与检查上下文，不能签署终检。");
+  const timelessGate = timelessGateForCandidate(candidate);
+  const timeless = buildTimelessReview(fields, timelessGate);
   const mediaEvidence = nativeArtifactReferences(candidate).map(ref => {
     if (value(`qualityArtifact-${ref.artifactId}`) !== ref.sha256) throw new Error(`请完整实际读取 / 播放 ${ref.artifactId} 后确认，不能凭文件存在签署覆盖。`);
     const method = value(`qualityMethod-${ref.artifactId}`), note = String(value(`qualityNote-${ref.artifactId}`) || "");
@@ -214,13 +254,15 @@ export function buildHumanQualityReview(candidate, fields) {
   if (!Array.isArray(findings)) throw new Error("终检问题必须是数组，未发现问题时明确使用 []。");
   const assessment = String(value("assessment") || "");
   if (assessment.trim().length < 8) throw new Error("请给出实际检查结论、依据与局限，不能仅勾选通过。");
-  return { checkedPackageHash: candidate.packageHash, checkContextHash: candidate.checkContextHash, checkerVersion: "pengmanager.independent-checker/v1", findings, coverage: { textKeys: [...new Set([...nativeTextReviewKeys(pkg), ...array(candidate.requiredCoverage?.textKeys)])], artifactHashes: [...new Set(nativeArtifactReferences(candidate).map(ref => ref.sha256))], semantic: "checked", artistic: "checked" }, mediaEvidence, assessment, reviewed: true };
+  return { checkedPackageHash: candidate.packageHash, checkContextHash: candidate.checkContextHash, checkerVersion: timelessGate.required ? "pengmanager.independent-checker/v2" : "pengmanager.independent-checker/v1", findings, coverage: { textKeys: [...new Set([...nativeTextReviewKeys(pkg), ...array(candidate.requiredCoverage?.textKeys)])], artifactHashes: [...new Set(nativeArtifactReferences(candidate).map(ref => ref.sha256))], semantic: "checked", artistic: "checked", timeless: timeless.coverage }, mediaEvidence, ...(timeless.review ? { timelessReview: timeless.review } : {}), assessment, reviewed: true };
 }
 
 export function renderHumanQualityReview(candidate = {}, artifacts = [], { sources = [] } = {}) {
   const references = nativeArtifactReferences(candidate);
+  const timelessGate = timelessGateForCandidate(candidate);
   const metadataReady = references.every(ref => artifacts.some(row => artifactMatchesReference(row, ref))) && array(nativePublicationPackage(candidate)?.sourceEditionRefs).every(ref => sources.some(row => sourceMatchesReference(row, ref)));
-  return `<details class="co-panel"><summary>独立人工最终检查（对无法由机器完整核对的媒体 / 表达逐项留证）</summary><p class="co-muted">请先完整阅读上方冻结包、来源差异、全文和每份真实文件。此表只记录独立终检，不能修改成品或批准发布；服务端会重算报告、四个维度与全部覆盖，未核实或未解决的严重问题不会放行。</p>${form("quality-review", candidate.id, candidate.etag)}${check("independent", "我独立于本包的起草、生成与最终润色上下文，具有本次实际检查权限。")} ${check("fullText", "我已逐项阅读最终标题、导语、全文、所有正文块、串文、章节、原生输出、文档页、图序、文件、设置、披露与全部来源限定。")} ${check("semantic", "我已独立核对事实、身份、数字、证据、翻译、必要限定与目的地规则，问题均在下方明示。")} ${check("artistic", "我已按这份最终成品实际核对可读 / 可听性、视觉层次、表达与叙事节奏；没有把技术闸当艺术检查。")} ${references.map(ref => `<fieldset class="co-choice"><legend>${html(ref.role || "真实附件")} · ${html(ref.artifactId)}</legend><label class="co-check"><input type="checkbox" name="qualityArtifact-${html(ref.artifactId)}" value="${html(ref.sha256)}" required /><span>我已完整实际读取 / 播放这份准确文件的全部内容；未覆盖片段不能勾选。<br /><code>${html(ref.sha256)}</code></span></label><label><span>实际完整检查方法</span><select name="qualityMethod-${html(ref.artifactId)}" required><option value="">选择已完成的方法</option><option value="human_full_read">独立人类完整阅读</option><option value="human_full_playback">独立人类完整播放画面、音轨与字幕</option></select></label><label><span>具体覆盖与检查依据</span><textarea name="qualityNote-${html(ref.artifactId)}" required minlength="8" maxlength="4000" rows="3" placeholder="写明实际查看的全部页 / 单元格 / 时间段、音轨字幕与检查要点；不编造运行或播放。"></textarea></label></fieldset>`).join("")}<label><span>全部问题 findings JSON（未发现问题时用 []；严重问题保持未解决）</span><textarea name="findings" rows="6" spellcheck="false">[]</textarea></label><p class="co-muted">每项字段：severity（blocker / major / minor / suggestion）、dimension（facts / policy / structure / disclosure / media / expression）、code、message、location；仅实际完成修正后才可附 resolved:true。</p><label><span>实际独立结论、依据与未覆盖局限</span><textarea name="assessment" required minlength="8" maxlength="20000" rows="4"></textarea></label>${check("reviewed", "上述阅读、播放与检查确实完成，只提交这一准确 packageHash 和 checkContextHash 的独立记录，不替代人工内容批准或发布授权。")} ${feedback()}<button class="ghost-button" type="submit"${metadataReady && candidate.etag ? "" : " disabled"}>保存真实独立终检记录</button>${!metadataReady ? '<p class="co-warning">真实附件元数据或准确来源母版尚未完整读取，不能签署整包覆盖。请先重新读取完整候选。</p>' : ""}</form></details>`;
+  const timelessForm = timelessGate.required ? `<fieldset class="co-choice"><legend>十年内容检验 · 与具体工具无关的长期有效性</legend><p class="co-muted">文章与图文必须逐项证明：十年后工具、平台和流量规则已变化，读者仍能从中判断并行动。没有具体依据、失效条件或长期结论时不得勾选。</p>${timelessGate.criteria.map(([id, title, question]) => `<div class="co-timeless-criterion"><label class="co-check"><input type="checkbox" name="timeless-${html(id)}" required /><span><strong>${html(title)}</strong> · ${html(question)}</span></label><label><span>${html(title)}的可复核依据</span><textarea name="timelessEvidence-${html(id)}" required minlength="12" maxlength="4000" rows="3"></textarea></label></div>`).join("")}<label><span>失效触发条件（每行一个，说明什么变化会让结论不再成立）</span><textarea name="timelessDecayTriggers" required minlength="8" maxlength="8000" rows="4"></textarea></label><label><span>十年可用性结论、依据与适用边界</span><textarea name="timelessVerdict" required minlength="24" maxlength="4000" rows="4"></textarea></label></fieldset>` : "";
+  return `<details class="co-panel"><summary>独立人工最终检查（对无法由机器完整核对的媒体 / 表达逐项留证）</summary><p class="co-muted">请先完整阅读上方冻结包、来源差异、全文和每份真实文件。此表只记录独立终检，不能修改成品或批准发布；服务端会重算报告、五个维度与全部覆盖，文章／图文另需通过十年内容检验。未核实或未解决的严重问题不会放行。</p>${form("quality-review", candidate.id, candidate.etag)}${check("independent", "我独立于本包的起草、生成与最终润色上下文，具有本次实际检查权限。")} ${check("fullText", "我已逐项阅读最终标题、导语、全文、所有正文块、串文、章节、原生输出、文档页、图序、文件、设置、披露与全部来源限定。")} ${check("semantic", "我已独立核对事实、身份、数字、证据、翻译、必要限定与目的地规则，问题均在下方明示。")} ${check("artistic", "我已按这份最终成品实际核对可读 / 可听性、视觉层次、表达与叙事节奏；没有把技术闸当艺术检查。")} ${timelessForm}${references.map(ref => `<fieldset class="co-choice"><legend>${html(ref.role || "真实附件")} · ${html(ref.artifactId)}</legend><label class="co-check"><input type="checkbox" name="qualityArtifact-${html(ref.artifactId)}" value="${html(ref.sha256)}" required /><span>我已完整实际读取 / 播放这份准确文件的全部内容；未覆盖片段不能勾选。<br /><code>${html(ref.sha256)}</code></span></label><label><span>实际完整检查方法</span><select name="qualityMethod-${html(ref.artifactId)}" required><option value="">选择已完成的方法</option><option value="human_full_read">独立人类完整阅读</option><option value="human_full_playback">独立人类完整播放画面、音轨与字幕</option></select></label><label><span>具体覆盖与检查依据</span><textarea name="qualityNote-${html(ref.artifactId)}" required minlength="8" maxlength="4000" rows="3" placeholder="写明实际查看的全部页 / 单元格 / 时间段、音轨字幕与检查要点；不编造运行或播放。"></textarea></label></fieldset>`).join("")}<label><span>全部问题 findings JSON（未发现问题时用 []；严重问题保持未解决）</span><textarea name="findings" rows="6" spellcheck="false">[]</textarea></label><p class="co-muted">每项字段：severity（blocker / major / minor / suggestion）、dimension（facts / policy / structure / disclosure / media / expression / timeless）、code、message、location；仅实际完成修正后才可附 resolved:true。</p><label><span>实际独立结论、依据与未覆盖局限</span><textarea name="assessment" required minlength="8" maxlength="20000" rows="4"></textarea></label>${check("reviewed", "上述阅读、播放与检查确实完成，只提交这一准确 packageHash 和 checkContextHash 的独立记录，不替代人工内容批准或发布授权。")} ${feedback()}<button class="ghost-button" type="submit"${metadataReady && candidate.etag ? "" : " disabled"}>保存真实独立终检记录</button>${!metadataReady ? '<p class="co-warning">真实附件元数据或准确来源母版尚未完整读取，不能签署整包覆盖。请先重新读取完整候选。</p>' : ""}</form></details>`;
 }
 
 export function buildUsageReconciliation(reservation, fields, { evidenceSha256 = "" } = {}) {

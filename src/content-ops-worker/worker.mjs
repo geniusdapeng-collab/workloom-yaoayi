@@ -11,7 +11,8 @@ const omit = (value, keys) => Object.fromEntries(Object.entries(value).filter(([
 const editionSnapshot = edition => {
   const fields = ['id', 'familyId', 'storyId', 'locale', 'format', 'editorialRevision', 'sourceEditionId', 'supersedesEditionId',
     'title', 'summary', 'body', 'blocks', 'claimIds', 'claimBindings', 'assetRefs'];
-  const snapshot = { schema: 'pengmanager.editorial-snapshot/v2', ...Object.fromEntries(fields.map(key => [key, edition[key]])) };
+  const snapshot = { schema: 'pengmanager.editorial-snapshot/v2', ...Object.fromEntries(fields.map(key => [key, edition[key]])),
+    ...(edition.timelessReview ? { timelessReview: edition.timelessReview } : {}) };
   if (edition.snapshotSchema === 'pengmanager.editorial-edition/v3') return { ...snapshot, schema: edition.snapshotSchema,
     formatLineage: edition.formatLineage, formatTransformKey: edition.formatTransformKey };
   requireCondition(edition.snapshotSchema === undefined || edition.snapshotSchema === snapshot.schema,

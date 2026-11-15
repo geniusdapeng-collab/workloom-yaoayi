@@ -5,6 +5,7 @@ import { SingleRequestModel, MODEL_TASK_KINDS } from './model.mjs';
 import { createMediaProcessor, mediaSourceClosureFiles } from './media.mjs';
 import { createRenderers, inspectPngBytes, sourceClosureFiles as rendererSourceFiles } from './renderers.mjs';
 import { qualityTextKeys } from '../domain/content-ops-coverage.mjs';
+import { checkerVersionForPackage, requiresTimelessGate, timelessGateForPackage, timelessDimensionStatus } from '../domain/content-ops-timeless.mjs';
 import { bytesHash, dataHash, decodeJson, fail, identifier, isRecord, jsonValue, record,
   requireCondition, sha256, text, VALIDATOR_VERSION, WORKER_VERSION } from './protocol.mjs';
 
@@ -14,7 +15,7 @@ const ALL_KINDS = Object.freeze([...MODEL_TASK_KINDS, ...DETERMINISTIC_KINDS, 'v
 const CLOSURE = Object.freeze([...new Set(['src/content-ops-worker/adapters.mjs', 'src/content-ops-worker/model.mjs',
   'src/content-ops-worker/worker.mjs', 'src/content-ops-worker/local-store.mjs', 'src/content-ops-worker/transport.mjs',
   'src/content-ops-worker/protocol.mjs', 'scripts/content-ops-worker.mjs', 'src/domain/content-ops-coverage.mjs',
-  'src/domain/hash.mjs', 'src/domain/strict-json.mjs', 'src/domain/errors.mjs',
+  'src/domain/content-ops-timeless.mjs', 'src/domain/hash.mjs', 'src/domain/strict-json.mjs', 'src/domain/errors.mjs',
   'src/model-routing/budget.mjs', 'src/model-routing/dispatcher.mjs', 'src/model-routing/errors.mjs',
   'src/model-routing/policy.mjs', 'src/model-routing/registry.mjs', 'src/model-routing/tokenizer.mjs',
   'engines/video-edit/packages/base/model-router/deepseek-window.mjs',
@@ -150,14 +151,17 @@ function finalReport(modelResult, input, lease, inputs) {
   const media = inputs.filter(row => /^(?:image\/|video\/|audio\/)|^application\/(?:pdf|zip|x-safetensors)$/.test(row.mime));
   const major = raw.findings.some(finding => ['blocker', 'major'].includes(finding.severity));
   const passed = coverage => coverage === 'checked' || coverage === 'not_applicable';
-  return { checkedPackageHash: input.packageHash, checkerVersion: 'pengmanager.independent-checker/v1',
+  const timelessRequired = requiresTimelessGate(pkg);
+  return { checkedPackageHash: input.packageHash, checkerVersion: checkerVersionForPackage(pkg),
     checkContextHash: input.checkContextHash, deterministicReceipts: [{ kind: 'package_hash_and_attachment_bytes',
       packageHash: input.packageHash, artifactHashes, executed: true }],
     semanticFindings: raw.findings.map(row => ({ ...row, resolved: false })), mediaEvidence: media.map(row => ({ sha256: bytesHash(row.bytes),
       mime: row.mime, byteHashVerified: true, semanticInspection: 'unverified', artisticInspection: 'unverified' })),
     coverage: { textKeys, artifactHashes },
     dimensions: { deterministic: 'passed', semantic: !major && passed(raw.coverage.semantic) ? 'passed' : 'unverified',
-      media: media.length ? 'unverified' : 'passed', artistic: !major && !media.length && passed(raw.coverage.artistic) ? 'passed' : 'unverified' },
+      media: media.length ? 'unverified' : 'passed', artistic: !major && !media.length && passed(raw.coverage.artistic) ? 'passed' : 'unverified',
+      timeless: timelessDimensionStatus(timelessRequired, raw.timelessReview, !major && passed(raw.coverage.timeless)) },
+    ...(timelessRequired ? { timelessReview: structuredClone(raw.timelessReview) } : {}),
     modelReceiptIds: [modelResult.providerRequestId].filter(Boolean), assessment: raw.assessment };
 }
 
@@ -192,6 +196,9 @@ export async function createContentOpsAdapters({ rootDir = ROOT, model, modelCon
             'ARTIFACT_MISSING', 'Every actual final attachment must be available before reserving a checker request.');
         }
         let source = modelPolicyInput(kind, ['quality.check', 'quality.final'].includes(kind) ? checkerInput(input, lease) : input);
+        if (['quality.check', 'quality.final'].includes(kind)) {
+          source = { ...source, timelessGate: timelessGateForPackage(source.package?.nativeForm ? source.package : source.target ?? {}) };
+        }
         // Drafting and checking both receive the exact authorized textual works,
         // never merely their names or a statement that the files exist.
         source = { ...source, attachmentTexts: inputs.filter(row => /^(?:text\/|application\/(?:json|x-ipynb\+json))/.test(row.mime))

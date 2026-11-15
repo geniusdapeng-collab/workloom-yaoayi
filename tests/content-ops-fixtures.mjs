@@ -9,6 +9,7 @@ import { contentOpsAdapterBindings } from "../src/content-ops-worker/adapters.mj
 import { contentOpsRef, contentOpsEtag } from "../src/domain/content-ops.mjs";
 import { hashObject, hashText } from "../src/domain/hash.mjs";
 import { qualityTextKeys } from "../src/domain/content-ops-quality.mjs";
+import { checkerVersionForPackage, requiresTimelessGate, TIMELESS_GATE_VERSION, TIMELESS_CRITERIA } from "../src/domain/content-ops-timeless.mjs";
 
 export const opsContext = (row, actor = "isolated content administrator", key = randomUUID()) => ({ method: "local", actor, idempotencyKey: key, ...(row ? { ifMatch: row.etag ?? contentOpsEtag(row) } : {}) });
 export const OPS_NOW = FIXED_TIME;
@@ -72,7 +73,11 @@ export async function completeOpsTask(f, worker, lease, { data, artifacts = [] }
 }
 export function isolatedTaskData(lease) {
   if (lease.task.kind === "strategy.plan") return { decision: "prepare", rationale: "Isolated source is suitable.", outline: ["Evidence", "Limitations"], requiredInputs: [], skipReason: null };
-  if (["quality.check", "quality.final"].includes(lease.task.kind)) return { checkedPackageHash: lease.resolvedInputData.packageHash, checkerVersion: "pengmanager.independent-checker/v1", checkContextHash: lease.resolvedInputData.checkContextHash ?? null, semanticFindings: [], coverage: { textKeys: lease.task.kind === "quality.final" ? qualityTextKeys(lease.resolvedInputData.package) : ["title", "summary", "body"], artifactHashes: [...new Set((lease.resolvedInputData.package?.artifactRefs ?? []).map(row => row.sha256))] }, dimensions: { deterministic: "passed", semantic: "passed", media: (lease.resolvedInputData.package?.artifactRefs?.length ?? 0) ? "unverified" : "passed", artistic: "passed" }, mediaEvidence: [], assessment: "Isolated independent test checker; no supplier request was made." };
+  if (["quality.check", "quality.final"].includes(lease.task.kind)) {
+    const pkg = lease.resolvedInputData.package?.nativeForm ? lease.resolvedInputData.package : lease.resolvedInputData.target;
+    const timelessRequired = requiresTimelessGate(pkg);
+    return { checkedPackageHash: lease.resolvedInputData.packageHash, checkerVersion: checkerVersionForPackage(pkg), checkContextHash: lease.resolvedInputData.checkContextHash ?? null, semanticFindings: [], coverage: { textKeys: lease.task.kind === "quality.final" ? qualityTextKeys(lease.resolvedInputData.package) : ["title", "summary", "body"], artifactHashes: [...new Set((lease.resolvedInputData.package?.artifactRefs ?? []).map(row => row.sha256))] }, dimensions: { deterministic: "passed", semantic: "passed", media: (lease.resolvedInputData.package?.artifactRefs?.length ?? 0) ? "unverified" : "passed", artistic: "passed", timeless: timelessRequired ? "passed" : "not_applicable" }, ...(timelessRequired ? { timelessReview: { schema: TIMELESS_GATE_VERSION, criteria: TIMELESS_CRITERIA.map(criterion => ({ id: criterion.id, status: "passed", evidence: `隔离测试逐项核对：${criterion.title}在十年后仍可由读者复核。` })), decayTriggers: ["经营目标、组织约束与决策责任机制发生根本变化时重新检验结论。"], longHorizonVerdict: "文章以经营机制、判断框架与行动闭环为核心，不依赖某一代 AI 工具；即使工具更替，读者仍可据此识别盘面、闭环与组织风险。" } } : {}), mediaEvidence: [], assessment: "Isolated independent test checker; no supplier request was made." };
+  }
   const locale = lease.task.transformSpec?.targetLocale ?? lease.resolvedInputData.target.locale, format = lease.task.transformSpec?.targetFormat ?? "article";
   return { title: "隔离测试中的完整成品", summary: "Isolated complete candidate.", body: "这是一份隔离测试中的完整正文。\n\n它保留真实母版、限定条件与独立检查，不代表线上发布或商业效果。", blocks: [{ type: "paragraph", text: "这是一份隔离测试中的完整正文。" }, { type: "paragraph", text: "它保留真实母版、限定条件与独立检查，不代表线上发布或商业效果。" }], claimMappings: [], disclosure: { aiUse: "generated_text" }, ...(lease.task.kind === "format.transform" ? { locale, format } : {}) };
 }

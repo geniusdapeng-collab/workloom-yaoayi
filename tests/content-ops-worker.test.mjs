@@ -124,7 +124,7 @@ test('multiple thread/card/document outputs require distinct closed native conte
 });
 
 test('unverified usage stays unknown and a text checker cannot attest image/video inspection', async () => {
-  const check = { checkedPackageHash: HASH, findings: [], coverage: { deterministic: 'checked', semantic: 'checked', media: 'checked', artistic: 'checked' }, assessment: 'Full text was checked.' };
+  const check = { checkedPackageHash: HASH, findings: [], coverage: { deterministic: 'checked', semantic: 'checked', media: 'checked', artistic: 'checked', timeless: 'not_applicable' }, assessment: 'Full text was checked.' };
   const adapter = new SingleRequestModel(modelConfig({ fetchImpl: async () => new Response(JSON.stringify(envelope(check, { usage: null }))) }));
   await assert.rejects(
     (await adapter.prepare('quality.final', { packageHash: HASH, package: { artifactRefs: [{ mime: 'image/png' }] } })).execute(),

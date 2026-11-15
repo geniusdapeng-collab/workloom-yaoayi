@@ -12,6 +12,7 @@ import { SingleRequestModel } from '../src/content-ops-worker/model.mjs';
 import { localGrantHash } from '../src/content-ops-worker/worker.mjs';
 import { bytesHash, dataHash } from '../src/content-ops-worker/protocol.mjs';
 import { inspectProductionArtifact } from '../src/services/production-artifacts.mjs';
+import { TIMELESS_GATE_VERSION, TIMELESS_CRITERIA } from '../src/domain/content-ops-timeless.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..'), TIME = Date.parse('2026-10-26T12:00:00.000Z'), HASH = 'a'.repeat(64);
 const modelOutput = { title: '完整隔离正文', summary: '用于本机接口测试。', body: '这是一份完整隔离测试正文，不代表真实客户、发布或经营效果。',
@@ -92,11 +93,18 @@ test('translate-only neutral work preserves source format without requiring unre
 test('final checker reads every actual text attachment and refuses to upgrade visual/media coverage', async () => {
   const requests = [], attachment = Buffer.from('# Full attachment\n\nEvery line is included in the independent check.\n');
   const input = ordinaryInput();
-  input.package = { schema: 'pengmanager.publication-package/v3', title: modelOutput.title, summary: modelOutput.summary, body: modelOutput.body,
+  input.package = { schema: 'pengmanager.publication-package/v3', nativeForm: 'article', title: modelOutput.title, summary: modelOutput.summary, body: modelOutput.body,
     orderedBlocks: modelOutput.blocks, nativeManifest: {}, artifactRefs: [{ id: 'ART-text', mime: 'text/markdown', sha256: bytesHash(attachment) }] };
   input.package.packageHash = dataHash(input.package); input.packageHash = input.package.packageHash; input.checkContextHash = HASH;
   const resultFor = request => { const source = JSON.parse(request.messages[1].content); return { checkedPackageHash: source.packageHash,
-    findings: [], coverage: { deterministic: 'checked', semantic: 'checked', media: 'not_applicable', artistic: 'checked' }, assessment: 'Independent fixture full text check.' }; };
+    findings: [], coverage: { deterministic: 'checked', semantic: 'checked', media: 'not_applicable', artistic: 'checked', timeless: 'checked' },
+    timelessReview: {
+      schema: TIMELESS_GATE_VERSION,
+      criteria: TIMELESS_CRITERIA.map(criterion => ({ id: criterion.id, status: 'passed', evidence: `Independent fixture evidence for ${criterion.id}; the business mechanism remains valid after tool changes.` })),
+      decayTriggers: ['Revisit when the business mechanism or reader decision context fundamentally changes.'],
+      longHorizonVerdict: 'The isolated article explains a stable business mechanism and a reusable action loop, so it remains useful after specific tools change.',
+    },
+    assessment: 'Independent fixture full text check.' }; };
   const adapters = await createContentOpsAdapters({ model: localModel(resultFor, requests), clock: () => TIME });
   const adapter = adapters.get('quality.final'), lease = leaseFor(adapter.binding);
   lease.resolvedInputRefs.packageRef = { packageHash: input.packageHash, checkContextHash: HASH };
