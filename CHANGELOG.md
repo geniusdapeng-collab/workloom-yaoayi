@@ -23,7 +23,7 @@
 - Add schema 3→4 additive migration, one-key entry rollback, administrative
   documentation and operator metrics/error views.
 - Verify 140 routing cases, 30 offline article themes, 562 root tests, 14 GEO
-  engine tests, 74 Node video tests, 74 Vitest video tests and real Chrome
+  engine tests, 76 Node video tests, 74 Vitest video tests and real Chrome
   desktop/mobile layouts with no horizontal overflow or console errors.
 
 ## 2026-11-05 — Codex and Qoder conversation workflow
