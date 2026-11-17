@@ -48,7 +48,7 @@ async function directories(store, create = false) {
   return result;
 }
 function snapshotState(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value) || ![1, 2, 3].includes(value.schemaVersion)
+  if (!value || typeof value !== "object" || Array.isArray(value) || ![1, 2, 3, 4].includes(value.schemaVersion)
     || !Number.isSafeInteger(value.revision) || value.revision < 0 || !Array.isArray(value.events)
     || !verifyEventChain(value.events).valid || (value.mediaAssets !== undefined && !Array.isArray(value.mediaAssets))) {
     fail("EDITORIAL_BACKUP_INVALID_STATE", "当前状态或事件链无法作为可恢复备份。");
@@ -131,7 +131,7 @@ async function capture({ store, mediaAssets, productionArtifacts, clock, stage, 
     }
     const assets = state.mediaAssets ?? [];
     const artifacts = state.productionArtifacts ?? [];
-    const native = state.schemaVersion === 3 || artifacts.length > 0;
+    const native = state.schemaVersion >= 3 || artifacts.length > 0;
     if (assets.length && typeof mediaAssets?.openVerifiedAsset !== "function") fail("EDITORIAL_BACKUP_MEDIA_UNAVAILABLE", "完整备份需要注册素材的受控字节读取服务。");
     if (artifacts.length && typeof productionArtifacts?.openBackupArtifact !== "function") fail("EDITORIAL_BACKUP_ARTIFACTS_UNAVAILABLE", "完整备份需要私有附件的受控字节读取服务。");
     const roots = await directories(store, true);

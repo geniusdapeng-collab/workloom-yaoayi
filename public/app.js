@@ -3,6 +3,7 @@ import { mountOperations } from "/operations.js";
 import { mountFinalBackup } from "./final-backup-browser.js";
 import { mountEditorialWorkbench } from "./editorial-workbench.js";
 import { mountContentOps } from "./content-ops.js";
+import { mountContentDirector } from "./content-director.js";
 import { summarizeAccountCoverage, renderPlatformCoverage, renderUnconfiguredPlatforms } from "./account-coverage.js";
 
 const state = {
@@ -571,7 +572,7 @@ async function loadData() {
     void finalBackup.sync();
     setLoading(false);
     switchView(requestedView());
-    const secondary = await Promise.allSettled([loadIntegratedEngineData(), loadAdapterHealth(), loadAuthStatus(), editorialUi.load(), contentOpsUi.load()]);
+    const secondary = await Promise.allSettled([loadIntegratedEngineData(), loadAdapterHealth(), loadAuthStatus(), editorialUi.load(), contentOpsUi.load(), contentDirectorUi.load()]);
     for (const result of secondary) if (result.status === "rejected") showError(result.reason);
   } catch (error) {
     showError(error);
@@ -765,6 +766,7 @@ const contentOpsUi = mountContentOps({ api, getData: () => state.data, afterMate
   await editorialUi.load();
   if (!editorialUi.selectMedia(result.id)) throw new Error("准确私有媒体尚未读取，请刷新后按原媒体 ID 核对。");
 } });
+const contentDirectorUi = mountContentDirector({ api, getData: () => state.data, showError });
 
 initializeVideoWorkbench();
 loadData();

@@ -42,6 +42,12 @@ jobs:
           node --check public/operations.js
           node --check public/site.js
           node --check public/login.js
+          node --check public/content-director.js
+          node --check src/domain/content-director.mjs
+          node --check src/domain/content-intent.mjs
+          node --check src/services/content-director-service.mjs
+          node --check src/video-runtime/content-video-router.mjs
+          node --check src/http/content-director-routes.mjs
           node --check scripts/package-deployment.mjs
           node --check deploy/aliyun/configure.mjs
           for script in deploy/aliyun/*.sh; do bash -n "$script"; done

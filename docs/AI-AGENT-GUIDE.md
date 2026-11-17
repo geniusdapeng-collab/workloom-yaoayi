@@ -524,6 +524,26 @@ API 错误统一读取 `error.code`、`message`、可能存在的 `details.findi
 
 交付须分别报告岗位 28／28、本次目标 N／N、实际产物 K／K、最终检查维度与覆盖、真实发布 M／M，以及预算已结算／预留／未知；skip 不计发布成功。隔离模型服务、测试账号和本机媒体测试不代表真实供应商或社媒发布。源码中的测试覆盖当前实现边界；生产部署和真实付费／外发仍以对应现场回执为准。
 
+## 14 创作总控
+
+管理员可在 `/admin#content-director` 从一句主题、观点或真实素材建立内容 Job。完整合同、七类路由、附件格式、状态机和回滚开关见[创作总控](CONTENT-DIRECTOR.md)。
+
+```text
+POST /api/content-director/resolve-intent
+POST /api/content-director/attachments
+POST /api/content-director/jobs
+GET  /api/content-director/jobs/:id
+POST /api/content-director/jobs/:id/start|pause|resume|cancel|repair
+POST /api/content-director/jobs/:id/final-review
+POST /api/content-director/jobs/:id/materialize-edition
+POST /api/content-director/jobs/:id/create-content-ops-plan
+GET  /api/content-director/jobs/:id/publication-status
+```
+
+真实附件先上传并取得 `CDU-…` 与实际 SHA-256，不能在 JSON 里伪造媒体 ID。所有写入要求幂等键；修改冻结快照还要求准确 ETag。受限 Agent bearer 不能调用创作总控。
+
+`article.v1` 逐节 checkpoint，最多定点修复两轮；结构、量化事实、URL、敏感资料和最终独立审核分别留证。视觉包同时保留 JSON、SVG、PNG、alt、caption 和哈希。视频统一入口只输出到现有原生 Studio/剪辑执行器的 handoff，不自动付费或批准，也不把计划称为成片。最终 Edition 的物化、内容运营计划、官网发布和外部平台发布是不同状态。
+
 ## 源码导航与证据边界
 
 本指南中的实现行为来自精读下列入口与实现（A 级），不是对所有第三方依赖的全量语义审计。在线是否已部署相同行为仍需现场回执（B 级）；未运行的平台发布、付费模型和完整恢复不因读过代码变成已验证。

@@ -52,7 +52,7 @@ export function initializeContentOpsState(state) {
   return state;
 }
 export function assertContentOpsStateIntegrity(state) {
-  if (state.schemaVersion !== 3) return;
+  if (![3, 4].includes(state.schemaVersion)) return;
   const invalid = () => fail(500, "CONTENT_OPS_STATE_INVALID", "内容运营持久状态完整性校验失败。");
   if (!Array.isArray(state.migrations) || !state.migrations.some(row => row.id === "content-operators-v1")) invalid();
   for (const key of CONTENT_OPS_COLLECTIONS) {

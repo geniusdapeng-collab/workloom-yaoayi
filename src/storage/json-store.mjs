@@ -5,9 +5,10 @@ import { randomUUID } from "node:crypto";
 import { hashObject } from "../domain/hash.mjs";
 import { assertEditorialStateIntegrity } from "../domain/editorial.mjs";
 import { assertContentOpsStateIntegrity } from "../domain/content-ops.mjs";
+import { assertContentDirectorStateIntegrity } from "../domain/content-director.mjs";
 
 const NO_CHANGE = Symbol("JsonStore.noChange");
-const SUPPORTED_SCHEMAS = new Set([1, 2, 3]);
+const SUPPORTED_SCHEMAS = new Set([1, 2, 3, 4]);
 
 function storeError(code, message) {
   return Object.assign(new Error(message), { code });
@@ -148,6 +149,7 @@ export class JsonStore {
     }
     assertEditorialStateIntegrity(this.#state);
     assertContentOpsStateIntegrity(this.#state);
+    assertContentDirectorStateIntegrity(this.#state);
 
     return this.snapshot();
   }
@@ -175,6 +177,7 @@ export class JsonStore {
         throw storeError("STATE_SCHEMA_UNSUPPORTED", "State schema is not supported by this application.");
       }
       assertContentOpsStateIntegrity(next);
+      assertContentDirectorStateIntegrity(next);
       const at = this.#clock().toISOString();
       next.revision += 1;
       next.updatedAt = at;
