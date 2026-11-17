@@ -310,7 +310,7 @@ export function publicEditorialClaim(claim, { now = new Date() } = {}) {
 // expired Claims and revoked assets remain valid history, while ambiguous IDs,
 // missing parent links and altered immutable snapshots stop the writer.
 export function assertEditorialStateIntegrity(state) {
-  if (![2, 3].includes(state.schemaVersion)) return;
+  if (![2, 3, 4].includes(state.schemaVersion)) return;
   const fail = () => { throw new ApiError(503, "STATE_EDITORIAL_INVALID", "编辑状态的唯一标识、修订引用或不可变快照不完整，停止启动并保留原文件。"); };
   if (!Array.isArray(state.migrations) || !state.migrations.some(row => row.id === "content-platform-v1")) fail();
   const indexes = {};

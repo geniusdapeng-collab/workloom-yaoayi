@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-11-17 — Content Director unified content system
+
+- Add one admin entry for seven content routes: article, article-plus-visual,
+  pure visual, AI video, real-footage edit, talking-head edit and mixed video.
+- Add a persistent ContentJob/Batch state machine with exact ETags, idempotency,
+  two-Job scheduling, pause/resume/cancel, per-step checkpoints and failure
+  isolation.
+- Add real private source uploads with server-recomputed hashes, format
+  validation, path confinement and Job-bound attachment receipts.
+- Add long-form Brief, research, outline freeze, section research and drafting,
+  deterministic completeness/fact/style gates, bounded section repair and a
+  separately recorded final audit.
+- Add editable visual packages with JSON, Mermaid source, SVG and decoded PNG,
+  visual order/rerender revisions, rights/privacy review and immutable Edition
+  materialization.
+- Add native video handoff for the existing Studio/edit/talking-head engines,
+  including per-shot mixed-source manifests and explicit non-production status
+  when runtime, model or budget authorization is missing.
+- Add downstream Content Ops planning and distinct Edition/public-site/external
+  publication statuses without granting publication authority.
+- Add schema 3→4 additive migration, one-key entry rollback, administrative
+  documentation and operator metrics/error views.
+- Verify 140 routing cases, 30 offline article themes, 562 root tests, 14 GEO
+  engine tests, 74 Node video tests, 74 Vitest video tests and real Chrome
+  desktop/mobile layouts with no horizontal overflow or console errors.
+
 ## 2026-11-05 — Codex and Qoder conversation workflow
 
 - Add read-only, absolute-path MCP configuration export for Codex, Qoder and

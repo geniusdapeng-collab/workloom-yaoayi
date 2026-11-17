@@ -213,7 +213,8 @@ def read_env(path, domain=None, strict_permissions=True):
                 "DATA_FILE": str(DATA / "state.json"),
                 "GEO_ENGINE_DB": str(DATA / "geo-engine/personal-geo.sqlite")}
     permitted = set(expected) | {"ADMIN_PASSWORD_HASH", "ADMIN_AGENT_TOKEN_HASH", "ADMIN_SESSION_TTL_SECONDS",
-                                 "ADMIN_LOGIN_ATTEMPTS", "ADMIN_LOGIN_WINDOW_SECONDS", "GITHUB_TOKEN", "DEEPSEEK_API_KEY"}
+                                 "ADMIN_LOGIN_ATTEMPTS", "ADMIN_LOGIN_WINDOW_SECONDS", "GITHUB_TOKEN", "DEEPSEEK_API_KEY",
+                                 "CONTENT_DIRECTOR_MODE", "ENABLE_CONTENT_DIRECTOR"}
     require(set(values) <= permitted | LAUNCH_SETTINGS, "Runtime configuration has unknown keys; only the documented deployment settings are accepted.")
     for key, value in expected.items():
         require(values.get(key) == value, f"Runtime configuration has an unsafe {key} value; contents withheld.")
@@ -222,6 +223,12 @@ def read_env(path, domain=None, strict_permissions=True):
             "ADMIN_PASSWORD_HASH is missing or invalid; generate it through configure.mjs stdin.")
     require(not values.get("GITHUB_TOKEN") and not values.get("DEEPSEEK_API_KEY"),
             "Default low-cost deployment does not accept live publishing/model credentials.")
+    require(values.get("CONTENT_DIRECTOR_MODE", "enabled") in {"enabled", "shadow", "disabled"},
+            "CONTENT_DIRECTOR_MODE is invalid.")
+    require(values.get("ENABLE_CONTENT_DIRECTOR", "true") in {"true", "false"},
+            "ENABLE_CONTENT_DIRECTOR must be true or false.")
+    require(values.get("ENABLE_CONTENT_DIRECTOR", "true") != "false" or values.get("CONTENT_DIRECTOR_MODE") == "disabled",
+            "Disabled content director requires CONTENT_DIRECTOR_MODE=disabled.")
     agent = values.get("ADMIN_AGENT_TOKEN_HASH", "")
     require(not agent or re.fullmatch(r"sha256\$[a-f0-9]{64}", agent), "Agent token hash format is invalid.")
     validate_workloom_launch(values)

@@ -39,6 +39,7 @@ English bio:
 | Claim 事实库 | 记录事实来源、证据等级、公开范围、有效期和审核人 | 通过审核的事实记录 |
 | 内容工作台 | 从选题创建草稿，绑定事实，经过事实核验、审批和排期 | 内容状态、版本与审批记录 |
 | 编辑出版与媒体 | 同主题建立不可变双语修订和独立渠道稿；上传真实媒体、私有预览、精确审批、官网激活与撤回 | 正文／媒体快照、实际完整备份、固定本站真实回读与字节哈希 |
+| 创作总控 | 一句话识别长文、图文、纯视觉、AI 视频、实拍、口播和混合视频；单 Job/批次断点恢复、质量门、视觉包与下游交接 | 140 条路由回归、30 主题结构回归、真实附件哈希、独立报告、不可变 Edition 与发布回读 |
 | 28 个内容运营师 | 从准确母版、真实素材及目的地规则建立准备工单；固定本机工位制作、独立终检、形成完整原生包 | 逐请求预算、实际文件、不可变包、独立报告与完整人审摘要；准备不等于外发 |
 | 运营动作与回执 | 为每次发布或回复建立草稿、记录具体授权、执行状态与实际结果；完成发布时同步既有内容账本 | 账号身份快照、正文哈希、真实 URL、发布与回读时间、核验人 |
 | 互动分流 | 将评论、私信和线索分为 L0–L3，识别需人工处理的场景 | 分类记录与人工处理边界 |
@@ -51,6 +52,8 @@ English bio:
 种子数据包含 120 条内容选题和工作流示例，初始事实仍需审核。系统不会把草稿、演示数据、本地产物或一次 HTTP 成功响应当成外部发布完成。
 
 编辑出版的对象、全部新接口、ETag／幂等合同、媒体上限、迁移与真实恢复步骤见[双语内容站与平台编辑流程](docs/CONTENT-PUBLISHING.md)。平台目录含个人官网与 27 个外部平台；目录覆盖与实际账号登录、官方 API 连通、发布授权分别记录，不能混为“已接通”。
+
+统一创作入口、七类路由、真实附件、批次并发、文章修复、视觉修订、视频 handoff、质量门与回滚开关见[创作总控](docs/CONTENT-DIRECTOR.md)。创作总控只建立可审核内容包和下游准备计划，不自动批准 Claim、扩张预算或外发。
 
 ## 典型工作流程
 
@@ -142,6 +145,13 @@ GitHub 仓库 URL、平台真实 URL、记录 ID、历史运行证据和上游�
 内容站升级另有 schema 1→2 的一次迁移，保留旧正文、回执和事件链；启动前可用 `node scripts/editorial-data.mjs plan --state-file /absolute/private/state.json --origin https://pengmanager.com` 只读预检。新应用对同一状态文件取得独占写入锁。迁移后接受过新编辑写入的状态不能交给旧二进制继续操作，按[内容数据恢复说明](docs/CONTENT-PUBLISHING.md#迁移备份与隔离恢复)保全数据并向前修复。
 
 内容运营另有 schema 2→3 加法迁移，先实际完整备份准确旧状态及全部已注册文件，再短事务复核 revision 与字节摘要；旧集合、事件前缀及 v1/v2 hash 保留。`node scripts/editorial-data.mjs plan-content-ops --state-file /absolute/private/state.json --origin https://pengmanager.com` 只读预检；离线实际迁移及恢复规则见[内容运营流程](docs/CONTENT-OPS.md#迁移备份与数据边界)。接受 v3 写入后不把状态交回旧二进制，不删除未知费用来降级。
+
+创作总控在 v3 之上再做一次 schema 3→4 加法迁移，新增创作 Job、步骤、批次、研究包、审核报告、视觉包、附件、修订和发布包集合。迁移沿用编辑域的完整备份门禁并校验旧集合哈希；v4 只接受前向修复或整目录受控恢复，不执行破坏性 downgrade。入口回滚使用 `ENABLE_CONTENT_DIRECTOR=false`，不删除历史证据。
+
+```bash
+node scripts/editorial-data.mjs plan-content-director --state-file /absolute/private/state.json
+node scripts/editorial-data.mjs migrate-content-director --state-file /absolute/private/state.json
+```
 
 ## 验证与可选实时运行
 

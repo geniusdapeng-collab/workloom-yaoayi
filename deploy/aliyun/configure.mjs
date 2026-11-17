@@ -38,6 +38,7 @@ try {
     `PUBLIC_ORIGIN=https://${domain}`, "PUBLIC_WEBSITE=1", "ENABLE_MEDIA_RENDER=false",
     "DATA_FILE=/var/lib/pengmanager-system/state.json",
     "GEO_ENGINE_DB=/var/lib/pengmanager-system/geo-engine/personal-geo.sqlite",
+    "CONTENT_DIRECTOR_MODE=enabled", "ENABLE_CONTENT_DIRECTOR=true",
     `ADMIN_PASSWORD_HASH=${passwordHash}`, "ADMIN_AGENT_TOKEN_HASH=", "ADMIN_SESSION_TTL_SECONDS=28800",
     "GITHUB_TOKEN=", "DEEPSEEK_API_KEY=", ""].join("\n");
   await mkdir(dirname(output), { recursive: true, mode: 0o700 });

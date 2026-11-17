@@ -8,6 +8,7 @@ import { readVideoRuntime } from "./video-runtime.mjs";
 import { routeEditorialApi, routePublicContentApi, routePublicMedia } from "./editorial-routes.mjs";
 import { createPublicWebsite } from "./public-website.mjs";
 import { routeContentOpsAdmin, routeContentOpsWorker } from "./content-ops-routes.mjs";
+import { routeContentDirector } from "./content-director-routes.mjs";
 
 const MIME_TYPES = Object.freeze({
   ".css": "text/css; charset=utf-8",
@@ -208,6 +209,7 @@ export function createGeoOsServer({
   editorial,
   mediaAssets,
   contentOps,
+  contentDirector,
   productionArtifacts,
   workloomLaunch,
   publicWebsite = false,
@@ -287,6 +289,7 @@ export function createGeoOsServer({
       const publicAssets = {
         "/login": "/login.html", "/login.js": "/login.js", "/styles.css": "/styles.css",
         "/operations.css": "/operations.css", "/site.css": "/site.css", "/site.js": "/site.js",
+        "/content-director.css": "/content-director.css",
         "/publication-view.js": "/publication-view.js",
         "/favicon.svg": "/favicon.svg",
       };
@@ -334,6 +337,8 @@ export function createGeoOsServer({
         await routeWebsite({ request, response, url, previewId: privatePreview[1] }); return;
       }
       if (await routeContentOpsAdmin({ request, response, url, principal, contentOps, editorial, productionArtifacts, mediaAssets,
+        writeJson, methodNotAllowed })) return;
+      if (await routeContentDirector({ request, response, url, principal, contentDirector, readJsonBody,
         writeJson, methodNotAllowed })) return;
       if (await routeEditorialApi({ request, response, url, principal, editorial, mediaAssets,
         readJsonBody, writeJson, methodNotAllowed })) return;

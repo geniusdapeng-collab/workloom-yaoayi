@@ -121,7 +121,7 @@ export class EditorialService {
 
   #state() {
     const state = this.store.snapshot();
-    if (![2, 3].includes(state.schemaVersion) || ["stories", "editions", "destinations", "websiteReleases", "websiteRoutes", "editorialRequests"].some(key => !Array.isArray(state[key]))) {
+    if (![2, 3, 4].includes(state.schemaVersion) || ["stories", "editions", "destinations", "websiteReleases", "websiteRoutes", "editorialRequests"].some(key => !Array.isArray(state[key]))) {
       throw new ApiError(503, "EDITORIAL_MIGRATION_REQUIRED", "编辑服务需要先完成版本化迁移。");
     }
     return state;

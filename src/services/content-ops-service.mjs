@@ -33,7 +33,7 @@ export class ContentOpsService {
   constructor({ store, clock = () => new Date(), artifactStore, sourceResolver = null, adapterBindings = [] }) {
     this.store = store; this.clock = clock; this.artifactStore = artifactStore; this.sourceResolver = sourceResolver; this.adapterBindings = structuredClone(adapterBindings);
   }
-  state() { const state = this.store.snapshot(); if (state.schemaVersion !== 3) fail(503, "CONTENT_OPS_MIGRATION_REQUIRED", "内容运营需要完成 v3 迁移。"); return state; }
+  state() { const state = this.store.snapshot(); if (![3, 4].includes(state.schemaVersion)) fail(503, "CONTENT_OPS_MIGRATION_REQUIRED", "内容运营需要完成 v3 迁移。"); return state; }
   async write(scope, input, ctx, handler, methods = ADMIN) {
     if (!methods.includes(ctx?.method)) fail(403, "AGENT_SCOPE_DENIED", "当前身份无此内容运营操作权限。");
     const actor = text(ctx.actor ?? (ctx.workerId ? `worker:${ctx.workerId}` : ""), "actor", 120);

@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="/operations.css" />
     <link rel="stylesheet" href="/final-backup.css" />
     <link rel="stylesheet" href="/editorial-workbench.css" />
+    <link rel="stylesheet" href="/content-director.css" />
   </head>
   <body>
     <div class="shell">
@@ -27,6 +28,7 @@
         <nav aria-label="主导航">
           <button class="nav-item active" data-view="overview">概览</button>
           <button id="workloom-launch" class="nav-item nav-item--launch" type="button">AI 研发中心 ↗</button>
+          <button class="nav-item" data-view="content-director">创作总控</button>
           <button class="nav-item" data-view="editorial">编辑出版</button>
           <button class="nav-item" data-view="content-ops">内容运营师</button>
           <button class="nav-item" data-view="accounts">账号矩阵</button>
@@ -176,6 +178,14 @@ Turning model capabilities into domain-specific AI employees and autonomous busi
               <p class="section-copy">从一个具体问题，到独立审阅的中英正文、真实媒体和官网回读。</p>
             </div>
             <div id="editorial-root" aria-live="polite"><div class="empty-panel">正在读取真实编辑资料。</div></div>
+          </section>
+
+          <section class="view" id="view-content-director" aria-labelledby="content-director-title" hidden>
+            <div class="section-heading">
+              <div><p class="eyebrow">One intent · correct pipeline</p><h2 id="content-director-title">创作总控</h2></div>
+              <p class="section-copy">从主题、观点或真实素材进入正确的内容生产线；生成、审核、平台适配与外发分别留证。</p>
+            </div>
+            <div id="content-director-root" aria-live="polite"><div class="cd-empty"><strong>正在读取内容任务…</strong></div></div>
           </section>
 
           <section class="view" id="view-content-ops" aria-labelledby="content-ops-title" hidden>

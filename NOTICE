@@ -6,3 +6,9 @@ This project contains adapted source from:
 The imported source and license files are kept under `engines/geo-evidence`
 and `engines/video-edit`. The integrated system uses those engines in-process
 and does not require the external repositories at runtime.
+
+Runtime dependencies:
+
+- sharp 0.35.5, licensed under Apache-2.0, is used only for bounded server-side
+  raster rendering and rendered-image inspection. It is installed from the npm
+  registry and is not vendored into this repository.

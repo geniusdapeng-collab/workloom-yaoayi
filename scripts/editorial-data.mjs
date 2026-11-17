@@ -6,11 +6,12 @@ import { JsonStore, verifyEventChain } from "../src/storage/json-store.mjs";
 import { MediaAssets } from "../src/services/media-assets.mjs";
 import { ProductionArtifacts } from "../src/services/production-artifacts.mjs";
 import { planContentOpsMigration, migrateContentOpsState } from "../src/services/content-ops-migration.mjs";
+import { planContentDirectorMigration, migrateContentDirectorState } from "../src/services/content-director-migration.mjs";
 import { createEditorialBackup, verifyEditorialBackup, restoreEditorialBackupToIsolatedDirectory } from "../src/services/editorial-backup.mjs";
 
 export async function runEditorialData(args, write = value => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`)) {
   const [command, ...rest] = args;
-  if (!["plan", "plan-content-ops", "migrate-content-ops", "backup", "verify-backup", "restore"].includes(command)) throw new Error("EDITORIAL_DATA_USAGE");
+  if (!["plan", "plan-content-ops", "migrate-content-ops", "plan-content-director", "migrate-content-director", "backup", "verify-backup", "restore"].includes(command)) throw new Error("EDITORIAL_DATA_USAGE");
   const options = {};
   for (let index = 0; index < rest.length; index += 2) {
     const key = rest[index], value = rest[index + 1];
@@ -18,7 +19,7 @@ export async function runEditorialData(args, write = value => process.stdout.wri
         value === undefined || value.startsWith("--") || options[key] !== undefined) throw new Error("EDITORIAL_DATA_USAGE");
     options[key] = value;
   }
-  const allowed = command === "plan" ? ["--state-file", "--origin"] : ["backup", "plan-content-ops", "migrate-content-ops"].includes(command) ? ["--state-file"] :
+  const allowed = command === "plan" ? ["--state-file", "--origin"] : ["backup", "plan-content-ops", "migrate-content-ops", "plan-content-director", "migrate-content-director"].includes(command) ? ["--state-file"] :
     command === "verify-backup" ? ["--state-file", "--backup-id", "--manifest-sha256"] : ["--state-file", "--backup-id", "--manifest-sha256", "--target"];
   if (!options["--state-file"] || Object.keys(options).some(key => !allowed.includes(key)) ||
       (["verify-backup", "restore"].includes(command) && !options["--backup-id"]) || (command === "restore" && !options["--target"])) throw new Error("EDITORIAL_DATA_USAGE");
@@ -31,8 +32,9 @@ export async function runEditorialData(args, write = value => process.stdout.wri
     state = JSON.parse(await handle.readFile("utf8"));
   } finally { await handle.close(); }
   if (!Array.isArray(state.events) || !verifyEventChain(state.events).valid) throw new Error("EDITORIAL_DATA_INVALID_EVENT_CHAIN");
-  if (["plan", "plan-content-ops"].includes(command)) {
-    const plan = command === "plan" ? planEditorialMigration(state, { publicOrigin: options["--origin"] }) : planContentOpsMigration(state);
+  if (["plan", "plan-content-ops", "plan-content-director"].includes(command)) {
+    const plan = command === "plan" ? planEditorialMigration(state, { publicOrigin: options["--origin"] }) :
+      command === "plan-content-ops" ? planContentOpsMigration(state) : planContentDirectorMigration(state);
     const result = { ok: true, command, mutated: false, ...plan };
     write(result); return result;
   }
@@ -42,15 +44,17 @@ export async function runEditorialData(args, write = value => process.stdout.wri
   try {
     await store.open(() => { throw new Error("EDITORIAL_DATA_STATE_REQUIRED"); });
     let receipt;
-    if (["backup", "migrate-content-ops"].includes(command)) {
+    if (["backup", "migrate-content-ops", "migrate-content-director"].includes(command)) {
       const mediaAssets = new MediaAssets({ store }); await mediaAssets.initialize();
       let productionArtifacts;
       const current = store.snapshot();
-      if (current.schemaVersion === 3 || current.productionArtifacts?.length) {
+      if (current.schemaVersion >= 3 || current.productionArtifacts?.length) {
         productionArtifacts = new ProductionArtifacts({ store }); await productionArtifacts.initialize();
       }
       const backup = createEditorialBackup({ store, mediaAssets, productionArtifacts });
-      receipt = command === "backup" ? await backup.captureCurrent() : await migrateContentOpsState(store, { beforeMigration: () => backup.captureCurrent() });
+      receipt = command === "backup" ? await backup.captureCurrent() :
+        command === "migrate-content-ops" ? await migrateContentOpsState(store, { beforeMigration: () => backup.captureCurrent() }) :
+          await migrateContentDirectorState(store, { beforeMigration: () => backup.captureCurrent() });
     } else {
       const input = { store, backupId: options["--backup-id"], expectedManifestSha256: options["--manifest-sha256"] };
       receipt = command === "verify-backup" ? await verifyEditorialBackup(input) : await restoreEditorialBackupToIsolatedDirectory({

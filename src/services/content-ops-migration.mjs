@@ -11,10 +11,10 @@ const stateBytesHash = state => createHash("sha256").update(`${JSON.stringify(st
 function fail(code, message) { throw new ApiError(503, code, message); }
 
 export function planContentOpsMigration(state) {
-  if (![2, 3].includes(state?.schemaVersion)) fail("CONTENT_OPS_EDITORIAL_MIGRATION_REQUIRED", "先完成既有编辑域迁移，再执行内容岗位迁移。");
+  if (![2, 3, 4].includes(state?.schemaVersion)) fail("CONTENT_OPS_EDITORIAL_MIGRATION_REQUIRED", "先完成既有编辑域迁移，再执行内容岗位迁移。");
   assertEditorialStateIntegrity(state);
-  const alreadyApplied = state.schemaVersion === 3 && state.migrations?.some(row => row.id === MIGRATION);
-  if (state.schemaVersion === 3 && !alreadyApplied) fail("CONTENT_OPS_MIGRATION_MARKER_MISSING", "v3 状态缺少对应迁移标记，停止写入。");
+  const alreadyApplied = state.schemaVersion >= 3 && state.migrations?.some(row => row.id === MIGRATION);
+  if (state.schemaVersion >= 3 && !alreadyApplied) fail("CONTENT_OPS_MIGRATION_MARKER_MISSING", "已迁移状态缺少内容岗位迁移标记，停止写入。");
   if (alreadyApplied) assertContentOpsStateIntegrity(state);
   else for (const key of CONTENT_OPS_COLLECTIONS) if (state[key] !== undefined && (!Array.isArray(state[key]) || state[key].length)) {
     fail("CONTENT_OPS_MIGRATION_CONFLICT", "旧状态含不明确的内容岗位集合；保留原状态并先核对来源。");

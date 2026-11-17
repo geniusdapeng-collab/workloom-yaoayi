@@ -123,7 +123,7 @@ function migrationOrigin(value) {
 }
 
 export function planEditorialMigration(state, { publicOrigin } = {}) {
-  if (![1, 2, 3].includes(state?.schemaVersion)) throw new ApiError(409, "STATE_SCHEMA_UNSUPPORTED", "无法迁移未知状态版本。");
+  if (![1, 2, 3, 4].includes(state?.schemaVersion)) throw new ApiError(409, "STATE_SCHEMA_UNSUPPORTED", "无法迁移未知状态版本。");
   if (!Array.isArray(state.accounts) || !Array.isArray(state.events)) throw new ApiError(409, "EDITORIAL_MIGRATION_INVALID_STATE", "迁移输入缺少账号或事件集合。");
   const ids = new Set();
   for (const account of state.accounts) {

@@ -1,4 +1,4 @@
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { JsonStore } from "./storage/json-store.mjs";
 import { loadSeedState, migratePengManagerIdentity, migrateEditorialState } from "./services/bootstrap.mjs";
 import { GeoOsService } from "./services/geo-os-service.mjs";
@@ -21,6 +21,9 @@ import { createEditorialBackup } from "./services/editorial-backup.mjs";
 import { ProductionArtifacts } from "./services/production-artifacts.mjs";
 import { migrateContentOpsState } from "./services/content-ops-migration.mjs";
 import { ContentOpsService } from "./services/content-ops-service.mjs";
+import { migrateContentDirectorState } from "./services/content-director-migration.mjs";
+import { ContentDirectorModel } from "./services/content-director-model.mjs";
+import { ContentDirectorService } from "./services/content-director-service.mjs";
 import { contentOpsAdapterBindings } from "./content-ops-worker/adapters.mjs";
 import { randomUUID } from "node:crypto";
 
@@ -60,12 +63,26 @@ export async function createPengManagerApplication({
   const productionArtifacts = new ProductionArtifacts({ store }); await productionArtifacts.initialize();
   const editorialBackup = createEditorialBackup({ store, mediaAssets, productionArtifacts });
   await migrateContentOpsState(store, { beforeMigration: () => editorialBackup.captureCurrent() });
+  await migrateContentDirectorState(store, { beforeMigration: () => editorialBackup.captureCurrent() });
   const contentOps = new ContentOpsService({ store, artifactStore: productionArtifacts,
     adapterBindings: await contentOpsAdapterBindings({ rootDir }) });
   await contentOps.recover({ actor: "system", method: "local", idempotencyKey: randomUUID() });
   editorial = new EditorialService({ store, geoService: service, mediaAssets, productionArtifacts, publicOrigin,
     verifyReadback: createWebsiteReadback({ origin: publicOrigin, allowLoopback: env.NODE_ENV !== "production" && !env.PUBLIC_ORIGIN }),
     beforeActivation: editorialBackup });
+  let runtime = videoRuntime;
+  const contentDirector = new ContentDirectorService({
+    store,
+    model: new ContentDirectorModel({ deepSeek: new DeepSeekAdapter() }),
+    editorial,
+    mediaAssets,
+    contentOps,
+    videoRuntime: { capabilities: () => runtime?.capabilities ? runtime.capabilities() : null },
+    artifactRoot: join(dirname(dataFile), "content-director"),
+    autoStart: true,
+    mode: env.ENABLE_CONTENT_DIRECTOR === "false" ? "disabled" : env.CONTENT_DIRECTOR_MODE || "enabled",
+  });
+  if (contentDirector.enabled) await contentDirector.recover();
   if (finalContentBackup) {
     await finalContentBackup.prepare();
     for (const content of store.snapshot().content) await service.backupFinalContent(content);
@@ -77,7 +94,6 @@ export async function createPengManagerApplication({
   });
   constructedGeo = geoEngine;
   const mediaEngine = suppliedMediaEngine ?? new VideoMediaEngine({ rootDir });
-  let runtime = videoRuntime;
   if (!runtime) {
     try { runtime = runtimeFactory({ rootDir, env, logger: () => undefined }); }
     catch {
@@ -98,6 +114,7 @@ export async function createPengManagerApplication({
   });
   const server = createGeoOsServer({ service, livePipeline, geoEngine, videoRuntime: runtime,
     publicDir: join(rootDir, "public"), allowedHosts, auth, accountOperations, editorial, mediaAssets, contentOps, productionArtifacts,
+    contentDirector,
     workloomLaunch,
     publicWebsite: env.PUBLIC_WEBSITE === "1", mediaRenderEnabled: env.ENABLE_MEDIA_RENDER !== "false" });
   let stopPromise = null;
@@ -106,7 +123,7 @@ export async function createPengManagerApplication({
   let listening = false;
   let stopping = false;
   return {
-    server, service, store, geoEngine, mediaEngine, auth, accountOperations, editorial, mediaAssets, editorialBackup, contentOps, productionArtifacts,
+    server, service, store, geoEngine, mediaEngine, auth, accountOperations, editorial, mediaAssets, editorialBackup, contentOps, contentDirector, productionArtifacts,
     videoRuntime: runtime, finalContentBackup, workloomLaunch,
     get videoStart() { return videoStart; },
     async listen(options = {}) {

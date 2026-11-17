@@ -27,6 +27,56 @@ const SCENES = Object.freeze({
     outputBudget: "maximum",
     generationReviewGroup: "content.publish",
   }),
+  "content.route.classify": Object.freeze({
+    type: "structured_generation",
+    thinking: THINKING_LOW,
+    responseFormat: "json_object",
+    outputBudget: "maximum",
+    generationReviewGroup: "content.publish",
+  }),
+  "content.research.plan": Object.freeze({
+    type: "structured_generation",
+    thinking: THINKING_HIGH,
+    responseFormat: "json_object",
+    outputBudget: "maximum",
+    generationReviewGroup: "content.publish",
+  }),
+  "content.outline": Object.freeze({
+    type: "structured_generation",
+    thinking: THINKING_HIGH,
+    responseFormat: "json_object",
+    outputBudget: "maximum",
+    generationReviewGroup: "content.publish",
+  }),
+  "content.section": Object.freeze({
+    type: "structured_generation",
+    thinking: THINKING_HIGH,
+    responseFormat: "json_object",
+    outputBudget: "maximum",
+    generationReviewGroup: "content.publish",
+  }),
+  "content.repair": Object.freeze({
+    type: "structured_generation",
+    thinking: THINKING_HIGH,
+    responseFormat: "json_object",
+    outputBudget: "maximum",
+    generationReviewGroup: "content.publish",
+  }),
+  "content.audit": Object.freeze({
+    type: "reasoning_review",
+    thinking: THINKING_HIGH,
+    responseFormat: "json_object",
+    outputBudget: "maximum",
+    generationReviewGroup: "content.publish",
+    sameModelAs: "text.adapt",
+  }),
+  "visual.plan": Object.freeze({
+    type: "structured_generation",
+    thinking: THINKING_HIGH,
+    responseFormat: "json_object",
+    outputBudget: "maximum",
+    generationReviewGroup: "content.publish",
+  }),
   "strategy.plan": Object.freeze({
     type: "structured_generation",
     thinking: THINKING_HIGH,
@@ -93,7 +143,7 @@ const SCENES = Object.freeze({
 
 export const MODEL_POLICY = Object.freeze({
   schemaVersion: "workloom.model-policy/v1",
-  policyVersion: "2026-10-30.1",
+  policyVersion: "2026-11-17.1",
   modelKey: TEXT_PRIMARY_MODEL.key,
   defaults: Object.freeze({
     outputBudget: "maximum",

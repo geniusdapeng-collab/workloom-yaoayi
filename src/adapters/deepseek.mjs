@@ -216,6 +216,16 @@ export class DeepSeekAdapter {
     };
   }
 
+  async completeTask({ scene, messages, tools = [], signal } = {}) {
+    const result = await this.#dispatcher().completeTask({
+      scene,
+      messages,
+      tools,
+      signal,
+    });
+    return result;
+  }
+
   async respond(prompt, options = {}) {
     return this.chat(prompt, options);
   }
