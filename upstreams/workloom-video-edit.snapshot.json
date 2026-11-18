@@ -41106,16 +41106,16 @@
     {
       "path": "scripts/ci/ui-public-release.mjs",
       "mode": "100644",
-      "bytes": 9616,
-      "targetSha256": "55277c86d4ecf6e27d4f42fc8aaea40d70d602de6b7c0d65c05cfe66d1195452",
+      "bytes": 11444,
+      "targetSha256": "5e94218c7f8d925b8bb3beba424bdc27d78063322ab4b80d9da426e38d6c9269",
       "evidence": "B",
       "reason": "PengManager host-owned runtime integration, capability, test, documentation, asset, or tool file retained across the full upstream rebind."
     },
     {
       "path": "scripts/ci/ui-public-release.test.mjs",
       "mode": "100644",
-      "bytes": 11408,
-      "targetSha256": "a38e96bcfebca5b97807fce610e4cb84c3d4c3bd962e20a4d9331df06be948a4",
+      "bytes": 12492,
+      "targetSha256": "7971263d7cfe74a5ac15b18e5f400c6e6b472dcfb6e2abb06230d58fe8fa3197",
       "evidence": "B",
       "reason": "PengManager host-owned runtime integration, capability, test, documentation, asset, or tool file retained across the full upstream rebind."
     },
