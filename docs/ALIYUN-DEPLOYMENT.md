@@ -1,12 +1,12 @@
-# 鹏经理系统：阿里云部署与运维
+# 姚阿姨系统：阿里云部署与运维
 
-本文的实施对象是李大鹏自己的账号矩阵后台，以及同一系统提供的双语内容网站。公开访客可读经过审核的完整文章、图文、视频和公开资料；私有主账号档案、运营记录、草稿、回执与互动工作台通过管理员登录访问。外部平台发布仍在已授权的浏览器会话内完成，平台成功回执再回写后台。
+本文的实施对象是姚阿姨自己的账号矩阵后台，以及同一系统提供的双语内容网站。公开访客可读经过审核的完整文章、图文、视频和公开资料；私有主账号档案、运营记录、草稿、回执与互动工作台通过管理员登录访问。外部平台发布仍在已授权的浏览器会话内完成，平台成功回执再回写后台。
 
 ## 使用场景与范围
 
 1. 手机或另一台电脑访问个人域名，登录后台，查看账号、内容、互动与任务执行记录。
 2. Codex 在本人已登录的平台网页完成已授权发布或回复，读回真实 URL，再通过后台限定接口记录结果；网页加载或本地文件不代表发布成功。
-3. 访客打开个人主页，阅读李大鹏的中英文介绍与已核准公开的信息；不能读取运营数据。
+3. 访客打开个人主页，阅读姚阿姨的中英文介绍与已核准公开的信息；不能读取运营数据。
 
 P0 包括域名、HTTPS、受认证的后台、持久数据、发布结果回写、停服备份、更新失败回滚。缺少任一项都会导致无法远程使用、私有数据暴露或运营记录无法恢复。P1 是独立异地备份、账号异常通知与发布后复核，降低单机故障或平台失败的影响。P2 是多用户协作和更高并发；当前只有一位管理员，暂不为此购买数据库、负载均衡或容器集群。
 
@@ -60,25 +60,25 @@ P0 包括域名、HTTPS、受认证的后台、持久数据、发布结果回写
 
 | 路径 | 内容、权限与生命周期 |
 |---|---|
-| `/opt/pengmanager-system/releases/<git-sha>/` | 一个完整源代码与锁定依赖版本，root 拥有；服务不可修改源码 |
-| `/opt/pengmanager-system/current` | 原子切换的当前 release 软链；上一代目录保留 |
-| `/opt/pengmanager-system/runtimes/` | 独立 Node 官方运行时，不覆盖宿主 `/usr/bin/node` |
-| `/opt/pengmanager-system/node-current` | 私有 Node 运行时链接 |
-| `/opt/pengmanager-system/tooling/` | 按 `packageManager` 锁定的独立 pnpm |
-| `/var/lib/pengmanager-system/` | 专用 `pengmanager-system` 用户所有、0700；完整运行数据 |
+| `/opt/yaoayi-system/releases/<git-sha>/` | 一个完整源代码与锁定依赖版本，root 拥有；服务不可修改源码 |
+| `/opt/yaoayi-system/current` | 原子切换的当前 release 软链；上一代目录保留 |
+| `/opt/yaoayi-system/runtimes/` | 独立 Node 官方运行时，不覆盖宿主 `/usr/bin/node` |
+| `/opt/yaoayi-system/node-current` | 私有 Node 运行时链接 |
+| `/opt/yaoayi-system/tooling/` | 按 `packageManager` 锁定的独立 pnpm |
+| `/var/lib/yaoayi-system/` | 专用 `yaoayi-system` 用户所有、0700；完整运行数据 |
 | `…/state.json` | 账号、事实、内容、互动、操作任务、回执及事件账本；保留原事件链 |
 | `…/geo-engine/personal-geo.sqlite` | GEO 查询、样本、引用和指标；SQLite 数据文件及附属文件一起备份 |
 | `…/media/jobs/` | 已有媒体回执；云端禁用新的重型渲染 |
 | `…/media-assets/` | 私有实际上传媒体、暂存与元数据对应字节；完整备份须包含 |
 | `…/backups/editorial/` | 公开激活前和最终当前状态的完整编辑／媒体快照，私有 SHA 清单与不可变文件 |
 | `<release>/var` | 指向持久数据目录，保障仍使用仓库相对 `var/` 的内部路径 |
-| `/etc/pengmanager-system/runtime.env` | root 所有、0600；systemd 读取；管理员密码及 Agent 令牌仅保存哈希，可选保存 WorkLoom 启动签名密钥 |
-| `/etc/pengmanager-system/proxy.json` | root 所有、0600；保存代理类型、域名及证书路径，update 自动复用，不保存 ACME 邮箱或账户私钥 |
-| `/etc/nginx/sites-available/pengmanager-system.conf` | nginx 模式下只属于本产品的虚拟站点；sites-enabled 只增加同名软链 |
-| `/var/lib/pengmanager-system-acme/` | nginx 模式的独立公开 ACME 挑战目录；不包含业务数据 |
-| `/etc/letsencrypt/renewal-hooks/deploy/pengmanager-system-nginx.sh` | nginx 模式的续期后 reload 钩子，只响应本产品证书 lineage |
-| `/etc/caddy/pengmanager-sites/pengmanager-system.caddy` | Caddy 模式下只属于本产品的域名反向代理配置 |
-| `/var/backups/pengmanager-system/` | 0700；停服完整备份＋私有配置＋release 元数据，归档和校验文件均 0600 |
+| `/etc/yaoayi-system/runtime.env` | root 所有、0600；systemd 读取；管理员密码及 Agent 令牌仅保存哈希，可选保存 WorkLoom 启动签名密钥 |
+| `/etc/yaoayi-system/proxy.json` | root 所有、0600；保存代理类型、域名及证书路径，update 自动复用，不保存 ACME 邮箱或账户私钥 |
+| `/etc/nginx/sites-available/yaoayi-system.conf` | nginx 模式下只属于本产品的虚拟站点；sites-enabled 只增加同名软链 |
+| `/var/lib/yaoayi-system-acme/` | nginx 模式的独立公开 ACME 挑战目录；不包含业务数据 |
+| `/etc/letsencrypt/renewal-hooks/deploy/yaoayi-system-nginx.sh` | nginx 模式的续期后 reload 钩子，只响应本产品证书 lineage |
+| `/etc/caddy/yaoayi-sites/yaoayi-system.caddy` | Caddy 模式下只属于本产品的域名反向代理配置 |
+| `/var/backups/yaoayi-system/` | 0700；停服完整备份＋私有配置＋release 元数据，归档和校验文件均 0600 |
 
 不增加新业务表或索引；沿用当前 JSON 领域状态及 GEO SQLite 模型。部署 manifest 是发布元数据，不是业务数据库。备份包含完整私有数据，必须存放在受保护位置；建议定期另存到本人加密离线备份，单台机器上的备份无法防止整机丢失。
 
@@ -135,7 +135,7 @@ sudo apt-get install --yes python3 curl ca-certificates tar xz-utils iproute2 ut
 管理员密码至少12个字符。先在受保护路径生成配置，只从标准输入传入秘密，输出不含秘密和哈希值：
 
 ```bash
-systemd-ask-password 'PengManager administrator password' | node deploy/aliyun/configure.mjs --domain admin.example.cn --output /absolute/protected/runtime.env
+systemd-ask-password 'Yao Ayi administrator password' | node deploy/aliyun/configure.mjs --domain admin.example.cn --output /absolute/protected/runtime.env
 ```
 
 若在 Mac 生成配置，用密码管理器的秘密输出功能或隐藏输入工具接入同一 stdin；不要用含密码字面量的 `echo`、命令行参数或 shell 历史。生成的配置是0600，含 scrypt 哈希；传输后服务器也须保持0600。脚本拒绝覆写已有配置。密码本人保管，Codex不把明文写入聊天、事件或发布回执。
@@ -143,26 +143,26 @@ systemd-ask-password 'PengManager administrator password' | node deploy/aliyun/c
 使用构建回执中的真实绝对路径及64位SHA-256替换占位符；以下参数都不包含秘密：
 
 ```bash
-sudo bash deploy/aliyun/install.sh --dry-run --package /protected/pengmanager.tar.gz --sha256 ARCHIVE_SHA256 --domain admin.example.cn --env-file /protected/runtime.env
-sudo bash deploy/aliyun/install.sh --package /protected/pengmanager.tar.gz --sha256 ARCHIVE_SHA256 --domain admin.example.cn --env-file /protected/runtime.env
+sudo bash deploy/aliyun/install.sh --dry-run --package /protected/yaoayi.tar.gz --sha256 ARCHIVE_SHA256 --domain admin.example.cn --env-file /protected/runtime.env
+sudo bash deploy/aliyun/install.sh --package /protected/yaoayi.tar.gz --sha256 ARCHIVE_SHA256 --domain admin.example.cn --env-file /protected/runtime.env
 ```
 
-首次安装必须提供独立暂存 `--env-file`；最终配置由安装器写入 `/etc/pengmanager-system/runtime.env`，不可把源码目录当配置目录。安装过程先验证归档SHA、每个文件与路径，拒绝 tar 目录逃逸、软／硬链接和额外文件；再创建专用不可登录用户、下载独立 Node、安装锁定依赖、写入本服务 unit 与所选代理的独立site，最后切换 current 并执行本机健康检查。首次激活失败会撤销本次 current 软链，保留release、数据、配置和已签证书，再次安装同包可重试。
+首次安装必须提供独立暂存 `--env-file`；最终配置由安装器写入 `/etc/yaoayi-system/runtime.env`，不可把源码目录当配置目录。安装过程先验证归档SHA、每个文件与路径，拒绝 tar 目录逃逸、软／硬链接和额外文件；再创建专用不可登录用户、下载独立 Node、安装锁定依赖、写入本服务 unit 与所选代理的独立site，最后切换 current 并执行本机健康检查。首次激活失败会撤销本次 current 软链，保留release、数据、配置和已签证书，再次安装同包可重试。
 
 ### 复用已有 nginx：当前服务器采用此模式
 
 适用于标准 Ubuntu／Debian `/usr/sbin/nginx`、`nginx.service`、`/etc/nginx/nginx.conf`，且其 `http` 块已包含 `/etc/nginx/sites-enabled/*`。不会安装或启动 Caddy，不停止或重启 nginx，不改 `nginx.conf`、`default`、其他站点或其他证书。服务启动和证书切换都只调用通过 `nginx -t` 的 graceful reload。[nginx 官方参数说明](https://nginx.org/en/docs/switches.html)描述了 `-t`、`-T` 与 reload 的行为。
 
-先选未被旧站点使用的子域名，例如 `pengmanager.example.com`。已有根域名的路由与证书不等于包含子域名：新证书必须匹配精确主机名且未过期。预检读取 `nginx -T` 的内存输出，递归追踪实际生效的 include，检查精确域名、前置／后置通配和 `.example.com` 名称冲突；遇到 PCRE 正则或动态 `server_name` 一律先拒绝，避免用不兼容的正则解释器猜测无冲突。[nginx server_name 规则](https://nginx.org/en/docs/http/server_names.html)是判定依据。完整原配置、私钥和 ACME 账户 JSON 不写入日志或回执。
+先选未被旧站点使用的子域名，例如 `yaoayi.example.com`。已有根域名的路由与证书不等于包含子域名：新证书必须匹配精确主机名且未过期。预检读取 `nginx -T` 的内存输出，递归追踪实际生效的 include，检查精确域名、前置／后置通配和 `.example.com` 名称冲突；遇到 PCRE 正则或动态 `server_name` 一律先拒绝，避免用不兼容的正则解释器猜测无冲突。[nginx server_name 规则](https://nginx.org/en/docs/http/server_names.html)是判定依据。完整原配置、私钥和 ACME 账户 JSON 不写入日志或回执。
 
 ```bash
-sudo bash deploy/aliyun/preflight.sh --proxy nginx --domain pengmanager.example.com --dry-run
+sudo bash deploy/aliyun/preflight.sh --proxy nginx --domain yaoayi.example.com --dry-run
 ```
 
 若已有可用证书，显式提供路径；安装会通过 `openssl x509 -checkhost`、`-checkend 86400` 检查主机名和至少一天的剩余有效期。主机名检查严格比对成功输出，不能只相信 OpenSSL 的退出码；`nginx -t` 继续核验配置与证书／私钥能否加载。脚本不解析或打印私钥内容；证书路径可使用 Certbot 标准 live 软链，但本产品配置目录与站点路径不得有软链祖先。
 
 ```bash
-sudo bash deploy/aliyun/install.sh --proxy nginx --package /protected/pengmanager.tar.gz --sha256 ARCHIVE_SHA256 --domain pengmanager.example.com --env-file /protected/runtime.env --tls-cert /etc/letsencrypt/live/pengmanager.example.com/fullchain.pem --tls-key /etc/letsencrypt/live/pengmanager.example.com/privkey.pem
+sudo bash deploy/aliyun/install.sh --proxy nginx --package /protected/yaoayi.tar.gz --sha256 ARCHIVE_SHA256 --domain yaoayi.example.com --env-file /protected/runtime.env --tls-cert /etc/letsencrypt/live/yaoayi.example.com/fullchain.pem --tls-key /etc/letsencrypt/live/yaoayi.example.com/privkey.pem
 ```
 
 没有证书时，先显式安装发行版 `certbot`（已有则复用）；不执行 `certbot --nginx` 自动改配置，也不用占用 80 端口的 standalone 模式。脚本先创建只暴露 `/.well-known/acme-challenge/` 的独立 HTTP 站点，其余路径返回503，再走 `certbot certonly --webroot`；签发成功且应用健康后启用独立443代理，80保留挑战目录并跳转HTTPS。[Certbot 官方 webroot 文档](https://eff-certbot.readthedocs.io/en/stable/using.html#webroot)说明此方式使用正在运行的 Web 服务。
@@ -170,16 +170,16 @@ sudo bash deploy/aliyun/install.sh --proxy nginx --package /protected/pengmanage
 若已有本人认可、可复用的 ACME 账户，只通过目录元数据取得32位账户标识，不读取 `private_key.json`／`regr.json` 内容；安装命令显式传入 `--acme-account`，不会加入 `--agree-tos`：
 
 ```bash
-sudo bash deploy/aliyun/install.sh --proxy nginx --package /protected/pengmanager.tar.gz --sha256 ARCHIVE_SHA256 --domain pengmanager.example.com --env-file /protected/runtime.env --acme-account ACCOUNT_ID_32_HEX
+sudo bash deploy/aliyun/install.sh --proxy nginx --package /protected/yaoayi.tar.gz --sha256 ARCHIVE_SHA256 --domain yaoayi.example.com --env-file /protected/runtime.env --acme-account ACCOUNT_ID_32_HEX
 ```
 
 只有新注册 ACME 账户需要本人在行动时明确接受条款并选择联系邮箱。脚本默认拒绝此类注册，必须增加 `--accept-acme-terms --acme-email YOUR_CONTACT_EMAIL`；本人明确选择无邮箱时改为 `--accept-acme-terms --acme-no-email`。开关表示操作者本次已作选择，研究、预检与 dry-run 不构成接受条款。邮箱与账户标识不写入 `proxy.json` 或部署回执，Certbot 自身的受保护账户目录由它管理。
 
-nginx 模式证书默认独立存放在 `/etc/letsencrypt/live/pengmanager-system-<domain>/`。只增加本服务专属的续期 deploy hook；它核对 `RENEWED_LINEAGE` 后才执行 `nginx -t` 和 `systemctl reload nginx.service`，其他证书续期不会触发它。不改原有 `certbot.timer`、账户、旧域名续期文件或私钥；证书签发后也不会因应用回滚而删除证书或账户。托管证书已到期或即将在一天内到期时，安装／更新先通过已有 lineage 补签并复核；外部提供的证书无效时直接拒绝。后续 `update.sh` 自动读取 `proxy.json`，无需重复选择代理和证书路径。更改域名、代理类型或外部证书路径属于单独迁移，不能混入普通更新。
+nginx 模式证书默认独立存放在 `/etc/letsencrypt/live/yaoayi-system-<domain>/`。只增加本服务专属的续期 deploy hook；它核对 `RENEWED_LINEAGE` 后才执行 `nginx -t` 和 `systemctl reload nginx.service`，其他证书续期不会触发它。不改原有 `certbot.timer`、账户、旧域名续期文件或私钥；证书签发后也不会因应用回滚而删除证书或账户。托管证书已到期或即将在一天内到期时，安装／更新先通过已有 lineage 补签并复核；外部提供的证书无效时直接拒绝。后续 `update.sh` 自动读取 `proxy.json`，无需重复选择代理和证书路径。更改域名、代理类型或外部证书路径属于单独迁移，不能混入普通更新。
 
 ### 独立 Caddy 模式与共用运行时
 
-Node 固定版本与 Linux x64／arm64 的校验值在 [`runtime.json`](../deploy/aliyun/runtime.json)，来源为[官方 Node v24.22.1 校验表](https://nodejs.org/dist/v24.22.1/SHASUMS256.txt)。安装会同时比较提交的 pin、官方校验表、下载文件三者，不运行 `curl | sh`。pnpm 版本由 `package.json` 精确锁定；通过私有 prefix 安装，依赖安装使用 `--frozen-lockfile --ignore-scripts --prod=false`，不更改宿主 Node／pnpm。 安装器使用独立的 0700 依赖缓存 `/opt/pengmanager-system/pnpm-store-copy-v1/`，用 `--config.package-import-method=copy` 将依赖复制到发布目录。发布目录收紧权限前会拒绝其中的硬链接文件，避免修改缓存中同一个文件的所有者或权限。原 `pnpm-store` 保留供排查。
+Node 固定版本与 Linux x64／arm64 的校验值在 [`runtime.json`](../deploy/aliyun/runtime.json)，来源为[官方 Node v24.22.1 校验表](https://nodejs.org/dist/v24.22.1/SHASUMS256.txt)。安装会同时比较提交的 pin、官方校验表、下载文件三者，不运行 `curl | sh`。pnpm 版本由 `package.json` 精确锁定；通过私有 prefix 安装，依赖安装使用 `--frozen-lockfile --ignore-scripts --prod=false`，不更改宿主 Node／pnpm。 安装器使用独立的 0700 依赖缓存 `/opt/yaoayi-system/pnpm-store-copy-v1/`，用 `--config.package-import-method=copy` 将依赖复制到发布目录。发布目录收紧权限前会拒绝其中的硬链接文件，避免修改缓存中同一个文件的所有者或权限。原 `pnpm-store` 保留供排查。
 
 引导 pnpm 时，npm 的用户配置固定为 `/dev/null`，全局配置使用私有 tooling 临时目录中的独立空文件（目录0700、文件0600），完成或失败后清理；子进程清除继承的 `NPM_CONFIG_*` 环境项，不读取操作者的用户或全局 npmrc。两层配置不能共用同一路径，[该 Node 版本附带的 npm 配置加载器](https://github.com/nodejs/node/blob/v24.22.1/deps/npm/node_modules/%40npmcli/config/lib/index.js)会拒绝重复加载。部署测试会用实际 npm 执行配置加载，不安装业务依赖；默认寻找 Node 配套的 npm，也可通过 `NPM_CLI_PATH` 指定已校验的 `npm-cli.js`，缺失时明确跳过该项。
 
@@ -221,8 +221,8 @@ sudo bash deploy/aliyun/update.sh --package /protected/new-release.tar.gz --sha2
 手动备份是有短暂停机的完整快照，不从运行中的SQLite单独复制主文件：
 
 ```bash
-sudo bash deploy/aliyun/backup.sh --destination /var/backups/pengmanager-system --dry-run
-sudo bash deploy/aliyun/backup.sh --destination /var/backups/pengmanager-system
+sudo bash deploy/aliyun/backup.sh --destination /var/backups/yaoayi-system --dry-run
+sudo bash deploy/aliyun/backup.sh --destination /var/backups/yaoayi-system
 ```
 
 成功后按原状态恢复服务；`--leave-stopped` 供受控迁移使用。归档包括数据、runtime.env中的凭据哈希、存在时的proxy.json与release元数据，文件均0600；默认不输出任何配置值。代理元数据用于整机恢复时重建相同路由，线上 `--restore-config` 仍只恢复 runtime.env，保留当前路由。备份失败也恢复此前运行状态。
@@ -230,11 +230,11 @@ sudo bash deploy/aliyun/backup.sh --destination /var/backups/pengmanager-system
 恢复必须指定目标与SHA；先恢复到独立目录核验，不覆盖线上：
 
 ```bash
-sudo bash deploy/aliyun/restore.sh --dry-run --archive /protected/backup.tar.gz --sha256 BACKUP_SHA256 --target /var/lib/pengmanager-system-restore-check
-sudo bash deploy/aliyun/restore.sh --archive /protected/backup.tar.gz --sha256 BACKUP_SHA256 --target /var/lib/pengmanager-system-restore-check
+sudo bash deploy/aliyun/restore.sh --dry-run --archive /protected/backup.tar.gz --sha256 BACKUP_SHA256 --target /var/lib/yaoayi-system-restore-check
+sudo bash deploy/aliyun/restore.sh --archive /protected/backup.tar.gz --sha256 BACKUP_SHA256 --target /var/lib/yaoayi-system-restore-check
 ```
 
-确需切回真实线上数据时，显式以 `/var/lib/pengmanager-system` 为目标。恢复目标使用 `pengmanager-` 命名空间，并拒绝系统配置、代码和设备目录。当前目录先改名保存，恢复失败回到原目录；仅 `--restore-config` 才同时恢复旧密码／令牌哈希等配置，默认保留现有配置。备份中的域名必须与当前域名一致；更换域名另做显式迁移，不能恢复一份旧配置导致与代理路由冲突。恢复不会替换代码版本；数据与代码版本不兼容时，先选相应release再恢复。
+确需切回真实线上数据时，显式以 `/var/lib/yaoayi-system` 为目标。恢复目标使用 `yaoayi-` 命名空间，并拒绝系统配置、代码和设备目录。当前目录先改名保存，恢复失败回到原目录；仅 `--restore-config` 才同时恢复旧密码／令牌哈希等配置，默认保留现有配置。备份中的域名必须与当前域名一致；更换域名另做显式迁移，不能恢复一份旧配置导致与代理路由冲突。恢复不会替换代码版本；数据与代码版本不兼容时，先选相应release再恢复。
 
 ## 失败路径与可见结果
 
@@ -253,7 +253,7 @@ sudo bash deploy/aliyun/restore.sh --archive /protected/backup.tar.gz --sha256 B
 | 恢复校验失败或服务不健康 | 保留两代数据并回到原目标；输出失败，不报成功 |
 | DNS／证书尚未生效 | 本机健康不当公网成功；核对解析、80／443和代理／Certbot证书日志后继续外部验收 |
 
-日志可以通过 `journalctl -u pengmanager-system.service` 与所选代理的 `nginx.service`／`caddy.service` 查看。不要把含个人数据、请求体、Cookie、令牌或配置值的日志贴进公开报告。
+日志可以通过 `journalctl -u yaoayi-system.service` 与所选代理的 `nginx.service`／`caddy.service` 查看。不要把含个人数据、请求体、Cookie、令牌或配置值的日志贴进公开报告。
 
 ## 本地验证与证据边界
 

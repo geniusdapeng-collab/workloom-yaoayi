@@ -4,52 +4,52 @@ const SEGMENT_FORMATS = Object.freeze(Object.fromEntries(Object.entries(FORMAT_S
 
 const WORDS = Object.freeze({
   zh: {
-    journal: "个人媒体 / PERSONAL JOURNAL", byline: "李大鹏｜用AI搞经营的产品经理",
-    name: "李大鹏", intro: "用 AI 搞经营，\n把实践写下来。",
-    bio: "全栈 AI 产品专家，把模型能力做成专业领域 Agent 数字员工与自主经营系统。",
+    journal: "沂蒙山小院 / YIMENG MOUNTAIN", byline: "姚阿姨｜沂蒙山咖啡小院主理人",
+    name: "姚阿姨", intro: "咖啡是学的，\n煎饼是打小就会的。",
+    bio: "一位从杭州带着手冲手艺回到沂蒙山的沂蒙女儿，旗袍外面系围裙，白瓷杯旁边放鏊子，用咖啡、煎饼和山货讲述家乡的日子。",
     nav: ["文章", "图文", "视频", "作品", "关于"], all: "全部", article: "文章", image_text: "图文", video: "视频",
     latest: "最近的思考", selected: "最新刊出", read: "继续阅读", watch: "观看与阅读文稿", visuals: "打开图文",
     archive: "内容库", back: "返回内容库", more: "继续加载", loading: "正在读取已公开内容…", loadingMore: "正在加载…",
-    emptyTitle: "第一批内容，正在认真准备。", empty: "完整文章、图解与视频将在审阅并公开后出现在这里。你现在可以先了解我的工作与产品视角。",
+    emptyTitle: "第一批小院图文，正在认真准备。", empty: "沂蒙山的人物、四季、风土和山货来处经过素材与事实审核后，会在这里公开。",
     emptyFormat: "这个栏目暂时还没有公开内容。", emptyAction: "查看其他内容", errorTitle: "内容暂时无法读取。",
     error: "请稍后重试。你也可以继续浏览其他栏目。", retry: "重新读取", notFoundTitle: "暂时找不到这篇内容。",
     notFound: "这个地址尚未公开，或链接已变更。", withdrawnTitle: "这篇内容目前不可用。", withdrawn: "内容已撤回或正在重新审阅。公开后会在内容库更新。",
-    source: "来源与参考", related: "其他内容", published: "刊出", updated: "更新", language: "中文", author: "李大鹏 · PengManager",
+    source: "来源与参考", related: "其他内容", published: "刊出", updated: "更新", language: "中文", author: "姚阿姨",
     transcript: "文稿", chapters: "章节", toc: "本文目录", noTranscript: "暂时没有可公开的文稿。",
     videoLoading: "正在准备视频。下方文稿可直接阅读。", videoBuffering: "正在缓冲视频…", videoError: "视频暂时无法播放，你仍可阅读下方文稿。",
     videoUnavailable: "视频目前不可用，文稿保留在下方。", retryVideo: "重试播放", seekReady: "已定位到这一节，点击播放器继续。",
     enlarge: "放大图片", imageUnavailable: "图片暂时无法加载，图注与说明仍可阅读。", retryImage: "重试图片", close: "关闭", previous: "上一张", next: "下一张", imageCount: "图片",
     noEnglish: "暂无英文版。", noChinese: "暂无中文版。", translationNote: "你仍在阅读这篇内容的原文，没有切换到其他主题。",
     keepReading: "继续阅读原文", browseOther: "浏览另一语言的内容库", languageLabel: "阅读语言", original: "原文版本",
-    aboutTitle: "关于李大鹏", aboutCopy: "这里是完整文章、图解与视频说明的长期入口。通过具体问题、产品取舍与可核对的工作，记录怎样把 AI 用到经营中。",
-    workTitle: "作品与公开证据", workCopy: "实际项目、代码与可追溯的公开资料。以可打开的来源说明工作，不以能力标签替代结果。",
-    workEmpty: "作品资料正在整理。经过审阅、具有真实公开来源的资料会在这里更新。", github: "查看 GitHub 上的工作",
-    publicFacts: "公开资料", profileUnavailable: "作者公开资料暂时无法刷新；内容阅读不受影响。", footer: "解释清楚，拿出证据，持续更新。", admin: "管理入口", skip: "跳到正文",
+    aboutTitle: "关于姚阿姨", aboutCopy: "这里是姚阿姨与沂蒙山咖啡小院的长期图文入口。先从具体的人、物件、季节和手写笔记讲起，再把山货的来处、吃法、品质和边界说清楚。",
+    workTitle: "公开资料与事实", workCopy: "经过审核的人物事实、风土记录和产品说明。用可打开的来源说明来处，不以标签替代真实生活。",
+    workEmpty: "公开资料正在整理。经过审核并具有真实来源的内容会在这里更新。", github: "查看系统仓库",
+    publicFacts: "公开资料", profileUnavailable: "人物公开资料暂时无法刷新；内容阅读不受影响。", footer: "先像真实生活，再像好内容。", admin: "管理入口", skip: "跳到正文",
     editionDate: "每种语言分别审阅与更新；请以本页的刊出、更新时间为准。", originalHost: "打开原视频", noMatches: "没有符合当前筛选的内容。", clear: "清除筛选",
     olderTranslation: "这份译文依据较早的来源修订。另一语言已有公开更新，当前译文仍保留原来的审阅内容与日期。", viewSource: "查看已公开的来源版本",
   },
   en: {
-    journal: "PENGMANAGER / PERSONAL JOURNAL", byline: "Dapeng Li · PengManager",
-    name: "PengManager", intro: "Building with AI.\nWriting from practice.",
-    bio: "Turning model capabilities into domain-specific AI employees and autonomous business systems.",
+    journal: "YIMENG MOUNTAIN / COURTYARD JOURNAL", byline: "Yao Ayi · Yimeng Mountain Coffee Courtyard",
+    name: "Yao Ayi", intro: "Coffee came later.\nPancakes came from home.",
+    bio: "A daughter of the Yimeng Mountains who returned home with pour-over skills from Hangzhou, telling the stories of coffee, pancakes, mountain produce and everyday life.",
     nav: ["Articles", "Visuals", "Videos", "Work", "About"], all: "All", article: "Article", image_text: "Visual note", video: "Video",
     latest: "From the notebook", selected: "LATEST EDITION", read: "Read the article", watch: "Watch & read", visuals: "Open the visual note",
     archive: "Journal", back: "Back to the journal", more: "Load more", loading: "Loading published work…", loadingMore: "Loading…",
-    emptyTitle: "The first pieces are taking shape.", empty: "Full articles, visual explanations and videos will appear here after review and publication. In the meantime, explore my work and product perspective.",
+    emptyTitle: "The first courtyard stories are taking shape.", empty: "Reviewed stories about the people, seasons, customs and produce of the Yimeng Mountains will appear here.",
     emptyFormat: "There are no published pieces in this section yet.", emptyAction: "Explore the journal", errorTitle: "The journal is temporarily unavailable.",
     error: "Please try again shortly, or explore another section.", retry: "Try again", notFoundTitle: "This piece is not available here.",
     notFound: "The page has not been published, or its address has changed.", withdrawnTitle: "This piece is currently unavailable.", withdrawn: "It has been withdrawn or is under review. Published updates will appear in the journal.",
-    source: "Sources & references", related: "More from the journal", published: "Published", updated: "Updated", language: "English", author: "Dapeng Li · PengManager",
+    source: "Sources & references", related: "More from the journal", published: "Published", updated: "Updated", language: "English", author: "Yao Ayi",
     transcript: "Transcript", chapters: "Chapters", toc: "On this page", noTranscript: "No public transcript is available yet.",
     videoLoading: "Preparing the video. The transcript is readable below.", videoBuffering: "Buffering video…", videoError: "The video is temporarily unavailable. You can still read the transcript below.",
     videoUnavailable: "The video is currently unavailable. The transcript remains below.", retryVideo: "Retry video", seekReady: "Chapter selected. Press play to continue.",
     enlarge: "Enlarge image", imageUnavailable: "The image could not be loaded. Its caption remains readable.", retryImage: "Retry image", close: "Close", previous: "Previous image", next: "Next image", imageCount: "Image",
     noEnglish: "No English edition yet.", noChinese: "No Chinese edition yet.", translationNote: "You are still reading the original of this piece; no other topic has been substituted.",
     keepReading: "Keep reading the original", browseOther: "Browse the other language’s journal", languageLabel: "Reading language", original: "Original edition",
-    aboutTitle: "About Dapeng Li", aboutCopy: "This journal is the lasting home for full explanations, diagrams and video notes: concrete problems, product decisions and verifiable work on using AI in business operations.",
-    workTitle: "Work & public evidence", workCopy: "Projects, code and traceable public sources. Read the work behind an idea, beyond a list of capabilities.",
-    workEmpty: "The work index is being prepared. Reviewed material with usable public sources will appear here.", github: "Explore the work on GitHub",
-    publicFacts: "Public information", profileUnavailable: "The author profile could not be refreshed; published pieces remain readable.", footer: "Clear explanations. Verifiable work. Ongoing practice.", admin: "Workspace", skip: "Skip to content",
+    aboutTitle: "About Yao Ayi", aboutCopy: "This is the lasting home for Yao Ayi and the Yimeng Mountain coffee courtyard: specific people, objects, seasons and handwritten notes, followed by clear sourcing and honest limits.",
+    workTitle: "Public facts & references", workCopy: "Reviewed facts, place notes and produce descriptions. Sources explain where things come from; labels do not replace lived reality.",
+    workEmpty: "The public reference index is being prepared. Reviewed material with usable sources will appear here.", github: "View the private system repository",
+    publicFacts: "Public information", profileUnavailable: "The profile could not be refreshed; published pieces remain readable.", footer: "Real life first. Good storytelling second.", admin: "Workspace", skip: "Skip to content",
     editionDate: "Each language is reviewed and updated independently. The publication and update dates belong to this edition.", originalHost: "Open the original video", noMatches: "No pieces match the selected filters.", clear: "Clear filters",
     olderTranslation: "This translation is based on an earlier source revision. A newer source edition is public; this translation retains its reviewed text and dates.", viewSource: "Read the published source edition",
   },
@@ -60,7 +60,7 @@ export function getPublicWords(lang = "zh") { return WORDS[lang === "en" ? "en" 
 export function publicPageMetadata(route, data = {}, { preview = false } = {}) {
   const words = getPublicWords(route.lang);
   const title = data.detail?.title || (route.kind === "about" ? words.aboutTitle : route.kind === "work" ? words.workTitle :
-    route.kind === "archive" ? words[route.format] : route.lang === "en" ? "PengManager · Writing from practice" : "PengManager · 李大鹏的个人媒体");
+    route.kind === "archive" ? words[route.format] : route.lang === "en" ? "Yao Ayi · Yimeng Mountain Coffee Courtyard" : "姚阿姨 · 沂蒙山咖啡小院");
   return {
     title: `${preview ? route.lang === "en" ? "Preview · " : "预览 · " : ""}${title}`,
     description: data.detail?.summary || words.bio,
@@ -123,7 +123,7 @@ export function renderSiteHeader(route, detail = null) {
   const paths = ["articles", "visuals", "videos", "work", "about"];
   const selected = route.format ? FORMAT_SEGMENTS[route.format] : route.kind;
   const current = route.lang;
-  return `<a class="site-brand" href="/${current}" aria-label="PengManager ${current === "en" ? "home" : "首页"}">PengManager<small>${escapeHtml(w.byline)}</small></a>
+  return `<a class="site-brand" href="/${current}" aria-label="Yao Ayi ${current === "en" ? "home" : "首页"}">${current === "en" ? "Yao Ayi" : "姚阿姨的小院"}<small>${escapeHtml(w.byline)}</small></a>
     <nav class="site-nav" aria-label="${current === "en" ? "Main navigation" : "主导航"}">${paths.map((path, index) => `<a href="/${current}/${path}"${selected === path ? ' aria-current="page"' : ""}>${w.nav[index]}</a>`).join("")}</nav>
     <div class="site-language" aria-label="${w.languageLabel}">${["zh", "en"].map((lang) => {
       const label = lang === "zh" ? "中文" : "EN";
@@ -139,7 +139,7 @@ export function renderSiteHeader(route, detail = null) {
 
 export function renderSiteFooter(route) {
   const w = getPublicWords(route.lang);
-  return `<p>© PengManager / 李大鹏</p><p>${escapeHtml(w.footer)}</p><a href="/admin">${w.admin} <span aria-hidden="true">↗</span></a>`;
+  return `<p>© 姚阿姨的沂蒙山咖啡小院</p><p>${escapeHtml(w.footer)}</p><a href="/admin">${w.admin} <span aria-hidden="true">↗</span></a>`;
 }
 
 function dateLabel(value, lang) {
@@ -203,7 +203,7 @@ function renderHome(route, { profile = {}, listing = {} } = {}) {
   const lead = items[0];
   const cover = lead ? publicAssets(lead).find(asset => ["cover", "poster", "image"].includes(asset.role)) : null;
   return `<div data-public-archive="home"><section class="journal-intro"><div><p class="site-eyebrow">${escapeHtml(w.journal)}</p><h1>${w.intro.split("\n").map(escapeHtml).join("<br />")}</h1></div><p>${escapeHtml(identity.headline)}</p></section>
-    ${lead ? `<section class="journal-lead${cover ? " has-cover" : ""}"><div class="lead-copy"><p class="site-eyebrow">${w.selected} / ${escapeHtml(w[lead.format] || w.article)}</p><h2><a href="${escapeHtml(cardPath(lead, route.lang))}">${escapeHtml(lead.title)}</a></h2>${lead.summary ? `<p>${escapeHtml(lead.summary)}</p>` : ""}<a class="site-text-link" href="${escapeHtml(cardPath(lead, route.lang))}">${lead.format === "video" ? w.watch : lead.format === "image_text" ? w.visuals : w.read}<span aria-hidden="true">→</span></a></div>${cover ? `<a class="lead-image" href="${escapeHtml(cardPath(lead, route.lang))}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(cover.url)}" alt="" /></a>` : `<div class="lead-index" aria-hidden="true"><span>PENGMANAGER</span><strong>${escapeHtml(w[lead.format] || w.article)}</strong><small>${escapeHtml(dateLabel(lead.publishedAt, route.lang))}</small></div>`}</section>` : renderEmpty(route, { full: true })}
+    ${lead ? `<section class="journal-lead${cover ? " has-cover" : ""}"><div class="lead-copy"><p class="site-eyebrow">${w.selected} / ${escapeHtml(w[lead.format] || w.article)}</p><h2><a href="${escapeHtml(cardPath(lead, route.lang))}">${escapeHtml(lead.title)}</a></h2>${lead.summary ? `<p>${escapeHtml(lead.summary)}</p>` : ""}<a class="site-text-link" href="${escapeHtml(cardPath(lead, route.lang))}">${lead.format === "video" ? w.watch : lead.format === "image_text" ? w.visuals : w.read}<span aria-hidden="true">→</span></a></div>${cover ? `<a class="lead-image" href="${escapeHtml(cardPath(lead, route.lang))}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(cover.url)}" alt="" /></a>` : `<div class="lead-index" aria-hidden="true"><span>YIMENG MOUNTAIN</span><strong>${escapeHtml(w[lead.format] || w.article)}</strong><small>${escapeHtml(dateLabel(lead.publishedAt, route.lang))}</small></div>`}</section>` : renderEmpty(route, { full: true })}
     <section class="journal-library"><div class="library-heading"><h2>${w.latest}</h2>${archiveFilters(route)}</div><div id="journal-results" class="journal-results">${renderPublicCards(items, route.lang)}</div>${moreButton(listing, route.lang)}</section>
     <aside class="author-strip"><p class="piece-kind">${escapeHtml(identity.displayName)}</p><p>${escapeHtml(identity.headline)}</p>${aboutLink(route.lang, w.aboutTitle)}</aside></div>`;
 }
@@ -212,8 +212,8 @@ function renderArchive(route, { listing = {} } = {}) {
   const w = getPublicWords(route.lang);
   const titles = { article: w.nav[0], image_text: w.nav[1], video: w.nav[2] };
   const copy = route.lang === "en" ? {
-    article: "The reasoning, trade-offs and practice behind AI products and business operations.", image_text: "Diagrams and visual notes, explained one frame at a time.", video: "Watch the work, then inspect its chapters, transcript and sources.",
-  } : { article: "记录 AI 产品与经营中的具体问题、取舍和实践。", image_text: "用图解说明问题，按顺序读懂每一步。", video: "观看具体工作，也能直接阅读章节、文稿与来源。" };
+    article: "Stories about people, seasons, customs and the sources of Yimeng Mountain produce.", image_text: "A sequence of visual notes around one action, object or real encounter.", video: "Watch life in the courtyard, then inspect chapters, transcript and sources.",
+  } : { article: "记录沂蒙山的人物、四季、风土和山货来处。", image_text: "用一组图文讲清一个动作、一件物产或一次真实来往。", video: "观看小院的日子，也能直接阅读章节、文稿与来源。" };
   const items = Array.isArray(listing.items) ? listing.items : [];
   return `<section data-public-archive="${escapeHtml(route.format)}"><header class="archive-heading"><p class="site-eyebrow">${escapeHtml(w.journal)}</p><h1>${escapeHtml(titles[route.format])}</h1><p>${escapeHtml(copy[route.format])}</p></header><div class="library-heading">${archiveFilters(route)}${Number.isSafeInteger(listing.total) && listing.total > 0 ? `<span class="archive-count">${listing.total} ${route.lang === "en" ? "published" : "篇已公开"}</span>` : ""}</div><div id="journal-results" class="journal-results">${items.length ? renderPublicCards(items, route.lang) : renderEmpty(route)}</div>${moreButton(listing, route.lang)}</section>`;
 }
@@ -309,13 +309,13 @@ function renderDetail(route, detail) {
 function renderAbout(route, profile = {}) {
   const w = getPublicWords(route.lang);
   const identity = profileText(profile, route.lang);
-  return `<section class="about-page"><p class="site-eyebrow">${escapeHtml(w.journal)}</p><h1>${w.aboutTitle}</h1><p class="about-identity">${escapeHtml(identity.displayName)}</p><p class="about-statement">${escapeHtml(identity.headline)}</p><div class="piece-body"><p>${escapeHtml(w.aboutCopy)}</p></div><a class="site-text-link" href="https://github.com/geniusdapeng-collab" target="_blank" rel="noopener noreferrer">${w.github} <span aria-hidden="true">↗</span></a><div class="about-signature" aria-hidden="true">PengManager<span>李大鹏</span></div></section>`;
+  return `<section class="about-page"><p class="site-eyebrow">${escapeHtml(w.journal)}</p><h1>${w.aboutTitle}</h1><p class="about-identity">${escapeHtml(identity.displayName)}</p><p class="about-statement">${escapeHtml(identity.headline)}</p><div class="piece-body"><p>${escapeHtml(w.aboutCopy)}</p></div><a class="site-text-link" href="https://github.com/geniusdapeng-collab/workloom-yaoayi" target="_blank" rel="noopener noreferrer">${w.github} <span aria-hidden="true">↗</span></a><div class="about-signature" aria-hidden="true">姚阿姨<span>沂蒙山咖啡小院</span></div></section>`;
 }
 
 function renderWork(route, profile = {}) {
   const w = getPublicWords(route.lang);
   const claims = Array.isArray(profile.claims) ? profile.claims : [];
-  return `<section class="work-page"><header class="archive-heading"><p class="site-eyebrow">${route.lang === "en" ? "WORK / EVIDENCE" : "作品 / 公开证据"}</p><h1>${w.workTitle}</h1><p>${w.workCopy}</p></header><div class="work-evidence">${claims.length ? claims.map(claim => `<article><p>${escapeHtml(claim.text)}</p>${renderSourceLinks([claim.source || {}], route.lang)}</article>`).join("") : `<p class="reading-notice">${w.workEmpty}</p>`}</div><a class="site-text-link" href="https://github.com/geniusdapeng-collab" target="_blank" rel="noopener noreferrer">${w.github} <span aria-hidden="true">↗</span></a></section>`;
+  return `<section class="work-page"><header class="archive-heading"><p class="site-eyebrow">${route.lang === "en" ? "WORK / EVIDENCE" : "资料 / 公开事实"}</p><h1>${w.workTitle}</h1><p>${w.workCopy}</p></header><div class="work-evidence">${claims.length ? claims.map(claim => `<article><p>${escapeHtml(claim.text)}</p>${renderSourceLinks([claim.source || {}], route.lang)}</article>`).join("") : `<p class="reading-notice">${w.workEmpty}</p>`}</div><a class="site-text-link" href="https://github.com/geniusdapeng-collab/workloom-yaoayi" target="_blank" rel="noopener noreferrer">${w.github} <span aria-hidden="true">↗</span></a></section>`;
 }
 
 function renderState(route, { loading, error } = {}) {
@@ -324,7 +324,7 @@ function renderState(route, { loading, error } = {}) {
   const code = Number(error?.status || (route.kind === "not_found" ? 404 : 0));
   const title = code === 410 ? w.withdrawnTitle : code === 404 ? w.notFoundTitle : w.errorTitle;
   const copy = code === 410 ? w.withdrawn : code === 404 ? w.notFound : w.error;
-  return `<section class="journal-state"${code ? ' data-public-unavailable="true"' : ' role="alert"'}><p class="site-eyebrow">${code || "PENGMANAGER"}</p><h1>${escapeHtml(title)}</h1><p>${escapeHtml(copy)}</p><div class="state-actions">${code ? "" : `<button type="button" class="site-button" data-retry-page>${w.retry}</button>`}<a class="site-text-link" href="/${route.lang}">${w.emptyAction} <span aria-hidden="true">→</span></a></div></section>`;
+  return `<section class="journal-state"${code ? ' data-public-unavailable="true"' : ' role="alert"'}><p class="site-eyebrow">${code || "YIMENG MOUNTAIN"}</p><h1>${escapeHtml(title)}</h1><p>${escapeHtml(copy)}</p><div class="state-actions">${code ? "" : `<button type="button" class="site-button" data-retry-page>${w.retry}</button>`}<a class="site-text-link" href="/${route.lang}">${w.emptyAction} <span aria-hidden="true">→</span></a></div></section>`;
 }
 
 export function renderPublicPage(route, data = {}) {

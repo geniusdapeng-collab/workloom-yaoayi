@@ -33,11 +33,11 @@ try {
   }
   const password = Buffer.concat(chunks).toString("utf8").replace(/\r?\n$/, "");
   const passwordHash = await hashAdminPassword(password);
-  const body = ["# PengManager runtime configuration. Contains credential hashes; keep mode 0600.",
+  const body = ["# Yao Ayi runtime configuration. Contains credential hashes; keep mode 0600.",
     "NODE_ENV=production", "HOST=127.0.0.1", "PORT=4318", `ALLOWED_HOSTS=${domain}`,
     `PUBLIC_ORIGIN=https://${domain}`, "PUBLIC_WEBSITE=1", "ENABLE_MEDIA_RENDER=false",
-    "DATA_FILE=/var/lib/pengmanager-system/state.json",
-    "GEO_ENGINE_DB=/var/lib/pengmanager-system/geo-engine/personal-geo.sqlite",
+    "DATA_FILE=/var/lib/yaoayi-system/state.json",
+    "GEO_ENGINE_DB=/var/lib/yaoayi-system/geo-engine/personal-geo.sqlite",
     "CONTENT_DIRECTOR_MODE=enabled", "ENABLE_CONTENT_DIRECTOR=true",
     `ADMIN_PASSWORD_HASH=${passwordHash}`, "ADMIN_AGENT_TOKEN_HASH=", "ADMIN_SESSION_TTL_SECONDS=28800",
     "GITHUB_TOKEN=", "DEEPSEEK_API_KEY=", ""].join("\n");

@@ -28,9 +28,9 @@ const asset = (id, role, extra = {}) => ({ assetId: id, role, sha256: "b".repeat
 test("hydrated bilingual page titles and descriptions match the initial server document", async () => {
   const template = await readFile(new URL("../public/site.html", import.meta.url), "utf8");
   const cases = [
-    ["/zh", "PengManager · 李大鹏的个人媒体"], ["/en", "PengManager · Writing from practice"],
+    ["/zh", "姚阿姨 · 沂蒙山咖啡小院"], ["/en", "Yao Ayi · Yimeng Mountain Coffee Courtyard"],
     ["/zh/articles", "文章"], ["/en/articles", "Article"], ["/zh/visuals", "图文"], ["/en/videos", "Video"],
-    ["/zh/about", "关于李大鹏"], ["/en/about", "About Dapeng Li"], ["/zh/work", "作品与公开证据"], ["/en/work", "Work & public evidence"],
+    ["/zh/about", "关于姚阿姨"], ["/en/about", "About Yao Ayi"], ["/zh/work", "公开资料与事实"], ["/en/work", "Public facts & references"],
   ];
   for (const [path, expected] of cases) {
     const route = parsePublicRoute(path);
@@ -39,7 +39,11 @@ test("hydrated bilingual page titles and descriptions match the initial server d
     assert.equal(metadata.title, expected, path);
     assert.ok(initial.includes(`<title>${escapeHtml(metadata.title)}</title>`), path);
     assert.ok(initial.includes(`<meta name="description" content="${escapeHtml(metadata.description)}" />`), path);
-    assert.equal((metadata.title.match(/PengManager/g) || []).length, path === "/zh" || path === "/en" ? 1 : 0, path);
+    assert.equal(
+      (metadata.title.match(/Yao Ayi|姚阿姨/g) || []).length,
+      ["/zh", "/en", "/zh/about", "/en/about"].includes(path) ? 1 : 0,
+      path,
+    );
   }
 });
 
@@ -82,7 +86,7 @@ test("bilingual headers link only the same published edition and explain missing
 test("empty production site contains truthful empty states without invented publications", () => {
   const zh = renderPublicPage(parsePublicRoute("/zh"), { listing: { items: [], total: 0 } });
   const en = renderPublicPage(parsePublicRoute("/en/visuals"), { listing: { items: [], total: 0 } });
-  assert.match(zh, /第一批内容，正在认真准备/);
+  assert.match(zh, /第一批小院图文，正在认真准备/);
   assert.match(en, /no published pieces/i);
   for (const output of [zh, en]) {
     assert.doesNotMatch(output, /data-public-release=/);

@@ -43,9 +43,9 @@ test("WorkLoom launch emits a verifiable 60-second Ed25519 assertion", () => {
   assert.match(issued.launchUrl, /^https:\/\/pm\.example\.com\/assistant#__launch=/);
   assert.equal(decodeLaunch(issued.launchUrl).exp - decodeLaunch(issued.launchUrl).iat, 60);
   assert.deepEqual(decodeLaunch(issued.launchUrl), {
-    iss: "pengmanager",
+    iss: "yaoayi",
     aud: "workloom-pm",
-    sub: "pengmanager-owner",
+    sub: "yaoayi-owner",
     jti: decodeLaunch(issued.launchUrl).jti,
     iat: 1_793_232_000,
     nbf: 1_793_231_999,

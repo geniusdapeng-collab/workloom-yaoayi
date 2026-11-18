@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { CURRENT_ALIASES, LEGACY_ALIASES, MAIN_PROFILE, SYSTEM_IDENTITY } from "../domain/identity.mjs";
-import { hashObject } from "../domain/hash.mjs";
 import { ApiError } from "../domain/errors.mjs";
+import { hashObject, hashText } from "../domain/hash.mjs";
 import { LEGACY_PLATFORM_IDS } from "../domain/platform-catalog.mjs";
 import { JsonStore } from "../storage/json-store.mjs";
 
@@ -50,57 +50,113 @@ export async function loadSeedState(dataDir) {
 }
 
 // Change profile metadata once without rewriting published content or ledger history.
-export async function migratePengManagerIdentity(store, dataDir) {
+export async function migrateYaoAyiIdentity(store, dataDir) {
   const current = store.snapshot();
-  if (current.entity?.id !== MAIN_PROFILE.id || current.entity.profileVersion >= 2) {
+  if (current.entity?.id === MAIN_PROFILE.id
+      && Number(current.entity.profileVersion ?? 0) >= MAIN_PROFILE.profileVersion) {
     return false;
   }
-  const [seed, legacy] = await Promise.all([
+  const [seed, retired] = await Promise.all([
     loadSeedState(dataDir),
-    readJson(join(dataDir, "..", "migrations", "identity-v1.json")),
+    readJson(join(dataDir, "..", "migrations", "retired-v1-default-hashes.json")),
+  ]);
+  const retiredAliases = new Set([
+    "李大鹏", "PengManager", "Dapeng Li", "鹏经理", "鹏经理系统",
+    "PengManager System", "鹏栈", "PengStack", "dapengstack",
   ]);
   await store.mutate(
-    { type: "identity.updated", actor: "PengManager", payload: { profileVersion: 2, systemId: SYSTEM_IDENTITY.id } },
+    {
+      type: "identity.updated",
+      actor: MAIN_PROFILE.englishName,
+      payload: {
+        profileVersion: MAIN_PROFILE.profileVersion,
+        systemId: SYSTEM_IDENTITY.id,
+        previousProfileId: current.entity?.id ?? null,
+        previousProfileVersion: current.entity?.profileVersion ?? null,
+      },
+    },
     (state) => {
       state.system = { ...SYSTEM_IDENTITY };
       state.entity = {
         ...state.entity,
         ...MAIN_PROFILE,
-        aliases: [...new Set([...CURRENT_ALIASES, ...LEGACY_ALIASES, ...(state.entity.aliases ?? [])])],
+        aliases: [...new Set([
+          ...CURRENT_ALIASES,
+          ...LEGACY_ALIASES,
+          ...(state.entity.aliases ?? []).filter((alias) => !retiredAliases.has(alias)),
+        ])],
+        ownedUrlPrefixes: [...new Set([
+          "https://github.com/geniusdapeng-collab/workloom-yaoayi",
+          ...(state.entity.ownedUrlPrefixes ?? []).filter((prefix) =>
+            ![
+              "https://github.com/geniusdapeng-collab",
+              "https://cnb.cool/workloom-ai",
+            ].includes(prefix)),
+        ])],
       };
-      const profileFields = ["language", "name", "nameZh", "nameEn", "displayName", "displayNameZh", "displayNameEn", "bio", "bioZh", "bioEn"];
+      const profileFields = [
+        "language", "name", "nameZh", "nameEn", "displayName", "displayNameZh",
+        "displayNameEn", "bio", "bioZh", "bioEn", "audience", "contentFocus",
+        "cadence", "formats", "policyStatus", "policyCheckedAt",
+      ];
       for (const account of state.accounts) {
         const defaults = seed.accounts.find((row) => row.id === account.id);
         if (!defaults) continue;
+        if (["dapengstack", "本人实名"].includes(account.handle)) account.handle = defaults.handle;
+        if (account.profileUrl === "https://pengmanager.com" || account.profileUrl?.startsWith("https://pengmanager.com/")) {
+          account.profileUrl = defaults.profileUrl ?? "";
+        }
         for (const field of profileFields) {
           if (defaults[field] !== undefined) account[field] = defaults[field];
         }
+        account.status = defaults.status;
+        account.policyStatus = defaults.policyStatus;
+        account.identityVersion = 2;
+        account.identityReview = {
+          status: "unverified",
+          reason: "new_owner_profile_requires_platform_verification",
+        };
       }
       for (const query of state.queries) {
-        const previous = legacy.queries.find((row) => row.id === query.id);
         const next = seed.queries.find((row) => row.id === query.id);
-        if (previous && next && query.text === previous.text) query.text = next.text;
+        const previous = retired.queries?.[query.id];
+        if (next && previous?.textSha256 === hashText(query.text)) Object.assign(query, next);
       }
       for (const claim of state.claims) {
-        const previous = legacy.claims.find((row) => row.id === claim.id);
         const next = seed.claims.find((row) => row.id === claim.id);
-        if (previous && next && claim.state !== "approved" && claim.text === previous.text) {
-          claim.text = next.text;
-          if (claim.source?.label === previous.source?.label) claim.source.label = next.source.label;
-        }
-      }
-      for (const item of state.contentBank ?? []) {
-        const previous = legacy.contentBank.find((row) => row.id === item.id);
-        const next = seed.contentBank.find((row) => row.id === item.id);
-        if (!previous || !next) continue;
-        for (const field of ["title", "hook", "thesis"]) {
-          if (item[field] === previous[field]) item[field] = next[field];
+        const previous = retired.claims?.[claim.id];
+        if (next && claim.state !== "approved"
+            && previous?.textSha256 === hashText(claim.text)
+            && previous?.sourceLabelSha256 === hashText(claim.source?.label ?? "")) {
+          Object.assign(claim, next);
         }
       }
       for (const content of state.content) {
-        if (content.status === "draft" && content.owner === "PengStack") content.owner = "PengManager";
+        const next = seed.content.find((row) => row.id === content.id);
+        const previous = retired.content?.[content.id];
+        if (next && content.status === "draft"
+            && previous?.titleSha256 === hashText(content.title)
+            && previous?.bodySha256 === hashText(content.body)) {
+          Object.assign(content, next);
+        } else if (content.status === "draft"
+            && ["PengManager", "PengStack"].includes(content.owner)) {
+          content.owner = MAIN_PROFILE.englishName;
+        }
       }
-      return { profileVersion: 2 };
+      const nextBank = new Map(seed.contentBank.map((row) => [row.id, row]));
+      for (const item of state.contentBank ?? []) {
+        const previous = retired.contentBank?.[item.id];
+        const next = nextBank.get(item.id);
+        if (!next || !previous) continue;
+        if (previous.titleSha256 === hashText(item.title)
+            && previous.hookSha256 === hashText(item.hook)
+            && previous.thesisSha256 === hashText(item.thesis)) {
+          Object.assign(item, next);
+        }
+        nextBank.delete(item.id);
+      }
+      state.contentBank = [...(state.contentBank ?? []), ...nextBank.values()];
+      return { profileVersion: MAIN_PROFILE.profileVersion };
     },
   );
   return true;

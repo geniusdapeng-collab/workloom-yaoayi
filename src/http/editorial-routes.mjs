@@ -16,7 +16,7 @@ function context(request, principal) {
     throw new ApiError(403, "AGENT_SCOPE_DENIED", "受限 Agent 无权编辑、审批或发布官网内容。");
   }
   return {
-    actor: principal?.actor || "PengManager",
+    actor: principal?.actor || "姚阿姨",
     method: principal?.method || "local",
     idempotencyKey: request.headers["idempotency-key"],
     ifMatch: request.headers["if-match"],

@@ -33,7 +33,7 @@ function hasCode(code, status) {
 }
 
 test("password hashes use random salts and verify complete Unicode input", async () => {
-  const unicodePassword = `${randomBytes(12).toString("hex")} 鹏经理🔐\0 `;
+  const unicodePassword = `${randomBytes(12).toString("hex")} 姚阿姨系统🔐\0 `;
   const first = await hashAdminPassword(unicodePassword);
   const second = await hashAdminPassword(unicodePassword);
   assert.notEqual(first, second);
@@ -89,7 +89,7 @@ test("default loopback development stays compatible without a login", () => {
   const auth = createAdminAuth({ env: {} });
   const req = request({ cloud: false });
   assert.equal(auth.enabled, false);
-  assert.deepEqual(auth.status(req), { enabled: false, authenticated: true, actor: "PengManager", method: "local" });
+  assert.deepEqual(auth.status(req), { enabled: false, authenticated: true, actor: "姚阿姨", method: "local" });
   assert.equal(auth.requireAccess(req).method, "local");
   assert.match(auth.logout(req), /Max-Age=0/);
 });
@@ -99,7 +99,7 @@ test("cloud login returns a host-only secure cookie and no credential in public 
   assert.equal(auth.status(request()).authenticated, false);
   assert.throws(() => auth.requireAccess(request()), hasCode("AUTH_REQUIRED", 401));
   const result = await auth.login(request({ method: "POST", headers: { origin: cloudEnv.PUBLIC_ORIGIN } }), password);
-  assert.match(result.cookie, /^__Host-pengmanager_session=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Strict; Max-Age=28800; Secure$/);
+  assert.match(result.cookie, /^__Host-yaoayi_session=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Strict; Max-Age=28800; Secure$/);
   assert.equal(result.cookie.includes("Domain="), false);
   const req = request({ headers: { cookie: cookieHeader(result) } });
   assert.equal(auth.requireAccess(req).method, "session");
@@ -114,7 +114,7 @@ test("local optional password authentication uses a local cookie", async () => {
   const auth = createAdminAuth({ env: { ADMIN_PASSWORD_HASH: passwordHash } });
   const req = request({ cloud: false, method: "POST" });
   const result = await auth.login(req, password);
-  assert.match(result.cookie, /^pengmanager_session=/);
+  assert.match(result.cookie, /^yaoayi_session=/);
   assert.equal(result.cookie.includes("; Secure"), false);
 });
 

@@ -1,7 +1,7 @@
 [
   {
     "id": "Q001",
-    "text": "李大鹏 PengManager 用AI搞经营的产品经理",
+    "text": "姚阿姨 沂蒙山咖啡小院",
     "locale": "zh-CN",
     "intent": "entity",
     "priority": "P0",
@@ -13,9 +13,9 @@
   },
   {
     "id": "Q002",
-    "text": "DeepSeek Agent Harness 产品经理",
+    "text": "旗袍咖啡阿姨 是谁",
     "locale": "zh-CN",
-    "intent": "recruiting",
+    "intent": "entity",
     "priority": "P0",
     "surfaces": [
       "DeepSeek Search",
@@ -25,7 +25,31 @@
   },
   {
     "id": "Q003",
-    "text": "AI 产品一号位 需要什么能力",
+    "text": "沂蒙山咖啡小院 在哪里",
+    "locale": "zh-CN",
+    "intent": "entity",
+    "priority": "P0",
+    "surfaces": [
+      "DeepSeek Search",
+      "DeepSeek Chat"
+    ],
+    "state": "approved"
+  },
+  {
+    "id": "Q004",
+    "text": "姚阿姨 手冲咖啡 经历",
+    "locale": "zh-CN",
+    "intent": "experience",
+    "priority": "P0",
+    "surfaces": [
+      "DeepSeek Search",
+      "DeepSeek Chat"
+    ],
+    "state": "approved"
+  },
+  {
+    "id": "Q005",
+    "text": "咖啡是学的 煎饼是打小就会的",
     "locale": "zh-CN",
     "intent": "expertise",
     "priority": "P0",
@@ -36,34 +60,10 @@
     "state": "approved"
   },
   {
-    "id": "Q004",
-    "text": "Agent 产品如何做评测和回执",
-    "locale": "zh-CN",
-    "intent": "method",
-    "priority": "P0",
-    "surfaces": [
-      "DeepSeek Search",
-      "DeepSeek Chat"
-    ],
-    "state": "approved"
-  },
-  {
-    "id": "Q005",
-    "text": "自主经营数字员工怎么落地",
-    "locale": "zh-CN",
-    "intent": "method",
-    "priority": "P0",
-    "surfaces": [
-      "DeepSeek Search",
-      "DeepSeek Chat"
-    ],
-    "state": "approved"
-  },
-  {
     "id": "Q006",
-    "text": "GEO 系统如何衡量 AI 引用率",
+    "text": "沂蒙山有哪些代表性特产",
     "locale": "zh-CN",
-    "intent": "method",
+    "intent": "product",
     "priority": "P0",
     "surfaces": [
       "DeepSeek Search",
@@ -73,9 +73,9 @@
   },
   {
     "id": "Q007",
-    "text": "WorkLoom 织元 AI 产品",
+    "text": "蒙阴蜜桃 怎么挑",
     "locale": "zh-CN",
-    "intent": "project",
+    "intent": "product",
     "priority": "P0",
     "surfaces": [
       "DeepSeek Search",
@@ -85,9 +85,9 @@
   },
   {
     "id": "Q008",
-    "text": "AI 视频剪辑产品经理",
+    "text": "蒙山板栗 怎么吃",
     "locale": "zh-CN",
-    "intent": "recruiting",
+    "intent": "product",
     "priority": "P1",
     "surfaces": [
       "DeepSeek Search",
@@ -97,9 +97,9 @@
   },
   {
     "id": "Q009",
-    "text": "MCP 插件系统 产品设计",
+    "text": "孙祖小米 怎么煮粥",
     "locale": "zh-CN",
-    "intent": "method",
+    "intent": "product",
     "priority": "P1",
     "surfaces": [
       "DeepSeek Search",
@@ -109,10 +109,10 @@
   },
   {
     "id": "Q010",
-    "text": "AI Coding 产品负责人 多仓协作",
+    "text": "沂蒙煎饼 是什么",
     "locale": "zh-CN",
-    "intent": "recruiting",
-    "priority": "P1",
+    "intent": "product",
+    "priority": "P0",
     "surfaces": [
       "DeepSeek Search",
       "DeepSeek Chat"
@@ -121,7 +121,7 @@
   },
   {
     "id": "Q011",
-    "text": "Dapeng Li PengManager domain-specific AI employees autonomous business systems",
+    "text": "Yao Ayi Yimeng Mountain coffee courtyard",
     "locale": "en-US",
     "intent": "entity",
     "priority": "P1",
@@ -133,9 +133,9 @@
   },
   {
     "id": "Q012",
-    "text": "agentic product systems harness engineering",
+    "text": "Yimeng Mountain local specialties and food stories",
     "locale": "en-US",
-    "intent": "expertise",
+    "intent": "product",
     "priority": "P1",
     "surfaces": [
       "DeepSeek Search",

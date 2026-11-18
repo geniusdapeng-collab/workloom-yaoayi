@@ -11,9 +11,9 @@ export function nativeEnvironment(config, privateState, urls, desktopKey, toolEn
     const textModel = textModelReadiness(config.env);
     const base = { ...withoutInstallationCredentials(config.env), ...urls,
       NODE_ENV:'production', SERVER_HOST:'127.0.0.1', SERVER_PORT:String(config.ports.backend), WEB_PORT:String(config.ports.web),
-      JWT_SECRET:privateState.credentials.jwt, JWT_ISSUER:'pengmanager-video', PII_SALT:privateState.credentials.pii,
+      JWT_SECRET:privateState.credentials.jwt, JWT_ISSUER:'yaoayi-video', PII_SALT:privateState.credentials.pii,
       MEDIA_SIGNING_SECRET:privateState.credentials.media, WORKLOOM_RENDER_SIGNING_SECRET:privateState.credentials.render,
-      WORKLOOM_DELIVERY_SIGNING_SECRET:createHmac('sha256',privateState.credentials.render).update('pengmanager-video-delivery-signing/v1').digest('base64url'),
+      WORKLOOM_DELIVERY_SIGNING_SECRET:createHmac('sha256',privateState.credentials.render).update('yaoayi-video-delivery-signing/v1').digest('base64url'),
       WORKLOOM_RENDER_SIGNING_KEY_ID:`pengmanager-${privateState.instanceId}`, WORKLOOM_AUDIO_STEM_SIGNING_SECRET:privateState.credentials.audio,
       WORKLOOM_DESKTOP_LOGIN_KEY:desktopKey, WORKLOOM_DESKTOP_WORKSPACE:SCOPE.slug, WORKLOOM_DESKTOP_MEMBER:SCOPE.memberNo,
       PENGMANAGER_ENGINE_ROOT:config.engineRoot, PENGMANAGER_VIDEO_DATA_DIR:config.dataRoot, PENGMANAGER_VIDEO_SOURCE_MAIN:config.sourceMain,

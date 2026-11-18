@@ -4,10 +4,10 @@ import { createHash } from 'node:crypto';
 import { modelEnvironmentArgs } from './ai-workbench-paths.mjs';
 
 export const AGENT_GUIDE_ID = 'pengmanager.agent.guide';
-export const MCP_INSTRUCTIONS = '先调用 pengmanager_agent_guide 并完整读取返回的文档，再执行任务。用户只需对话：有 shell 的 Codex/Qoder 由 Agent 执行同一 checkout 与私有目录的标准 CLI；MCP 提供指南、发现、计划和登记工具，不提供完整生产执行器。制作先用 pengmanager_video_workflow 保留原话与秒数，再用 pengmanager_video_preflight。计划不是成片；生产沿用 owner 授权、预算与原任务回执，结果未知时先对账，不重派。运行标准 CLI 前，先核查没有活跃本地作业，再用 pengmanager_video_stop 停止本 MCP 拥有的工位并读回状态；活跃作业先沿原任务查询，不抢锁或停止其他进程。';
+export const MCP_INSTRUCTIONS = '先调用 pengmanager_agent_guide 并完整读取返回的文档，再执行姚阿姨系统任务。用户只需对话：有 shell 的 Codex/Qoder 由 Agent 执行同一 checkout 与私有目录的标准 CLI；MCP 提供指南、发现、计划和登记工具，不提供完整生产执行器。制作先用 pengmanager_video_workflow 保留原话与秒数，再用 pengmanager_video_preflight。计划不是成片；生产沿用 owner 授权、预算与原任务回执，结果未知时先对账，不重派。运行标准 CLI 前，先核查没有活跃本地作业，再用 pengmanager_video_stop 停止本 MCP 拥有的工位并读回状态；活跃作业先沿原任务查询，不抢锁或停止其他进程。';
 
 export const agentGuideDescriptor = {
-  id: AGENT_GUIDE_ID, title: '读取鹏经理 AI Agent 完整接入指南',
+  id: AGENT_GUIDE_ID, title: '读取姚阿姨系统 AI Agent 完整接入指南',
   description: '首次接入、更新源码或开始任务时先调用。返回本 checkout 的完整指南、SHA-256、绝对 CLI 入口和 CLI/MCP 支持边界；只读，不读取密钥或私有授权，不启动服务。',
   operation: 'read', risk: 'low', dataMode: 'unverified',
   inputSchema: { type: 'object', properties: {}, additionalProperties: false },
@@ -36,7 +36,7 @@ export function readAiAgentGuide({ rootDir, dataDir, nodePath = process.execPath
     }
   });
   return {
-    schemaVersion: 'pengmanager.ai-agent-guide/v1', productId: 'pengmanager-system',
+    schemaVersion: 'pengmanager.ai-agent-guide/v1', productId: 'yaoayi-system',
     rootDir: root, dataDir, documents: docs,
     support: { shellRequiredForProduction: true, pureMcpProductionSupported: false,
       mcp: ['guide', 'catalog', 'registered-capabilities', 'workflow-plan', 'preflight'],

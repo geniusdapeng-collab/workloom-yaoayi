@@ -23,6 +23,19 @@ export async function editorialFixture(t, { verifier = true, mediaAssets, before
   t.after(async () => { await store.close(); await rm(directory, { recursive: true, force: true }); });
   const seed = await loadSeedState(join(ROOT, "data/seed"));
   if (seedTransform) seedTransform(seed);
+  const fixtureClaim = seed.claims.find(row => row.id === "C003");
+  fixtureClaim.source = {
+    label: "Isolated public fixture source for editorial behavior",
+    url: "https://github.com/geniusdapeng-collab/geo-evidence-studio",
+    visibility: "public",
+  };
+  fixtureClaim.sensitivity = "low";
+  fixtureClaim.expiresAt = "2027-01-01T00:00:00.000Z";
+  const github = seed.accounts.find(row => row.id === "github");
+  github.status = "active";
+  github.policyStatus = "reviewed";
+  github.policyCheckedAt = FIXED_TIME.toISOString();
+  github.identityReview = { status: "verified", reason: "isolated_fixture_only" };
   await store.open(async () => seed);
   await migrateEditorialState(store, { publicOrigin: "https://pengmanager.com", clock });
   const geoService = new GeoOsService({ store, clock });

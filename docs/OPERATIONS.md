@@ -1,7 +1,7 @@
-# 鹏经理系统 · PengManager System — Operations
+# 姚阿姨系统 · Yao Ayi System — Operations
 
-The product name is 鹏经理系统 / PengManager System. The main account is 李大鹏 /
-PengManager, with the canonical bilingual display names and bios in the
+The product name is 姚阿姨系统 / Yao Ayi System. The main account is 姚阿姨 /
+Yao Ayi, with the canonical bilingual display names and bios in the
 [README](../README.md). Platform handles and real account URLs remain the actual
 configured identifiers; a local profile update does not rename them remotely.
 
@@ -145,31 +145,32 @@ as a protected backup.
 
 ## Identity update and existing state
 
-New installations use the PengManager profile immediately. For an existing
+New installations use the Yao Ayi profile immediately. For an existing
 `var/state.json`, the server opens and verifies the hash event chain, then runs
 the versioned identity migration before constructing the control-plane services.
 
 The migration:
 
 - Updates the product and bilingual main-account profile, and refreshes the 16
-  local platform profiles while preserving their real handles and URLs.
-- Merges the previous brand aliases into the current entity's recognition
-  aliases so older AI answers can still be attributed to the same person.
+  local platform profiles to the Yao Ayi copy. Retired built-in handles are
+  replaced with `待核对`; verified custom handles and URLs remain.
+- Removes retired persona names from active aliases while preserving unrelated
+  custom recognition aliases for GEO.
 - Updates a seeded query only when its text still matches the recognized legacy
   default. Customized query text is retained.
 - Updates recognized legacy claim wording only while the claim is unapproved;
   existing approval decisions and approved fact text are retained.
 - Refreshes recognized legacy content-bank titles, hooks and theses while
   preserving edits that differ from the old defaults.
-- Changes the previous default owner on draft content to PengManager. Existing
+- Changes inherited default owner names on draft content to Yao Ayi. Existing
   published content and publication receipts retain their original values.
 - Appends an `identity.updated` event. Previous events and their hashes are not
   rewritten; repeated startup does not repeat the migration event.
 
-The GEO engine keeps case ID `pengstack-personal-geo` and stable `ps-*` query IDs
-for compatibility. Its current profile version and display name use PengManager.
-Recognized default query fields are refreshed while customized fields and
-historical samples, articles and publication receipts are retained.
+The GEO engine uses case ID `yaoayi-yimeng-coffee-courtyard` and `ps-*` query IDs
+for entity, story, local-produce and risk questions. Recognized default query
+fields are refreshed while customized fields and historical samples, articles
+and publication receipts are retained.
 
 Stop the service and back up all of `var/` before updating. Start normally with
 `node src/server.mjs`, then inspect the account profiles and `/api/events` to
@@ -192,7 +193,7 @@ node src/server.mjs
 
 The explicit PostgreSQL prefix must contain a complete PostgreSQL 17 tool
 package with pgvector. The installer copies `bin/lib/share` into private
-PengManager storage and creates its own authenticated cluster. It does not copy
+Yao Ayi storage and creates its own authenticated cluster. It does not copy
 an existing database or reuse an unrelated service occupying a managed port.
 `--install` uses the embedded lockfile; `--build` builds the embedded contract and
 web workbench. Use `--help` for the current supported CLI options. Ordinary root
@@ -238,9 +239,9 @@ identity or mismatched bytes fails the installation check visibly. The explicit
 legacy CNB interface remains available for compatibility regression tests.
 
 On macOS, video data defaults to
-`~/Library/Application Support/PengManager/video-runtime`; Windows uses
-`%LOCALAPPDATA%/PengManager/video-runtime`; Linux uses
-`$XDG_DATA_HOME/PengManager/video-runtime` or `~/.local/share/PengManager/video-runtime`.
+`~/Library/Application Support/Yao Ayi/video-runtime`; Windows uses
+`%LOCALAPPDATA%/Yao Ayi/video-runtime`; Linux uses
+`$XDG_DATA_HOME/Yao Ayi/video-runtime` or `~/.local/share/Yao Ayi/video-runtime`.
 Set `PENGMANAGER_VIDEO_DATA_DIR` to another owner-only directory outside this
 repository when needed. `private-state.json` binds the owned database identity
 and contains protected local credentials. Preserve it together with

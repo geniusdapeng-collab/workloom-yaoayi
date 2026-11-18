@@ -1,6 +1,6 @@
-# 鹏经理完整视频运行时
+# 姚阿姨系统完整视频运行时
 
-鹏经理主要通过 Codex 的 CLI 和 MCP 调用，根控制台保留自己的身份、内容状态和 GEO 数据。完整视频引擎来自仓库内的 `engines/video-edit`，默认 headless，只启动独立的本机 PostgreSQL、原生后端和工具进程。完整工作台源码一并保留，未来需要时可显式启用。源码固定版本和逐文件字节清单分别见 `upstreams/workloom-video-edit.pin.json`、`upstreams/workloom-video-edit.snapshot.json`。
+姚阿姨系统主要通过 Codex 的 CLI 和 MCP 调用，根控制台保留自己的身份、内容状态和 GEO 数据。完整视频引擎来自仓库内的 `engines/video-edit`，默认 headless，只启动独立的本机 PostgreSQL、原生后端和工具进程。完整工作台源码一并保留，未来需要时可显式启用。源码固定版本和逐文件字节清单分别见 `upstreams/workloom-video-edit.pin.json`、`upstreams/workloom-video-edit.snapshot.json`。
 
 ## 安装与启动
 
@@ -16,7 +16,7 @@ node scripts/video-setup.mjs --core-only --install --postgres-root /absolute/pos
 
 固定 UI 包从生产者的[官方公开 release](https://github.com/geniusdapeng-collab/workloom-im/releases/tag/ui-v0.1.19)下载，无需额外发布凭据。下载器核对固定 release、制品身份、大小、SHA-256 和 SRI，再预热本实例自己的私有依赖 store，按原始锁文件离线安装。历史 canonical 锁身份和原包字节不变；临时下载传输不会改写包版本、锁文件或 CAFS 身份。发布凭据不传给 pnpm、构建、工具或视频后端；安装期间只在内存中处理原包，不写入或上传仓库。显式 legacy CNB 下载接口仅用于兼容和边界回归，不是当前默认安装路径。
 
-首次安装使用包含 pgvector 的 PostgreSQL 17 工具目录，目录中应有 `bin`、`lib` 和 `share`。工具被复制到鹏经理私有数据目录；数据库数据不从其他项目导入。
+首次安装使用包含 pgvector 的 PostgreSQL 17 工具目录，目录中应有 `bin`、`lib` 和 `share`。工具被复制到姚阿姨系统私有数据目录；数据库数据不从其他项目导入。
 
 ```sh
 node scripts/video-setup.mjs --postgres-root /absolute/postgresql-17-prefix --install
@@ -43,9 +43,9 @@ node scripts/video-start.mjs
 
 ## 数据、凭据与装配
 
-macOS 默认私有目录为 `~/Library/Application Support/PengManager/video-runtime`。其中包括数据库、工作档案、媒体、工具安装、日志和凭据状态。Linux 使用 XDG 数据目录，Windows 使用本机应用数据目录。不要把这个目录提交到 Git。
+macOS 默认私有目录为 `~/Library/Application Support/YaoAyi/video-runtime`。其中包括数据库、工作档案、媒体、工具安装、日志和凭据状态。Linux 使用 XDG 数据目录，Windows 使用本机应用数据目录。不要把这个目录提交到 Git。
 
-数据库实例与凭据绑定，现有实例缺少原凭据、实例身份变化或端口被其他服务占用时，运行时会拒绝启动。不会为已有数据库静默生成替代凭据。已有鹏经理 JSON/GEO 数据继续使用根控制台原有存储。
+数据库实例与凭据绑定，现有实例缺少原凭据、实例身份变化或端口被其他服务占用时，运行时会拒绝启动。不会为已有数据库静默生成替代凭据。已有姚阿姨系统 JSON/GEO 数据继续使用根控制台原有存储。
 
 初始化只写入正式租户、主理人身份、原生行业包、岗位、围栏和技能元数据。它不导入上游演示任务、审批、渲染结果、经营指标或旧数据库。已有档案通过原生冲突处理保留，装配版本和策略变化会触发幂等升级。
 
@@ -88,6 +88,6 @@ TalkCraft/Remotion 保留完整安装、卡片和非商业评估入口。商业�
 
 启动和安装前先核对内置源码清单及其 pin 摘要，再检查依赖和构建。清单包含完整固定上游文件、显式目标适配和目标新增文件，逐文件核对 SHA-256；这是 B 级字节证据，不表示逐行语义审计。
 
-上游升级应重新生成逐文件清单与适配理由，保留鹏经理覆盖层，然后重新安装必要依赖、构建工作台、执行回归与独立运行验收。源码清单未封存、文件字节不符、依赖指向其他安装、必要的原生依赖构建缺失或私有目录权限不符时，诊断会显示失败原因；Web 构建只在显式启用工作台时要求。
+上游升级应重新生成逐文件清单与适配理由，保留姚阿姨系统覆盖层，然后重新安装必要依赖、构建工作台、执行回归与独立运行验收。源码清单未封存、文件字节不符、依赖指向其他安装、必要的原生依赖构建缺失或私有目录权限不符时，诊断会显示失败原因；Web 构建只在显式启用工作台时要求。
 
 仓库测试覆盖私有目录、凭据、锁、取消、进程失败、当前健康、同源会话、路径限制与快照篡改等边界。实际本机模型/媒体产出和源码不可读条件下的完整启停验收使用单独的脱敏回执；测试夹具的协议响应不作为真实供应商或真实经营证明。备份/恢复 UI 属于后续运营增强，当前私有数据库和原生档案持久化照常保留。

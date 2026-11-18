@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { createPengManagerAgent } from '../src/agent.mjs';
+import { createYaoAyiAgent } from '../src/agent.mjs';
 import { MCP_INSTRUCTIONS } from '../src/ai-agent-guide.mjs';
 
 const versions = new Set(['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25']);
-const agent = await createPengManagerAgent();
+const agent = await createYaoAyiAgent();
 const reply = (id, result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\n');
 const failure = (id, code, message) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, error: { code, message } }) + '\n');
 let pending = Promise.resolve(), closing = false, buffer = '';
@@ -15,7 +15,7 @@ async function handle(request) {
     reply(id, {
       protocolVersion: versions.has(params?.protocolVersion) ? params.protocolVersion : '2025-11-25',
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'pengmanager-system', version: '1.0.0' },
+      serverInfo: { name: 'yaoayi-system', version: '1.0.0' },
       instructions: MCP_INSTRUCTIONS,
     });
     return;
@@ -32,7 +32,7 @@ async function handle(request) {
 function close() {
   if (closing) return;
   closing = true; process.stdin.pause();
-  void pending.finally(() => agent.stop()).catch(() => { process.stderr.write('PengManager shutdown failed.\n'); process.exitCode = 1; });
+  void pending.finally(() => agent.stop()).catch(() => { process.stderr.write('Yao Ayi System shutdown failed.\n'); process.exitCode = 1; });
 }
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', chunk => {
@@ -50,4 +50,4 @@ process.stdin.on('data', chunk => {
 });
 process.stdin.on('end', () => { if (buffer.trim()) failure(null, -32700, 'Incomplete JSON-RPC frame.'); close(); });
 process.once('SIGINT', close); process.once('SIGTERM', close);
-process.stderr.write('PengManager MCP ready (stdio).\n');
+process.stderr.write('Yao Ayi System MCP ready (stdio).\n');

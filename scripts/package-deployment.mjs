@@ -61,7 +61,7 @@ try {
   const contentSha256 = digest(JSON.stringify(files));
   const manifest = { schema: "pengmanager-deployment/v1", gitSha, dirty, contentSha256,
     createdAt: new Date().toISOString(), packageManager: packageJson.packageManager, files };
-  const name = `pengmanager-system-${gitSha.slice(0, 12)}-${contentSha256.slice(0, 12)}.tar.gz`;
+  const name = `yaoayi-system-${gitSha.slice(0, 12)}-${contentSha256.slice(0, 12)}.tar.gz`;
   if (dryRun) {
     console.log(JSON.stringify({ ok: true, dryRun: true, gitSha, dirty, files: files.length,
       contentSha256, archive: join(outDir, name), excluded: candidates.length - files.length }, null, 2));

@@ -15,10 +15,10 @@ const content = { id: "CNT-021", title: "完整定稿", body: "  原文首行\r\
 const digest = value => createHash("sha256").update(value).digest("hex");
 
 async function fixture(t) {
-  const homeDir = await realpath(await mkdtemp(join(tmpdir(), "pengmanager-final-backup-")));
+  const homeDir = await realpath(await mkdtemp(join(tmpdir(), "yaoayi-final-backup-")));
   t.after(() => rm(homeDir, { recursive: true, force: true }));
   return { homeDir, writer: createMacFinalContentBackup({ platform: "darwin", homeDir, clock: () => new Date(timestamp) }),
-    root: join(homeDir, "Downloads", "pengmanager 备份") };
+    root: join(homeDir, "Downloads", "yaoayi 备份") };
 }
 
 test("shared format preserves exact Unicode/CRLF/whitespace bytes and whitelists metadata", async () => {

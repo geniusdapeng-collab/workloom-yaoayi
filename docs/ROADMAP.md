@@ -1,12 +1,12 @@
-# 鹏经理系统 · PengManager System — Roadmap
+# 姚阿姨系统 · Yao Ayi System — Roadmap
 
-The system serves 李大鹏 / PengManager. Its current identity and account copy
+The system serves 姚阿姨 / Yao Ayi. Its current identity and account copy
 are documented in the [README](../README.md); the repository slug and historical
 evidence URLs remain unchanged.
 
-## 2026-10-24: PengManager identity update
+## 2026-10-24: Yao Ayi identity update
 
-- Unify product naming as 鹏经理系统 / PengManager System.
+- Unify product naming as 姚阿姨系统 / Yao Ayi System.
 - Unify Chinese and English account names, display names and bios.
 - Refresh dashboard, content-production defaults and personal GEO templates.
 - Migrate recognized legacy local defaults while preserving customized records,

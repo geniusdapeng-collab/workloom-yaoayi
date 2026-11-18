@@ -32,7 +32,7 @@ test("integrated personal GEO engine seeds queries and produces a 100-sample fix
     assert.equal(run.failed, 0);
     assert.ok(run.metrics.brandNegativeSamples > 0);
     const articles = engine.generateArticles();
-    assert.equal(articles.created.length, 10);
+    assert.equal(articles.created.length, 12);
   } finally {
     engine.close();
     await rm(directory, { recursive: true, force: true });

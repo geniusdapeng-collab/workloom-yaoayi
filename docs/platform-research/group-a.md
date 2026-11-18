@@ -2473,7 +2473,7 @@
 
 **支持什么**：强调原创增量、第一手经验、准确标题、作者与制作方式；不规定偏好字数。
 
-**局限**：文档不是 PengManager 站内表现或排名保证。
+**局限**：文档不是 Yao Ayi 站内表现或排名保证。
 
 **原始或解析缓存**：原研究取证标识：platform-research-a/raw/researchASource-site-helpful.json
 

@@ -437,7 +437,7 @@ function pdfFromPages(pages, title) {
   objects[0] = Buffer.from("<< /Type /Catalog /Pages 2 0 R >>");
   objects[1] = Buffer.from(`<< /Type /Pages /Count ${pages.length} /Kids [${kids.join(" ")}] >>`);
   const infoId = objects.length + 1, titleBytes = Buffer.from(`\ufeff${title}`, "utf16le"); titleBytes.swap16();
-  objects.push(Buffer.from(`<< /Title <${titleBytes.toString("hex")}> /Producer (PengManager deterministic renderers v1) >>`));
+  objects.push(Buffer.from(`<< /Title <${titleBytes.toString("hex")}> /Producer (Yao Ayi System deterministic renderers v1) >>`));
   const chunks = [Buffer.from("%PDF-1.7\n%\xe2\xe3\xcf\xd3\n", "latin1")], offsets = [0];
   let position = chunks[0].length;
   for (let index = 0; index < objects.length; index++) {

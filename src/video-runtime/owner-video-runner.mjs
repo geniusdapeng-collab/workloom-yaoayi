@@ -80,7 +80,7 @@ export async function runOwnerVideoMake({ action, id, dataDir, rootDir, request 
     if (!startup.ready || !startup.dbHealth?.owned) fail('NATIVE_OWNER_RUNTIME_REQUIRED', 'The owned local PostgreSQL and native service must be ready.');
     const session = await runtime.nativeSession();
     if (session.identity?.tenantId !== SCOPE.tenantId || session.identity?.workspaceId !== SCOPE.workspaceId || session.identity?.role !== 'owner') {
-      fail('NATIVE_SESSION_SCOPE_MISMATCH', 'The current private owner session is outside PengManager scope.');
+      fail('NATIVE_SESSION_SCOPE_MISMATCH', 'The current private owner session is outside Yao Ayi System scope.');
     }
     const api = 'http://127.0.0.1:' + config.ports.backend;
     async function query(route, input, method = 'GET') {

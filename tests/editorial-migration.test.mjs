@@ -35,7 +35,7 @@ test("schema1 dry-run is read-only; additive migration preserves every old ID, c
   const result = await migrateEditorialState(store, { publicOrigin: "https://pengmanager.com", clock });
   assert.equal(result.changed, true);
   const after = store.snapshot();
-  assert.equal(after.schemaVersion, 2); assert.equal(after.entity.profileVersion, 2);
+  assert.equal(after.schemaVersion, 2); assert.equal(after.entity.profileVersion, 3);
   assert.equal(after.revision, before.revision + 1);
   assert.deepEqual(after.events.slice(0, -1), before.events);
   assert.equal(verifyEventChain(after.events).valid, true);

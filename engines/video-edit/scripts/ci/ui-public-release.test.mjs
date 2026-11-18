@@ -26,8 +26,9 @@ function fixture({ releaseValue = release(), releaseStatus = 200, assetStatus = 
   const fetchImplementation = async (url, options) => {
     calls.push({ url: String(url), options });
     if (calls.length === failAt) throw new Error('credential-never-leak ' + cdn);
-    if (calls.length === 1) return new Response(JSON.stringify(releaseValue), { status: releaseStatus });
-    if (calls.length === 2) return new Response(assetStatus === 200 ? bytes : null, { status: assetStatus, headers: { Location: redirect } });
+  if (String(url) === PIN.releaseUrl) return new Response(JSON.stringify(releaseValue), { status: releaseStatus });
+  if (String(url) === PIN.browserUrl) return new Response(null, { status: 302, headers: { Location: redirect } });
+  if (String(url) === PIN.assetUrl) return new Response(assetStatus === 200 ? bytes : null, { status: assetStatus, headers: { Location: redirect } });
     return new Response(bytes, { status: finalStatus });
   };
   return { calls, fetchImplementation };
@@ -54,13 +55,29 @@ test('public transport binds immutable release/source/asset and sends no credent
   assert.deepEqual(result.bytes, archive);
   assert.deepEqual(result.proof, {
     bytes: PIN.bytes, sha256: PIN.sha256, sri: PIN.sri,
-    transport: 'official-github', officialSourceVerified: true,
+    transport: 'official-github', officialSourceVerified: true, releaseIdentityApiVerified: true,
     producer: PIN.producer, sourceCommit: PIN.sourceCommit, tag: PIN.tag,
     releaseId: String(PIN.releaseId), assetId: String(PIN.assetId),
     authenticatedApi: false, credentialsForwardedToCdn: false,
     apiOrigin: 'https://api.github.com', assetOrigin: 'https://release-assets.githubusercontent.com',
   });
   assert.equal(JSON.stringify(result.proof).includes('signature'), false);
+});
+test('pinned browser release URL is used when the GitHub API is rate-limited, still without credentials', async () => {
+  for (const releaseStatus of [403, 429]) {
+    const mock = fixture({ releaseStatus });
+    const result = await downloadOfficialUi(mock);
+    assert.deepEqual(mock.calls.map(call => call.url), [PIN.releaseUrl, PIN.browserUrl, cdn]);
+    assert.equal(result.proof.releaseIdentityApiVerified, false);
+    assert.equal(result.proof.releaseApiStatus, releaseStatus);
+    assert.equal(result.proof.authenticatedApi, false);
+    assert.equal(result.proof.credentialsForwardedToCdn, false);
+    for (const call of mock.calls) {
+      assert.equal(Object.keys(call.options.headers).some(key => /authorization|cookie/i.test(key)), false);
+    }
+    assert.equal(mock.calls[2].options.headers.Authorization, undefined);
+    assert.equal(JSON.stringify(result.proof).includes('signature'), false);
+  }
 });
 test('documented direct binary response needs no redirect or third request', async () => {
   const mock = fixture({ assetStatus: 200 }); const result = await downloadOfficialUi(mock);
@@ -109,7 +126,7 @@ test('both exact allowed GitHub asset CDN hostnames keep the repository boundary
   assert.equal(validateOfficialAssetRedirect(cdn.replace('release-assets.', 'objects.')).hostname, 'objects.githubusercontent.com');
 });
 for (const [options, expected] of [
-  [{ releaseStatus: 403 }, 'UI_PUBLIC_RELEASE_HTTP_403'],
+  [{ releaseStatus: 401 }, 'UI_PUBLIC_RELEASE_HTTP_401'],
   [{ assetStatus: 404 }, 'UI_PUBLIC_ASSET_HTTP_404'],
   [{ assetStatus: 307 }, 'UI_PUBLIC_ASSET_HTTP_307'],
   [{ finalStatus: 302 }, 'UI_PUBLIC_ASSET_DOWNLOAD_HTTP_302'],

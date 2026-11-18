@@ -1,4 +1,4 @@
-# 鹏经理本机视频制作入口
+# 姚阿姨系统本机视频制作入口
 
 `pengmanager.video.workflow` 和 `video-standard.mjs plan` 用于冻结用户原话与时长。拥有私有视频运行时的本机 owner 用同一个标准 CLI 推进真实项目。沿用[本机视频工位安装、真实模式和现有模型配置](CODEX-VIDEO-QUICKSTART.md)。已有同项目的原片或供应商任务时，优先沿该项目读回和核验。
 

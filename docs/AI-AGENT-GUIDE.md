@@ -1,14 +1,14 @@
-# 鹏经理系统：AI Agent 接入与操作指南
+# 姚阿姨系统：AI Agent 接入与操作指南
 
 **读者：接手本仓库的 Codex、其他编程 Agent、通过 HTTP 接入的运营 Agent，以及它们的管理员。** 克隆或更新代码后，先完整阅读根目录 [AGENTS.md](../AGENTS.md) 和本指南，再执行任务。API 字段参考 [API.md](API.md)，部署与恢复参考 [ALIYUN-DEPLOYMENT.md](ALIYUN-DEPLOYMENT.md)，完整本机视频运行时参考 [VIDEO-RUNTIME.md](VIDEO-RUNTIME.md)。
 
-本指南依据仓库实现编写。生产入口为 <https://pengmanager.com>，私有后台为 <https://pengmanager.com/admin>。**拉到的代码、当前运行进程、云端部署版本可能不同。** 先检查目标服务和授权范围；接口不存在时核对版本，不要通过改数据库、借用管理员会话或伪造结果绕过。仓库包含完整本机视频能力，不表示小型云服务器已经安装这些依赖。
+本指南依据仓库实现编写。`https://yaoayi.example` 是保留给配置示例的占位域名，不是已上线地址；实际生产入口和私有后台域名必须由主人在部署时确认。**拉到的代码、当前运行进程、云端部署版本可能不同。** 先检查目标服务和授权范围；接口不存在时核对版本，不要通过改数据库、借用管理员会话或伪造结果绕过。仓库包含完整本机视频能力，不表示小型云服务器已经安装这些依赖。
 
 ## 1. 先确定自己要完成哪件事
 
 | 场景 | 正确流程 | 完成依据 |
 | --- | --- | --- |
-| 为李大鹏准备 GEO 文章并分发到一个平台账号 | 查询与证据 → 草稿 → 事实与正文审核 → 排期 → 单账号动作授权 → 实际平台发布 → 回读入账 | 已审核内容、精确授权、真实平台结果与回执；模型写完不算发布 |
+| 为姚阿姨准备 GEO 文章并分发到一个平台账号 | 查询与证据 → 草稿 → 事实与正文审核 → 排期 → 单账号动作授权 → 实际平台发布 → 回读入账 | 已审核内容、精确授权、真实平台结果与回执；模型写完不算发布 |
 | 接手已批准的帖子发布或读者回复 | 领取现有 `approved`、`browser` 动作 → 核对账号和正文 → `start` → 本机浏览器执行 → 实际回读 → `complete` | 原账号快照、正文哈希、结果 URL、实际发布时间和核验记录 |
 | 做每周品牌可见性观察并准备视频 | 固定问题 → 获准采集 → 保存真实回答与引用 → 看指标和风险 → 本机 CLI/MCP 准备视频任务 | 真实样本或明确导入来源；视频还需原生审批、预算、模型与产物证据 |
 
@@ -18,7 +18,7 @@ P0 是证据、审批、单账号授权、执行与真实回执，缺一项就�
 
 | 位置／入口 | 做什么 | 凭据与限制 |
 | --- | --- | --- |
-| `https://pengmanager.com/zh`、`/en` | 完整文章、图文、视频、文稿和已批准公开资料 | 无需登录；不提供账号矩阵、草稿、互动、私有媒体目录和经营统计 |
+| `https://yaoayi.example/zh`、`/en` | 完整文章、图文、视频、文稿和已批准公开资料 | 无需登录；不提供账号矩阵、草稿、互动、私有媒体目录和经营统计 |
 | 云端 `/admin` 与 `/api/*` | 私有账号资料、Claim、内容状态、操作授权、回执和 GEO 数据 | 管理员会话或明确支持的受限 Agent 令牌；云端不持有社媒 Cookie |
 | 本人电脑上的浏览器 | 登录目标平台、检查当前账号、执行具体获准发布／回复、打开结果核对 | 平台登录态留在本人设备；验证码、登录确认及需要本人选择的新协议交给本人 |
 | 本机 `scripts/agent.mjs`／`agent-mcp.mjs` | 调用本机完整视频引擎登记的能力 | 使用原生本机身份、围栏、审批、预算和回执；与云端 HTTP Agent 令牌是两套入口 |
@@ -32,8 +32,8 @@ P0 是证据、审批、单账号授权、执行与真实回执，缺一项就�
 已有仓库访问权时，使用自己的既有 Git 登录方式拉取，URL 不带令牌：
 
 ```bash
-git clone https://github.com/geniusdapeng-collab/geniusdapeng-geo-os.git
-cd geniusdapeng-geo-os
+git clone https://github.com/geniusdapeng-collab/workloom-yaoayi.git
+cd workloom-yaoayi
 cat AGENTS.md
 cat docs/AI-AGENT-GUIDE.md
 ```
@@ -45,7 +45,7 @@ Codex、Qoder 等平台的接入配置可用 `node scripts/ai-workbench.mjs conf
 先做无需秘密的公网检查：
 
 ```bash
-PM_ORIGIN=https://pengmanager.com
+PM_ORIGIN=https://yaoayi.example
 curl --silent --show-error "$PM_ORIGIN/healthz"
 curl --silent --show-error "$PM_ORIGIN/public-api/profile"
 curl --silent --show-error --write-out '\nHTTP %{http_code}\n' \
@@ -86,7 +86,7 @@ printf '%s' "$PENGMANAGER_AGENT_TOKEN" | \
 IFS= read -r -s -p 'Agent token: ' PENGMANAGER_AGENT_TOKEN
 printf '\n'
 export PENGMANAGER_AGENT_TOKEN
-PM_ORIGIN=https://pengmanager.com
+PM_ORIGIN=https://yaoayi.example
 
 # 校验令牌字符后，通过标准输入提供 curl 配置，明文不出现在 argv。
 pm_agent() {
@@ -121,19 +121,19 @@ export PM_ADMIN_PASSWORD
 python3 -c 'import json,os; print(json.dumps({"password":os.environ["PM_ADMIN_PASSWORD"]}))' |
   curl --disable --silent --show-error --cookie-jar "$PM_COOKIE_JAR" \
     -H 'Content-Type: application/json' --data-binary @- \
-    https://pengmanager.com/api/auth/login
+    https://yaoayi.example/api/auth/login
 unset PM_ADMIN_PASSWORD
 
 pm_admin() {
   curl --disable --silent --show-error --cookie "$PM_COOKIE_JAR" "$@"
 }
-pm_admin https://pengmanager.com/api/auth/status
+pm_admin https://yaoayi.example/api/auth/status
 ```
 
 核对 `authenticated: true` 后再继续。Cookie 是秘密；只保留到任务结束，不上传、不截图、不提交。结束时先撤销会话，再清理本次专用文件：
 
 ```bash
-pm_admin -X POST https://pengmanager.com/api/auth/logout \
+pm_admin -X POST https://yaoayi.example/api/auth/logout \
   -H 'Content-Type: application/json' --data '{}'
 rm -- "$PM_COOKIE_JAR"
 rmdir -- "$PM_AUTH_DIR"
@@ -179,12 +179,12 @@ pm_admin -X PATCH "$PM_ORIGIN/api/accounts/github" \
   "contentType": "article",
   "claimIds": ["C002"],
   "platforms": ["GitHub"],
-  "owner": "PengManager"
+  "owner": "Yao Ayi"
 }
 ```
 
 ```bash
-pm_admin https://pengmanager.com/api/content \
+pm_admin https://yaoayi.example/api/content \
   -H 'Content-Type: application/json' --data-binary @"$PM_CONTENT_JSON"
 ```
 
@@ -208,12 +208,12 @@ draft → fact_check → approved → scheduled → published → archived
 # PM_CONTENT_ID 来自实际创建响应；下面展示本人实际审核的请求。
 pm_admin -X POST "$PM_ORIGIN/api/content/$PM_CONTENT_ID/transition" \
   -H 'Content-Type: application/json' \
-  --data '{"target":"fact_check","actor":"PengManager","note":"已提交事实核验"}'
+  --data '{"target":"fact_check","actor":"Yao Ayi","note":"已提交事实核验"}'
 pm_admin -X POST "$PM_ORIGIN/api/content/$PM_CONTENT_ID/transition" \
   -H 'Content-Type: application/json' \
-  --data '{"target":"approved","actor":"PengManager","approvedBy":"PengManager","note":"本人已核对完整正文与事实"}'
+  --data '{"target":"approved","actor":"Yao Ayi","approvedBy":"Yao Ayi","note":"本人已核对完整正文与事实"}'
 pm_admin -X POST "$PM_ORIGIN/api/content/$PM_CONTENT_ID/transition" \
-  -H 'Content-Type: application/json' --data '{"target":"scheduled","actor":"PengManager"}'
+  -H 'Content-Type: application/json' --data '{"target":"scheduled","actor":"Yao Ayi"}'
 ```
 
 这些请求示范本人审核；不是本人时按真实授权填写 `actor`／`approvedBy`，不能冒名。当前 Claim 与内容接口保留这些审核字段，并不会把填写人自动变成已核实的人类审核。受限 bearer 不能调用它们。不存在 `FINAL` 状态，也不能直接 transition 到 `published`；必须有真实发布回执。草稿被阻断时查看 `details.findings`，补齐证据和正文后按允许的 `blocked → draft` 流程重做，不删除历史。
@@ -403,7 +403,7 @@ node scripts/agent.mjs describe growth.video.post.quality
 定稿条件是控制面内容状态进入 `approved`；也会补齐 `scheduled`、`published`。草稿、事实核验中、阻断和归档状态不作为新定稿备份。正文保持原样，不做脱敏替换或压缩摘要；不要在批准内容中混入登录信息。备份内容固定为：
 
 ```text
-下载 / pengmanager 备份 /
+下载 / yaoayi 备份 /
   <内容ID>--<ID、标题、正文的SHA256> /
     final.md       原始完整正文，不额外添加标题、前缀或结尾
     metadata.json  定稿元数据白名单
@@ -415,13 +415,13 @@ node scripts/agent.mjs describe growth.video.post.quality
 
 ### 10.1 云端内容自动落到本机：管理页面方式
 
-1. 在**这台 Mac 的 Chrome** 打开 <https://pengmanager.com/admin>，用本人已有会话登录。网站必须已经部署包含“终稿自动备份”面板的版本。
-2. 在 Mac 的“下载”中找到 **`pengmanager 备份`** 文件夹；有本机仓库时，优先按下一节 `--prepare` 创建为本人私有目录。点击面板的“启用本机终稿备份”，在系统文件夹选择器中选中这个文件夹并允许写入。
+1. 在**这台 Mac 的 Chrome** 打开 <https://yaoayi.example/admin>，用本人已有会话登录。网站必须已经部署包含“终稿自动备份”面板的版本。
+2. 在 Mac 的“下载”中找到 **`yaoayi 备份`** 文件夹；有本机仓库时，优先按下一节 `--prepare` 创建为本人私有目录。点击面板的“启用本机终稿备份”，在系统文件夹选择器中选中这个文件夹并允许写入。
 3. 等面板显示已核对终稿数／本次新增数／最近检查时间；再在 Finder 打开该目录，核对实际文件。没有终稿时会如实显示空状态。
 4. 保持页面打开、登录有效、网络可用及文件夹权限有效。页面每 30 秒读取既有 `/api/content`；本页内容审批／动作刷新后也会立即检查。此方式使用已有网站会话，**不需要创建新 Agent 令牌**。
 5. 浏览器记住目录句柄；下次打开页面且权限仍有效时自动补齐当前已定稿内容。权限失效时点击按钮重新选择授权；取消选择、拒绝权限、不支持的浏览器、网络或磁盘问题都会显示未完成状态。
 
-选择器以下载目录为起点，并要求文件夹名为 `pengmanager 备份`，但浏览器不向网页提供可验证的完整绝对路径。因此**同名文件夹不证明位于“下载”**，本人须在选择器中实际核对位置。网页不能无授权读写 Mac 任意路径，也不会通过 Linux 云主机的 `~/Downloads` 冒充这台 Mac。
+选择器以下载目录为起点，并要求文件夹名为 `yaoayi 备份`，但浏览器不向网页提供可验证的完整绝对路径。因此**同名文件夹不证明位于“下载”**，本人须在选择器中实际核对位置。网页不能无授权读写 Mac 任意路径，也不会通过 Linux 云主机的 `~/Downloads` 冒充这台 Mac。
 
 关闭／离开页面、退出登录、断网或机器休眠后不保证持续检查；没有常驻后台下载守护进程。再次打开并恢复授权后会补齐仍处于定稿状态的内容。页内状态和真实 Finder 文件回读才是本机落盘依据；云端 `approved`、网页 200 或“已记住目录”都不等于文件已经写成。
 
@@ -432,7 +432,7 @@ node scripts/agent.mjs describe growth.video.post.quality
 本机 AI 进程也可执行一次性 CLI，不必把管理员密码或社媒登录态交给它：
 
 ```bash
-# 在本机仓库执行；先建立/核对本机 Downloads/pengmanager 备份。
+# 在本机仓库执行；先建立/核对本机 Downloads/yaoayi 备份。
 node scripts/backup-final-content.mjs --prepare
 
 # 默认只读本仓库 var/state.json；不修改状态文件或调用外部平台。
@@ -447,7 +447,7 @@ node scripts/backup-final-content.mjs --input-file /absolute/private/content.jso
 
 输入可包含整个只读状态，但 CLI 只向写入器传 `id`、`title`、`body`、`version`、`status`，不复制其他字段。`--prepare` 只建／检查目录，**不会备份正文**。CLI 是一次性运行，不是 watcher，也不会自行从云端登录、申请令牌或下载数据；云端自动同步优先使用上一节已登录页面方式。仅有本机旧状态文件时，不能称当前云端定稿已同步。
 
-写入目录按 `os.homedir()/Downloads/pengmanager 备份` 定位，要求 macOS、普通无软链路径、当前用户所有且备份根目录 0700；本机新建内容子目录为 0700，正文／元数据新文件为 0600。受私有根目录保护、同用户的浏览器既有版本会保留并核验，不为了统一权限重写它。备份根目录权限不符会返回 `FINAL_BACKUP_PRIVATE_DIRECTORY_REQUIRED`，不会擅自更改。本人核对实际目录确属此用途后才能修正该目录权限，再重试；不删除旧备份。Linux 返回 `pending_local_sync`，不在服务器创建假的 Mac 下载目录。这个云端进程状态与浏览器实际落盘是两套状态：在 Mac 页面中备份成功，不会把 Linux 进程变成 macOS。
+写入目录按 `os.homedir()/Downloads/yaoayi 备份` 定位，要求 macOS、普通无软链路径、当前用户所有且备份根目录 0700；本机新建内容子目录为 0700，正文／元数据新文件为 0600。受私有根目录保护、同用户的浏览器既有版本会保留并核验，不为了统一权限重写它。备份根目录权限不符会返回 `FINAL_BACKUP_PRIVATE_DIRECTORY_REQUIRED`，不会擅自更改。本人核对实际目录确属此用途后才能修正该目录权限，再重试；不删除旧备份。Linux 返回 `pending_local_sync`，不在服务器创建假的 Mac 下载目录。这个云端进程状态与浏览器实际落盘是两套状态：在 Mac 页面中备份成功，不会把 Linux 进程变成 macOS。
 
 CLI 输出状态和非正文元数据，逐项检查 `saved`、`already_saved`、`skipped_not_final`、`pending_local_sync` 或 `error`。退出码 0 表示目录就绪且所有本轮内容已保存／已存在／无需备份，1 表示参数、输入或读取失败，2 表示本轮存在未同步／备份错误；`--prepare` 的 0 只表示目录就绪。参数／输入错误与磁盘／权限／冲突均应保留失败信息；**不能因内容审批成功就忽略备份失败**。修复后重新运行 CLI 或在下次本机根服务启动时补查；不要重复执行已经成功的审批／发布来“触发”备份。
 
@@ -506,7 +506,7 @@ API 错误统一读取 `error.code`、`message`、可能存在的 `details.findi
 
 | 交接 | 谁交给谁 | 必须交出的准确材料 | 后一步何时可以继续 |
 | --- | --- | --- | --- |
-| StrategyHandoff | 平台岗位 → 鹏经理导入／compiler | 冻结母版／研究／规则与目标 hash、适配理由、原生结构、真实输入和缺口；可有 skip | 服务端校验来源、创作／外发两个权限轴、预算与引用；计划只是数据 |
+| StrategyHandoff | 平台岗位 → 姚阿姨系统导入／compiler | 冻结母版／研究／规则与目标 hash、适配理由、原生结构、真实输入和缺口；可有 skip | 服务端校验来源、创作／外发两个权限轴、预算与引用；计划只是数据 |
 | ExecutionHandoff | compiler／scheduler → 本机 worker | 不可变 blueprint／task、attempt／epoch、解析后的输入 hash、固定 adapter 版本、本机与云端 scope、预算授权 | 固定适配器真正 ready，双端权限及原生围栏有效，逐底层请求已预留 |
 | ArtifactHandoff | worker → 私有产物存储／编辑域 | 真实文件及 manifest／hash、执行回执、实际或未知用量、源文件保留依据 | 服务器重算字节并验证类型；管理员完成真实权利／隐私审核；失败、dryRun、unknown 单列 |
 | ReviewHandoff | 平台编辑／独立 checker → 人工审核者 | 最终 candidate／packageHash、终检 checkedPackageHash／reportHash、覆盖与问题、reviewSnapshotHash | checker 重读润色后的同一完整包和真实附件，必需维度通过、无未解 blocker／major |

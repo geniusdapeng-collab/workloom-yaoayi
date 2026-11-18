@@ -21,9 +21,9 @@
 - 三组平台研究 JSON 采用全量解析 B，并阅读与本合同有关的政策条目；本稿没有声称再次全文复核三组 28 份研究。A10 已另经独立全文复核，凭据为 `原研究取证标识：platform-a-independent-review.json`。研究原始内容、规则时效和样本缺口继续按各组档案保留。
 - 证据分级：**A**＝完整精读当前代码／文档；**B**＝完整结构解析、manifest 比对或同次官方研究记录；**C**＝明确选段；**D**＝拟议设计、假设或未验证。本稿所有新增类型、集合、接口、worker、任务、费用控制与验收均为 **D：尚未实现**。
 
-# 平台策划如何进入鹏经理的二次生产与审核链
+# 平台策划如何进入姚阿姨系统的二次生产与审核链
 
-建议采用 **平台岗位输出受约束的 AdaptationPlan → 鹏经理导入与编译 → 本机生产 worker 领取固定任务 → 上传真实产物 → 不可变 Edition／Variant／原生包 → 独立终检 → 人工完整审核 → 独立运营授权 → 真实回读**。平台岗位负责判断、策划与编辑，编译器决定可执行任务，现有视频／视觉工具承担匹配的实际加工。平台岗位输出的命令、工具名或“已完成”声明都不直接取得执行权。（D）
+建议采用 **平台岗位输出受约束的 AdaptationPlan → 姚阿姨系统导入与编译 → 本机生产 worker 领取固定任务 → 上传真实产物 → 不可变 Edition／Variant／原生包 → 独立终检 → 人工完整审核 → 独立运营授权 → 真实回读**。平台岗位负责判断、策划与编辑，编译器决定可执行任务，现有视频／视觉工具承担匹配的实际加工。平台岗位输出的命令、工具名或“已完成”声明都不直接取得执行权。（D）
 
 这份设计补的是“研究和策略怎样变成现有系统里的真实成品”。它延续原 308 行岗位方案中的最终包／终检／审批绑定、预算未知预留和跨形式追溯，增加实际源码衔接、受控导入、编译与本机执行合同；没有先行创建 28 名运行员工或改动生产系统。（D）
 
@@ -41,7 +41,7 @@ P0 容量假设：单管理员，单工单 1—28 个目标键；同一平台可
 
 | 已读现状与证据 | 新链的具体处理 |
 | --- | --- |
-| **A** `src/agent.mjs` 与 `scripts/agent.mjs` 组合原生目录及两个鹏经理视频只读入口；引擎 `agent-capabilities.mjs` 执行目录中的受控 transport。**B** 原生是 core 8＋growth 16＝24 个目录项，另加 2 个鹏经理入口。 | 原生发现面仅作为发现、状态、指南、预览和技术回执；不把大目录 334 个工具当成已经开放的 MCP。 |
+| **A** `src/agent.mjs` 与 `scripts/agent.mjs` 组合原生目录及两个姚阿姨系统视频只读入口；引擎 `agent-capabilities.mjs` 执行目录中的受控 transport。**B** 原生是 core 8＋growth 16＝24 个目录项，另加 2 个姚阿姨系统入口。 | 原生发现面仅作为发现、状态、指南、预览和技术回执；不把大目录 334 个工具当成已经开放的 MCP。 |
 | **A** `growth.video.production.plan` 的 `productionPlan` 返回 `previewOnly`，并产生参考 CLI 建议，其中有 `--review-policy off`；ready 是清单检查，不证明真实出片。 | 仅采纳经过验证的标题／项目／目标等数据字段。完全忽略返回的 command、argv 和执行建议；新编译器重新生成固定任务，终检不能被 plan 关闭。 |
 | **A** `deliveryInspect` 校验交付文件和指针，仍返回 complete:false／technical unverified；`post-quality.mjs:deliveryQuality` 调用技术闸，艺术质量 unverified。 | 文件存在、技术通过、语义通过、艺术通过、人工批准、发布回读为不同字段；technical passed 不变成所有维度 passed。 |
 | **A** `EditorialService.createEdition` 的 `sourceEditionId` 只允许同 Story、同 format、另一 locale；`createVariant` 继承 Edition 的 locale／format。 | 文章→图文／视频新增显式 `derivedFromEditionIds`／`formatLineage`，不能偷用翻译字段，也不能只改 Variant 的 format。 |
@@ -59,11 +59,11 @@ P0 容量假设：单管理员，单工单 1—28 个目标键；同一平台可
 
 | 候选 | 具体形态 | 优点 | 成本、风险与前提 |
 | --- | --- | --- | --- |
-| A：鹏经理云端直接执行所有模型和媒体工具（D） | 云端 HTTP 请求中调用各工位、保存临时文件，完成后直接建稿。 | 调试路径较短，无本机任务同步。 | 生产存储／管理权限与工具执行耦合；媒体依赖、算力、私有原素材和本机登录状态需迁移；长请求和重试难恢复；当前 `ENABLE_MEDIA_RENDER=false` 时云端渲染被显式拒绝（A 条件行为）。不适合直接扩成任意脚本执行器。 |
-| **B：鹏经理受控导入／编译＋本机出站领取任务的 worker（选定，D）** | 云端保持单写者账本、不可变计划、DAG、预算及审核；本机只领取经编译和本机批准的任务，调用固定适配器，上传限额内的结果。 | 复用本机素材与已安装工位；云端不保存本机供应商凭据；可独立恢复、核对费用、逐目标失败；与当前存储／审核链衔接清楚。 | 要实现 worker 配对、任务租约／fencing、双端权限、私有文件运输、实际适配器和预算账本。不能只加一张目录和按钮。 |
+| A：姚阿姨系统云端直接执行所有模型和媒体工具（D） | 云端 HTTP 请求中调用各工位、保存临时文件，完成后直接建稿。 | 调试路径较短，无本机任务同步。 | 生产存储／管理权限与工具执行耦合；媒体依赖、算力、私有原素材和本机登录状态需迁移；长请求和重试难恢复；当前 `ENABLE_MEDIA_RENDER=false` 时云端渲染被显式拒绝（A 条件行为）。不适合直接扩成任意脚本执行器。 |
+| **B：姚阿姨系统受控导入／编译＋本机出站领取任务的 worker（选定，D）** | 云端保持单写者账本、不可变计划、DAG、预算及审核；本机只领取经编译和本机批准的任务，调用固定适配器，上传限额内的结果。 | 复用本机素材与已安装工位；云端不保存本机供应商凭据；可独立恢复、核对费用、逐目标失败；与当前存储／审核链衔接清楚。 | 要实现 worker 配对、任务租约／fencing、双端权限、私有文件运输、实际适配器和预算账本。不能只加一张目录和按钮。 |
 | C：平台岗位直接在 Codex／MCP 调用全目录，然后回填“完成”（D） | 每个平台自由选择 334 工具、执行返回的 CLI，事后填写回执。 | 初次演示快，策略自由。 | 发现面与执行面混淆；计划可注入命令；最终产物／费用／外发权限难统一；重启和超时不明确。仅适合人工受控研究，不能充当生产协议。 |
 
-选 B。本机 worker 采用向已配置 HTTPS 鹏经理 origin 发起的出站连接；不要求向互联网开放本机端口，不由云端 SSH 进入 Mac。已有本机服务若需本地鉴权，由本机固定适配器使用现有受控凭据；凭据、浏览器 cookie 和声音档案不上传。分布式“恰好一次”不能靠租约承诺，设计采用持久尝试、业务幂等键、单次派发与未知结果核对。（D）
+选 B。本机 worker 采用向已配置 HTTPS 姚阿姨系统 origin 发起的出站连接；不要求向互联网开放本机端口，不由云端 SSH 进入 Mac。已有本机服务若需本地鉴权，由本机固定适配器使用现有受控凭据；凭据、浏览器 cookie 和声音档案不上传。分布式“恰好一次”不能靠租约承诺，设计采用持久尝试、业务幂等键、单次派发与未知结果核对。（D）
 
 ## 4. 正式计划合同与安全导入
 
@@ -172,7 +172,7 @@ type AdaptationPlan = { schema: "pengmanager.adaptation-plan/v1";
 | `growth.repo.status`、`growth.repo.docs`、`growth.bundle.summary`、`growth.repo.readiness` | 本地 repo 方法。（B；loader A，具体 repo 模块未在本次做语义审计） | 读／预览；不提升生产权限。 |
 | `growth.video.workbench.guide` | 固定视频指南，现行源已完整读取。（A） | 实际制作前必须取得并固定指南版本／hash。 |
 | `growth.video.post.quality` | 当前包技术检查。（A） | artisticQuality 仍单列，不能自动补成 passed。 |
-| `pengmanager.video.status`、`pengmanager.video.capabilities` | 鹏经理 wrapper 两个只读入口。（A） | 当前运行环境状态和目录；不是通用 invoke 全工具。 |
+| `pengmanager.video.status`、`pengmanager.video.capabilities` | 姚阿姨系统 wrapper 两个只读入口。（A） | 当前运行环境状态和目录；不是通用 invoke 全工具。 |
 
 24＋2 共 26 个可发现项，1 项禁用，因此当前代码规则下 MCP 可暴露 25 项；这不是本次真实连接的 25 项数量（B／A）。大目录实际包含 tools 334、capabilities 80、roles 101、skills 123（B 完整 JSON 解析），只能作为候选实现索引。未对 334 项逐个发请求，也没有把角色／技能声明计为运行中的员工。
 
@@ -202,7 +202,7 @@ type AdaptationPlan = { schema: "pengmanager.adaptation-plan/v1";
 | 已有时间轴字幕、双语旁挂或软轨 | subtitle executor／CLI（A），exportSidecars／softMux（C）。 | `caption.align` 要已有可信台词及 cue／时间映射。无 transcript／timing 不凭译文猜真实语音；没有明确 ASR 请求不启动 ASR。侧车 SRT／ASS 留本机，按当前媒体验证器准备独立语言 VTT；组合双语 VTT 不冒充两份单语。softmux 选实际 MP4，读取轨道／时长和 hash；语义与翻译仍另检。 |
 | 显式允许的配音 | voice executor／CLI（A），speak／dub（C）。 | 新 `voice.speak` 只在 explicit_approved_profile＋真实授权档案＋单次明确配音要求时开放；初期不允许 consent／register／record／任意voiceId、丢弃原声或 overflow。每个底层 chunk 合成单独记账。默认 preserve_original，不因英文稿存在就换声。WAV 是私有中间产物，不上传为当前媒体。 |
 | 技术质量／文件读取 | `delivery.inspect`、`growth.video.post.quality` 与 postread.quality 路径（A 入口；C 核心选段）。 | `media.inspect`／`quality.technical` 只读明确 job workspace；检查 manifest 和当前字节、解码与合同。技术通过单列，不替代审美／事实终检。 |
-| README／release、模型卡、数据卡、notebook、Demo 说明 | 平台研究 B＋现有目录；没有已实现的鹏经理原生软件附件审批适配器（D 缺口）。 | `native.prepare` 只准备有实际作品的文字与静态 diff／文件清单，不执行代码、不装依赖、不 apply patch、不部署、不推送。实际文件存储、预览／验证合同未落地就导出待人工，不能把 unsupported 内容塞入 mediaAsset。 |
+| README／release、模型卡、数据卡、notebook、Demo 说明 | 平台研究 B＋现有目录；没有已实现的姚阿姨系统原生软件附件审批适配器（D 缺口）。 | `native.prepare` 只准备有实际作品的文字与静态 diff／文件清单，不执行代码、不装依赖、不 apply patch、不部署、不推送。实际文件存储、预览／验证合同未落地就导出待人工，不能把 unsupported 内容塞入 mediaAsset。 |
 | 包冻结与终检 | 现有不可变稿／媒体／哈希／审核域可衔接（A）。 | 新 `package.freeze` 是确定性提交；`quality.final` 由独立 checker 读取最终包和实际附件，按第 8 节生成不可变报告。两者为新功能，当前无可调用 ID。 |
 
 `edit-auto.mts` 虽有完整入口源码（A），含默认意图推断、BGM 准备、自动排片和多步子程序；其整个深层依赖本次未审完，**不进入初期 worker allowlist**。`production.plan` 建议的 full-chain-film 命令也不进入。只有被具体任务需要、适配完成且有 scope／budget 的路径才开放；不因“都有目录”就把几十种流水线自动串起来。（D，范围决定）
@@ -216,14 +216,14 @@ VisualBridge 当前自动幂等键是 FNV 风格缓存键、网络错误可切�
 | 主体 | 可以做 | 无权做 |
 | --- | --- | --- |
 | 平台策略岗位（D） | 读取本工单允许的母版／事实／规则，提交计划建议、缺口、文字候选。 | 自行选择工具入口、批准事实／资产／内容、增加费用、发送、创建账号。 |
-| 鹏经理管理员（现有权限 A，新增动作 D） | 冻结目标身份、核对规则与素材、确认预算／worker 范围、导入准备稿、内容与具体外发审批。 | 管理员点击不能把缺媒体、假回执、陈旧终检变成真实通过。 |
+| 姚阿姨系统管理员（现有权限 A，新增动作 D） | 冻结目标身份、核对规则与素材、确认预算／worker 范围、导入准备稿、内容与具体外发审批。 | 管理员点击不能把缺媒体、假回执、陈旧终检变成真实通过。 |
 | 云端编译器／调度器（D） | 校验数据、产生 allowlisted DAG、持久预算／attempt、发放窄 task lease、保存结果。 | 向本机任意进程发命令、获取本机 token／cookie、借 root 权限绕过本机 owner。 |
 | 本机 worker（D） | 领取限定 job／task；读取固定来源；在自己的工作区产生新文件；用本机允许的 adapter；提交未审核产物与执行凭据。 | 改账号／目的地／Claim 状态、媒体权利审查、终检自签、批准、排期、发布、提升风格记忆、读取任意本地文件。 |
-| 本机工具域 owner／成员（既有工具约束 A，联合门禁 D） | 给予指定 workspace／项目／能力／期间的本机执行权；保留原生租户／成员／围栏／审批／费用门禁。 | 鹏经理云端批准不能伪造原生审批或突破引擎 scope。 |
+| 本机工具域 owner／成员（既有工具约束 A，联合门禁 D） | 给予指定 workspace／项目／能力／期间的本机执行权；保留原生租户／成员／围栏／审批／费用门禁。 | 姚阿姨系统云端批准不能伪造原生审批或突破引擎 scope。 |
 | 独立 checker（D） | 按固定检查版本读取冻结最终包和证据、写不可变 QualityReport。 | 修改包、扩大素材范围、批准发布、删去阻断问题。 |
 | 发布执行者（现有动作 A，原生包扩展 D） | 在单账号、单目的地、准确包授权下执行并实际回读。 | 根据“生产已好”自动发送所有目标；结果不明靠重发。 |
 
-新增 worker 配对由**鹏经理管理员批准＋本机 owner 确认**共同建立，绑定 workerId、允许的 cloud origin、workspace／tenant、项目、job 范围、adapter 白名单、文件／费用／期限。凭据使用单独的短期、可撤销 scope；服务端只保存不可逆凭据摘要和 scope 元数据，不保存明文。本机工具认证与云端 worker 身份分离。现有 HTTP Agent bearer 不被升级，管理员 session 不被导出给 worker。（D）
+新增 worker 配对由**姚阿姨系统管理员批准＋本机 owner 确认**共同建立，绑定 workerId、允许的 cloud origin、workspace／tenant、项目、job 范围、adapter 白名单、文件／费用／期限。凭据使用单独的短期、可撤销 scope；服务端只保存不可逆凭据摘要和 scope 元数据，不保存明文。本机工具认证与云端 worker 身份分离。现有 HTTP Agent bearer 不被升级，管理员 session 不被导出给 worker。（D）
 
 ### 6.2 租约和恢复
 
@@ -448,7 +448,7 @@ Kaggle论坛讨论／评论的AI用途限制不能用选择Writeup来自动绕�
 | --- | --- | --- | --- | --- |
 | 母版／事实／真实素材范围 | 本人／内容管理员 | 本人 | 事实／隐私／权利审核者 | MotherBundle及准确输入hash |
 | 平台研究与策略 | 具体平台岗位 | 内容主编 | 目的地规则审阅者／本人 | AdaptationPlan建议，证据和skip／gap |
-| 校验／编译／预算 | 鹏经理compiler／scheduler | 系统owner | 平台岗位、本机owner | normalizedPlanHash、blueprintHash、scope／budget摘要 |
+| 校验／编译／预算 | 姚阿姨系统compiler／scheduler | 系统owner | 平台岗位、本机owner | normalizedPlanHash、blueprintHash、scope／budget摘要 |
 | 实际媒体／文件加工 | 本机worker＋已批准adapter | 本机owner | 平台编辑／素材owner | 真实artifact manifest和执行／费用receipt |
 | 最终润色 | 平台编辑 | 内容主编 | 原作者 | 最终候选包；编辑不自签终检 |
 | 独立最终检查 | 独立checker／必要媒体人审 | 质量审核负责人 | 原作者／技术／权利审阅者 | checkedPackageHash、reportHash、覆盖／findings |

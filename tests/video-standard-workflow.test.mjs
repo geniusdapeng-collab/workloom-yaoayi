@@ -11,7 +11,7 @@ import { standardVideoExecutor, standardVideoIntent } from '../src/video-runtime
 const root = path.resolve(import.meta.dirname, '..');
 const token = 'synthetic-pengmanager-member';
 const publishedSourceMain = 'a544ab8b068790bfb14b7977efc81b33897fc9de';
-const raw = ' 用鹏经理把 820RR 做成十七秒的营销片。 ';
+const raw = ' 用姚阿姨系统把 820RR 做成十七秒的营销片。 ';
 const statusRow = { runId: 'RUN-17', projectId: 'VID-17', status: 'finished', pendingApprovalId: null };
 const archive = { projectId: 'VID-17', archiveExists: true, pendingApprovalId: null, manualBridges: [], stages: [
   { stageId: 'preproduction', runId: 'RUN-17', attempt: 1, status: 'done', outputRef: 'stages/preproduction/attempt-1.output.json', outputSha256: 'a'.repeat(64) },
@@ -33,7 +33,7 @@ async function cli(args, { input, env = {}, command = 'scripts/video-standard.mj
   });
 }
 async function fixture(t, { previousState = 'routed', statusData = statusRow,
-  scope = { tenantId: 'tenant-pengmanager-video', workspaceId: 'ws-pengmanager-video' },
+  scope = { tenantId: 'tenant-yaoayi-video', workspaceId: 'ws-yaoayi-video' },
   archiveData = archive, shotsData = shots } = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), 'peng-video-standard-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -61,7 +61,7 @@ async function fixture(t, { previousState = 'routed', statusData = statusRow,
   const hash = bytes => createHash('sha256').update(bytes).digest('hex');
   const jobId = hash(JSON.stringify({ intent: raw, route: 'auto', metadata: { brief: { duration: 17 } } }));
   const previous = { schemaVersion: 'pengmanager.standard-video-start/v1', jobId, sourceMain: publishedSourceMain,
-    workspaceId: 'ws-pengmanager-video', backendPort: server.address().port, intentSha256: hash(raw), requestedDurationSec: 17,
+    workspaceId: 'ws-yaoayi-video', backendPort: server.address().port, intentSha256: hash(raw), requestedDurationSec: 17,
     complete: false, state: previousState,
     ...(previousState === 'routed' ? { projectId: 'VID-17', runId: 'RUN-17', pipeline: 'marketing', next: 'status' } : {}),
     ...(previousState === 'clarify' ? { missing: ['product'], next: 'resolve-native-route' } : {}),

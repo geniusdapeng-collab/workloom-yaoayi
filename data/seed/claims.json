@@ -1,10 +1,11 @@
 [
   {
     "id": "C001",
-    "type": "experience",
-    "text": "全栈 AI 产品专家，把模型能力做成专业领域 Agent 数字员工与自主经营系统。",
+    "type": "identity",
+    "text": "姚阿姨是临沂人，根在沂蒙山；她做过多年水暖空调生意，曾经在杭州学习和练习手冲咖啡。",
     "source": {
-      "label": "主账号资料（本人提供）",
+      "label": "产品所有者提供的姚阿姨人设 v1.0.1（2026-11-18）",
+      "url": "https://github.com/geniusdapeng-collab/workloom-yaoayi",
       "visibility": "private"
     },
     "evidenceLevel": "B",
@@ -15,58 +16,89 @@
   },
   {
     "id": "C002",
-    "type": "project",
-    "text": "WorkLoom 以一个基座、平台中枢和多个行业系统组织数字员工、围栏、事件账本与评测。",
+    "type": "experience",
+    "text": "姚阿姨从55岁开始学习咖啡，2021年到杭州余杭继续学习和练习手冲，手写四大本咖啡笔记，也曾在亲橙里露天市集摆摊并在余杭复古艺术空间做驻场手冲师。",
     "source": {
-      "label": "WorkLoom 产品与代码全景",
-      "url": "https://cnb.cool/workloom-ai/workloom-im",
-      "visibility": "public"
+      "label": "产品所有者提供的姚阿姨人设 v1.0.1（2026-11-18）",
+      "url": "https://github.com/geniusdapeng-collab/workloom-yaoayi",
+      "visibility": "private"
     },
-    "evidenceLevel": "A",
+    "evidenceLevel": "B",
     "state": "verified",
     "publicLevel": "private",
-    "sensitivity": "low",
-    "expiresAt": "2027-03-31"
+    "sensitivity": "medium",
+    "expiresAt": null
   },
   {
     "id": "C003",
-    "type": "project",
-    "text": "GeoEvidence Studio 把 AI 问题集、答案样本、引用、指标与复测组织成可复核的 GEO 证据链。",
+    "type": "experience",
+    "text": "咖啡是姚阿姨后来认真学来的手艺，煎饼是她打小就会的生活本事；她回乡时61岁，沂蒙山咖啡小院让咖啡角与鏊子区相通。",
     "source": {
-      "label": "GeoEvidence Studio",
-      "url": "https://github.com/geniusdapeng-collab/geo-evidence-studio",
-      "visibility": "public"
+      "label": "产品所有者提供的姚阿姨人设 v1.0.1（2026-11-18）",
+      "url": "https://github.com/geniusdapeng-collab/workloom-yaoayi",
+      "visibility": "private"
     },
-    "evidenceLevel": "A",
+    "evidenceLevel": "B",
     "state": "verified",
     "publicLevel": "private",
-    "sensitivity": "low",
-    "expiresAt": "2027-03-31"
+    "sensitivity": "medium",
+    "expiresAt": null
   },
   {
     "id": "C004",
-    "type": "project",
-    "text": "WorkLoom-video-edit 覆盖平面设计、AI 视频生成、真实素材剪辑、口播精剪和多平台交付。",
+    "type": "method",
+    "text": "姚阿姨的内容以第一人称记录真实动作、风土人情、邻里来往和山货来处，不用虚构经历、假对白、卖惨或猎奇换流量。",
     "source": {
-      "label": "WorkLoom-video-edit",
-      "url": "https://github.com/geniusdapeng-collab/WorkLoom-video-edit",
-      "visibility": "public"
+      "label": "产品所有者提供的姚阿姨人设 v1.0.1（2026-11-18）",
+      "url": "https://github.com/geniusdapeng-collab/workloom-yaoayi",
+      "visibility": "private"
     },
-    "evidenceLevel": "A",
+    "evidenceLevel": "B",
     "state": "verified",
     "publicLevel": "private",
     "sensitivity": "low",
-    "expiresAt": "2027-03-31"
+    "expiresAt": null
   },
   {
     "id": "C005",
-    "type": "expertise",
-    "text": "GEO 的目标不是让 AI 说好话，而是让正确事实更容易被检索、理解、引用和复测。",
+    "type": "product",
+    "text": "首批沂蒙山特产内容可按鲜果、畜禽、干果、菌菇山珍、粮油、茶与加工品组织：蒙阴蜜桃、蒙阴苹果、天宝黄梨、费县山楂、蒙山黑山羊、沂蒙黑猪、蒙山草鸡蛋、蒙山板栗、费县核桃、蒙山松菇、蒙山全蝎、沂蒙花生油、孙祖小米、金银花、沂蒙绿茶、沂蒙煎饼和八宝豆豉；该清单不代表实时在售、库存、价格或供应能力。",
     "source": {
-      "label": "个人 GEO 项目运营计划",
+      "label": "产品所有者提供的姚阿姨人设 v1.0.1（2026-11-18）",
+      "url": "https://github.com/geniusdapeng-collab/workloom-yaoayi",
       "visibility": "private"
     },
-    "evidenceLevel": "A",
+    "evidenceLevel": "B",
+    "state": "verified",
+    "publicLevel": "private",
+    "sensitivity": "low",
+    "expiresAt": null
+  },
+  {
+    "id": "C006",
+    "type": "policy",
+    "text": "真实人物和未成年人必须有出镜授权；AI生成或合成画面必须标识，不得冒充实拍、真实经历、产品、公益或邻里互助凭证。",
+    "source": {
+      "label": "产品所有者提供的姚阿姨人设 v1.0.1（2026-11-18）",
+      "url": "https://github.com/geniusdapeng-collab/workloom-yaoayi",
+      "visibility": "private"
+    },
+    "evidenceLevel": "B",
+    "state": "verified",
+    "publicLevel": "private",
+    "sensitivity": "low",
+    "expiresAt": null
+  },
+  {
+    "id": "C007",
+    "type": "method",
+    "text": "山货优先使用五栏手写笔记：名字、谁家的或哪里来、什么味道、怎么吃、第几号笔记；无法确认的字段保留待核实。",
+    "source": {
+      "label": "产品所有者提供的姚阿姨人设 v1.0.1（2026-11-18）",
+      "url": "https://github.com/geniusdapeng-collab/workloom-yaoayi",
+      "visibility": "private"
+    },
+    "evidenceLevel": "B",
     "state": "verified",
     "publicLevel": "private",
     "sensitivity": "low",

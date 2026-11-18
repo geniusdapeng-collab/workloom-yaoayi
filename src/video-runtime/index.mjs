@@ -118,7 +118,7 @@ export function createVideoRuntime(options = {}) {
     if(!backend||backend.exitCode!==null||backend.signalCode!==null||!desktopKey)throw new VideoRuntimeError('NATIVE_BACKEND_NOT_READY','The managed native video backend is not running.');
     const envelope=await localJson(endpoint+'/trpc/auth.desktopLogin',{method:'POST',headers:{'x-workloom-desktop-key':desktopKey},body:{},signal});
     const session=envelope.result?.data?.json??envelope.result?.data;
-    if(!session||typeof session.token!=='string'||!session.token||session.identity?.workspaceId!==SCOPE.workspaceId||session.identity?.tenantId!==SCOPE.tenantId||session.identity?.memberNo!==SCOPE.memberNo||session.identity?.role!=='owner')throw new VideoRuntimeError('NATIVE_SESSION_SCOPE_MISMATCH','The native service did not establish the expected active PengManager owner session.');
+    if(!session||typeof session.token!=='string'||!session.token||session.identity?.workspaceId!==SCOPE.workspaceId||session.identity?.tenantId!==SCOPE.tenantId||session.identity?.memberNo!==SCOPE.memberNo||session.identity?.role!=='owner')throw new VideoRuntimeError('NATIVE_SESSION_SCOPE_MISMATCH','The native service did not establish the expected active Yao Ayi System owner session.');
     safe.addSecrets([session.token]);return {token:session.token,identity:session.identity};
   }
   async function cleanup() {

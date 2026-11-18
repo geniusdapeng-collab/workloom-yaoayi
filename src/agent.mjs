@@ -41,20 +41,20 @@ const emptyInput = value => {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length) throw new AgentError('INVALID_INPUT', 'This operation accepts an empty object.');
 };
 
-/** PengManager reuses the reviewed native CLI/MCP catalog and its server guards. */
-export async function createPengManagerAgent({ rootDir = ROOT, dataDir, env = process.env, runtimeFactory = createVideoRuntime, fetchImplementation = fetch } = {}) {
+/** Yao Ayi System reuses the reviewed native CLI/MCP catalog and its server guards. */
+export async function createYaoAyiAgent({ rootDir = ROOT, dataDir, env = process.env, runtimeFactory = createVideoRuntime, fetchImplementation = fetch } = {}) {
   const config = runtimeConfig({ rootDir, dataDir, env, serveWorkbench: false });
   const runtime = runtimeFactory({ rootDir: config.rootDir, dataDir: config.dataRoot, env: config.env, serveWorkbench: false, logger: () => undefined });
   const native = await import(pathToFileURL(path.join(config.engineRoot, 'scripts/agent-capabilities.mjs')).href);
   const catalog = await native.loadCatalog(config.engineRoot);
   const productionPlan = catalog.entries.get(PRODUCTION_PLAN);
   if (productionPlan) catalog.entries.set(PRODUCTION_PLAN, { ...productionPlan,
-    description: '只读预览本机视频规划材料。实际生成在鹏经理原生工作台按当前镜头资格、预算和围栏执行。',
+    description: '只读预览本机视频规划材料。实际生成在姚阿姨系统原生工作台按当前镜头资格、预算和围栏执行。',
   });
   const safe = redactor(config);
   let owned = false, localQueue = Promise.resolve();
   const specials = [
-    { id: 'pengmanager.video.status', title: '读取鹏经理视频运行状态', description: '读取本实例的服务、数据库与版本状态，不启动服务或调用供应商。' },
+    { id: 'pengmanager.video.status', title: '读取姚阿姨系统视频运行状态', description: '读取本实例的服务、数据库与版本状态，不启动服务或调用供应商。' },
     { id: 'pengmanager.video.capabilities', title: '读取完整视频员工、技能与工具目录', description: '读取完整内置能力与当前依赖状态；目录登记不代表已完成付费生成或媒体验收。' },
   ].map(item => ({ ...item, operation: 'read', risk: 'low', dataMode: 'unverified', inputSchema: { type: 'object', properties: {}, additionalProperties: false } }));
   specials.push({
@@ -123,7 +123,7 @@ export async function createPengManagerAgent({ rootDir = ROOT, dataDir, env = pr
     return pending;
   }
   return {
-    list() { return { schemaVersion: 'pengmanager.agent-capabilities/v1', productId: 'pengmanager-system', embeddedProductId: catalog.product.productId, bundleId: catalog.bundle, capabilities: [...entries.values()] }; },
+    list() { return { schemaVersion: 'pengmanager.agent-capabilities/v1', productId: 'yaoayi-system', embeddedProductId: catalog.product.productId, bundleId: catalog.bundle, capabilities: [...entries.values()] }; },
     describe(id) { const descriptor = entries.get(id); if (!descriptor) throw new AgentError('NOT_FOUND', 'The capability is not registered.'); return descriptor; },
     tools() {
       return [...native.mcpTools(catalog).map(tool => ({ ...tool, name: tool.name.replace(/^workloom_/, 'pengmanager_') })), ...specials.map(item => ({

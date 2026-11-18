@@ -102,9 +102,9 @@ export class GeoEvidenceAdapter {
             platform,
           },
           scope: {
-            tenantId: "personal-pengstack",
+            tenantId: "yaoayi-personal",
             workspaceId: "geo-evidence",
-            requestedBy: "pengmanager-system",
+            requestedBy: "yaoayi-system",
           },
         }),
       },

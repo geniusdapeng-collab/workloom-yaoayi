@@ -1,6 +1,6 @@
 import { dirname, join, resolve } from "node:path";
 import { JsonStore } from "./storage/json-store.mjs";
-import { loadSeedState, migratePengManagerIdentity, migrateEditorialState } from "./services/bootstrap.mjs";
+import { loadSeedState, migrateYaoAyiIdentity, migrateEditorialState } from "./services/bootstrap.mjs";
 import { GeoOsService } from "./services/geo-os-service.mjs";
 import { LivePipelineService } from "./services/live-pipeline.mjs";
 import { createGeoOsServer } from "./http/server.mjs";
@@ -31,7 +31,7 @@ const defaultRoot = resolve(import.meta.dirname, "..");
 
 // Construction does not listen or start services. CLI and tests share the same
 // lifecycle, including a failed video startup and a concurrent shutdown.
-export async function createPengManagerApplication({
+export async function createYaoAyiApplication({
   rootDir = defaultRoot, env = process.env, videoRuntime, runtimeFactory = createVideoRuntime,
   logger = console, geoEngine: suppliedGeoEngine, mediaEngine: suppliedMediaEngine,
   livePipeline: suppliedLivePipeline,
@@ -53,7 +53,7 @@ export async function createPengManagerApplication({
   let constructedGeo = null;
   let constructedRuntime = null;
   try {
-  await migratePengManagerIdentity(store, dataDir);
+  await migrateYaoAyiIdentity(store, dataDir);
   const publicOrigin = env.PUBLIC_ORIGIN || `http://${host === "::1" ? "[::1]" : host}:${port}`;
   await migrateEditorialState(store, { publicOrigin });
   const service = new GeoOsService({ store, finalContentBackup });
@@ -136,7 +136,7 @@ export async function createPengManagerApplication({
           server.listen(options.port ?? port, options.host ?? host, () => { server.removeListener("error", reject); done(); });
         });
         listening = true;
-        logger.log?.(`鹏经理系统 · PengManager System: http://${options.host ?? host}:${server.address().port}`);
+        logger.log?.(`姚阿姨系统 · Yao Ayi System: http://${options.host ?? host}:${server.address().port}`);
         videoStart = Promise.resolve().then(() => stopping || env.ENABLE_MEDIA_RENDER === "false" ? false : runtime.start()).then(
           result => result,
           () => { logger.error?.("视频工作台启动未完成；现有控制台继续运行，请查看视频工作台状态并运行本地诊断。"); return false; },

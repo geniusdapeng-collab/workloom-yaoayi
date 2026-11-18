@@ -7,7 +7,7 @@ async function githubRequest(fetchImpl, token, path, options = {}) {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${token}`,
       "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "PengManager-System/0.4",
+      "User-Agent": "YaoAyi-System/0.4",
       ...(options.headers ?? {}),
     },
     signal: AbortSignal.timeout(30_000),
@@ -30,7 +30,7 @@ async function githubRequest(fetchImpl, token, path, options = {}) {
 export class GitHubAdapter {
   constructor({
     token = process.env.GITHUB_TOKEN,
-    repository = process.env.GITHUB_REPOSITORY || "geniusdapeng-collab/geniusdapeng-geo-os",
+    repository = process.env.GITHUB_REPOSITORY || "geniusdapeng-collab/workloom-yaoayi",
     fetchImpl = fetch,
   } = {}) {
     this.token = token;
@@ -76,7 +76,7 @@ export class GitHubAdapter {
     }
   }
 
-  async ensureLabel(name, color = "2563eb", description = "PengManager System GEO operation") {
+  async ensureLabel(name, color = "2563eb", description = "姚阿姨系统 GEO operation") {
     try {
       return await githubRequest(
         this.fetchImpl,
@@ -101,7 +101,7 @@ export class GitHubAdapter {
     await this.ensureLabel(
       label,
       "2563eb",
-      "A content publication created by the PengManager System live API adapter",
+      "A content publication created by the Yao Ayi System live API adapter",
     );
     const issue = await githubRequest(
       this.fetchImpl,

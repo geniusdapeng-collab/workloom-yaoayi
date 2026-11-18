@@ -116,10 +116,40 @@ export function verifyOfficialArchiveBytes(input) {
 export async function downloadOfficialUi({ signal, fetchImplementation = fetch } = {}) {
   active(signal);
   const release = await request(fetchImplementation, OFFICIAL_UI.releaseUrl, 'application/vnd.github+json', signal, 30000, 'UI_PUBLIC_RELEASE_REQUEST', async (response, requestSignal) => {
+    if ([403, 429].includes(response.status)) {
+      await response.body?.cancel();
+      return { rateLimited: true, status: response.status };
+    }
     requireFact(response.status === 200, 'UI_PUBLIC_RELEASE_HTTP_' + response.status);
     const bytes = await boundedBody(response, 512 * 1024, requestSignal, signal, 'UI_PUBLIC_RELEASE_BODY');
     try { return JSON.parse(bytes.toString('utf8')); } catch { throw new PublicUiReleaseError('UI_PUBLIC_RELEASE_JSON'); }
   });
+  if (release?.rateLimited) {
+    const fallback = await request(fetchImplementation, OFFICIAL_UI.browserUrl, 'application/octet-stream', signal, 60000, 'UI_PUBLIC_ASSET_REQUEST', async (response) => {
+      requireFact(response.status === 302, 'UI_PUBLIC_BROWSER_ASSET_HTTP_' + response.status);
+      return { redirect: validateOfficialAssetRedirect(response.headers.get('location')) };
+    });
+    const scope = requestScope(signal, 60000);
+    let bytes;
+    try {
+      const response = await abortable(() => fetchImplementation(fallback.redirect, {
+        method: 'GET', headers: { Accept: 'application/octet-stream' }, redirect: 'error',
+        credentials: 'omit', referrerPolicy: 'no-referrer', signal: scope.signal,
+      }), scope.signal, signal, 'UI_PUBLIC_ASSET_DOWNLOAD');
+      requireFact(response.status === 200, 'UI_PUBLIC_ASSET_DOWNLOAD_HTTP_' + response.status);
+      bytes = await boundedBody(response, OFFICIAL_UI.bytes, scope.signal, signal, 'UI_PUBLIC_ASSET_DOWNLOAD_BODY');
+    } finally { scope.close(); }
+    active(signal);
+    const archive = verifyOfficialArchiveBytes(bytes);
+    return { bytes, proof: {
+      ...archive, transport: 'official-github', officialSourceVerified: true,
+      releaseIdentityApiVerified: false, releaseApiStatus: release.status,
+      producer: OFFICIAL_UI.producer, sourceCommit: OFFICIAL_UI.sourceCommit, tag: OFFICIAL_UI.tag,
+      releaseId: String(OFFICIAL_UI.releaseId), assetId: String(OFFICIAL_UI.assetId),
+      authenticatedApi: false, credentialsForwardedToCdn: false,
+      apiOrigin: 'https://api.github.com', assetOrigin: fallback.redirect.origin,
+    } };
+  }
   requireFact(release && release.id === OFFICIAL_UI.releaseId && release.url === OFFICIAL_UI.releaseIdentityUrl
     && release.html_url === OFFICIAL_UI.releasePage && release.tag_name === OFFICIAL_UI.tag
     && release.target_commitish === OFFICIAL_UI.sourceCommit && release.draft === false
@@ -157,6 +187,7 @@ export async function downloadOfficialUi({ signal, fetchImplementation = fetch }
   const archive = verifyOfficialArchiveBytes(bytes);
   return { bytes, proof: {
     ...archive, transport: 'official-github', officialSourceVerified: true,
+    releaseIdentityApiVerified: true,
     producer: OFFICIAL_UI.producer, sourceCommit: OFFICIAL_UI.sourceCommit, tag: OFFICIAL_UI.tag,
     releaseId: String(OFFICIAL_UI.releaseId), assetId: String(OFFICIAL_UI.assetId),
     authenticatedApi: false, credentialsForwardedToCdn: false,

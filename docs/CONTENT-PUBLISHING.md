@@ -111,7 +111,7 @@ P0 是完整正文、不可变修订、独立渠道稿、精确审核、真实�
 只读预检不启动应用、模型、视频或外部平台，也不取得可写锁：
 
 ```bash
-node scripts/editorial-data.mjs plan --state-file /absolute/private/state.json --origin https://pengmanager.com
+node scripts/editorial-data.mjs plan --state-file /absolute/private/state.json --origin https://yaoayi.example
 ```
 
 应用取得独占写入锁，正常停服会等待变更提交并释放锁；HTTP 排空有期限。已有活跃锁时第二个进程拒绝启动。强制杀进程后遇到 stale lock 时，先停止并核对所有写入者，保留状态与锁证据再受控恢复；不要无条件删除锁或用另一进程绕开。

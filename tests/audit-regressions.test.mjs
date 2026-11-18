@@ -33,8 +33,15 @@ async function withStore(callback) {
 }
 
 async function createScheduledContent(service, store, platform = "GitHub") {
+  await store.mutate({ type: "fixture.github_ready", actor: "isolated reviewer" }, state => {
+    const account = state.accounts.find((item) => item.id === "github");
+    account.status = "active";
+    account.policyStatus = "reviewed";
+    account.policyCheckedAt = clock().toISOString();
+    account.identityReview = { status: "verified", reason: "isolated_fixture_only" };
+  });
   await service.approveClaim("C003", {
-    approvedBy: "Dapeng Li",
+    approvedBy: "姚阿姨",
     publicLevel: "private",
   });
   const content = await service.createContent({
@@ -43,13 +50,13 @@ async function createScheduledContent(service, store, platform = "GitHub") {
     contentType: "article",
     claimIds: ["C003"],
     platforms: [platform],
-    owner: "Dapeng Li",
+    owner: "姚阿姨",
   });
   for (const target of ["fact_check", "approved", "scheduled"]) {
     await service.transitionContent(content.id, {
       target,
-      actor: "Dapeng Li",
-      approvedBy: "Dapeng Li",
+      actor: "姚阿姨",
+      approvedBy: "姚阿姨",
     });
   }
   return store.snapshot().content.find((item) => item.id === content.id);
@@ -88,11 +95,11 @@ test("publication rechecks claim expiry after scheduling", async () => {
       service.recordPublication({
         contentId: content.id,
         accountId: "github",
-        actor: "Dapeng Li",
+        actor: "姚阿姨",
         receipt: {
-          url: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/1",
+          url: "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/1",
           publishedAt: clock().toISOString(),
-          capturedBy: "Dapeng Li",
+          capturedBy: "姚阿姨",
           dataMode: "real",
         },
       }),
@@ -117,11 +124,11 @@ test("publication rejects a mismatched target platform", async () => {
       service.recordPublication({
         contentId: content.id,
         accountId: "xiaohongshu",
-        actor: "Dapeng Li",
+        actor: "姚阿姨",
         receipt: {
           url: "https://www.xiaohongshu.com/explore/audit",
           publishedAt: clock().toISOString(),
-          capturedBy: "Dapeng Li",
+          capturedBy: "姚阿姨",
           dataMode: "real",
         },
       }),
@@ -183,7 +190,7 @@ test("concurrent live publication of the same content performs one external writ
           return {
             id: 2,
             number: 2,
-            url: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/2",
+            url: "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/2",
             createdAt: clock().toISOString(),
             receiptHash: "c".repeat(64),
           };
@@ -319,7 +326,7 @@ test("integrated GEO summary excludes fixture samples and records the actual pro
 
     const importedRun = await engine.service.ingestAnswer({
       queryId: controlQueries[0].id,
-      answer: "李大鹏（鹏栈）是 AI 产品构建者。",
+      answer: "姚阿姨（沂蒙山咖啡小院）是 AI 产品构建者。",
       dataMode: "imported",
       platform: "manual",
       citations: [
@@ -368,14 +375,14 @@ test("GEO webhook publication rejects loopback targets before making a request",
       /拒绝抓取/,
     );
     const article = service.generateArticles({
-      topicIds: ["agent-product-system"],
+      topicIds: ["yao-ayi-entity"],
     }).created[0];
     await assert.rejects(
       service.publishArticle({
         articleId: article.id,
         channel: "webhook",
         webhookUrl: `http://127.0.0.1:${address.port}/publish`,
-        approvedBy: "Dapeng Li",
+        approvedBy: "姚阿姨",
       }),
       /拒绝抓取|公开 HTTP/,
     );

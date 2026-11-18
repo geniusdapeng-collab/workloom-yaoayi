@@ -5,14 +5,14 @@
   "platforms": [
     {
       "id": "official-site",
-      "name": "个人官网 pengmanager.com",
-      "nameZh": "个人官网 pengmanager.com",
-      "nameEn": "Personal Website",
+      "name": "姚阿姨与沂蒙山咖啡小院官网（待配置）",
+      "nameZh": "姚阿姨与沂蒙山咖啡小院官网（待配置）",
+      "nameEn": "Yao Ayi · Yimeng Mountain Coffee Courtyard Website",
       "kind": "owned_site",
       "roleGroup": "owned_core",
       "recommendedTier": "core",
       "recommendationEvidence": "D",
-      "role": "个人正式资料与中英文章/图文/视频原始版本的长期入口",
+      "role": "姚阿姨人物资料、沂蒙山故事与图文内容的长期入口；实际域名和公开范围待主人确认",
       "preferredContentForms": [
         "article",
         "image_text",

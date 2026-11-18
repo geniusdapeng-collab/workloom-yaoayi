@@ -178,7 +178,7 @@ function graphSvg(spec) {
     const label = edge.label ? svgText(edge.label, (x1 + x2) / 2, mid - 8, { size: 13, fill: "#475467" }) : "";
     return `<path d="M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}" fill="none" stroke="#98a2b3" stroke-width="2.5" marker-end="url(#arrow)"/>${label}`;
   }).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${xml(spec.alt)}"><rect width="100%" height="100%" fill="#ffffff"/><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#98a2b3"/></marker></defs>${svgText(spec.title, width / 2, 82, { size: 32, weight: 750 })}${spec.caption ? svgText(spec.caption, width / 2, 122, { size: 16, fill: "#667085" }) : ""}${edgeMarkup}${nodeMarkup}<text x="${width / 2}" y="${height - 42}" text-anchor="middle" font-size="12" fill="#98a2b3" font-family="Arial, sans-serif">PengManager editable visual source</text></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${xml(spec.alt)}"><rect width="100%" height="100%" fill="#ffffff"/><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#98a2b3"/></marker></defs>${svgText(spec.title, width / 2, 82, { size: 32, weight: 750 })}${spec.caption ? svgText(spec.caption, width / 2, 122, { size: 16, fill: "#667085" }) : ""}${edgeMarkup}${nodeMarkup}<text x="${width / 2}" y="${height - 42}" text-anchor="middle" font-size="12" fill="#98a2b3" font-family="Arial, sans-serif">Yao Ayi editable visual source</text></svg>`;
 }
 
 function chartSvg(spec) {

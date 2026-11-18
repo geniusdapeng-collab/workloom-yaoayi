@@ -72,7 +72,7 @@ test("anonymous health is minimal and every operational API remains private", as
   const app = await setup(t);
   const health = await app.send("/healthz");
   assert.equal(health.response.status, 200);
-  assert.deepEqual(health.payload, { ok: true, service: "pengmanager-system" });
+  assert.deepEqual(health.payload, { ok: true, service: "yaoayi-system" });
   const head = await app.send("/healthz", { method: "HEAD" });
   assert.equal(head.response.status, 200);
   assert.equal(head.text, "");
@@ -225,7 +225,7 @@ test("agent writes preserve authenticated actor and cannot bypass publication ap
   const interaction = await send("/api/interactions", { method: "POST", headers,
     body: JSON.stringify({ text: "Agent product question", actor: "Impersonated owner" }) });
   assert.equal(interaction.response.status, 201);
-  assert.equal(store.snapshot().events.at(-1).actor, "PengManager Agent");
+  assert.equal(store.snapshot().events.at(-1).actor, "姚阿姨 Agent");
   await store.mutate({ type: "test.prepare-publication", actor: "test" }, (state) => {
     const account = state.accounts.find((row) => row.id === "github");
     account.status = "active";
@@ -237,7 +237,7 @@ test("agent writes preserve authenticated actor and cannot bypass publication ap
     return true;
   });
   const body = JSON.stringify({ contentId: "CNT-001", accountId: "github", actor: "Impersonated owner", receipt: {
-      url: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os", publishedAt: fixedDate.toISOString(), capturedBy: "test", dataMode: "imported",
+      url: "https://github.com/geniusdapeng-collab/workloom-yaoayi", publishedAt: fixedDate.toISOString(), capturedBy: "test", dataMode: "imported",
     } });
   const denied = await send("/api/publications/manual", { method: "POST", headers, body });
   assert.equal(denied.response.status, 403);
@@ -246,7 +246,7 @@ test("agent writes preserve authenticated actor and cannot bypass publication ap
   const cookie = await login();
   const publication = await send("/api/publications/manual", { method: "POST", headers: { cookie }, body });
   assert.equal(publication.response.status, 201);
-  assert.equal(publication.payload.recordedBy, "PengManager");
+  assert.equal(publication.payload.recordedBy, "姚阿姨");
 });
 
 test("low-cost cloud configuration blocks render before a media job can start", async (t) => {
@@ -259,9 +259,9 @@ test("low-cost cloud configuration blocks render before a media job can start", 
 });
 
 async function prepareReply(operations, { manual = false } = {}) {
-  await operations.updateAccount("github", { actor: "PengManager", status: "active", policyStatus: "reviewed", policyCheckedAt: fixedDate.toISOString() });
-  return operations.create({ actor: "PengManager", accountId: "github", type: "reply",
-    executionMode: manual ? "manual" : "browser", targetUrl: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/1",
+  await operations.updateAccount("github", { actor: "Yao Ayi", status: "active", policyStatus: "reviewed", policyCheckedAt: fixedDate.toISOString() });
+  return operations.create({ actor: "Yao Ayi", accountId: "github", type: "reply",
+    executionMode: manual ? "manual" : "browser", targetUrl: "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/1",
     replyText: manual ? "客户合同问题由本人处理。" : "谢谢阅读这篇产品文章。" });
 }
 
@@ -277,7 +277,7 @@ test("agent cannot fail a draft operation before the owner has approved it", asy
 test("agent cannot execute a human-only manual reply even after owner approval", async (t) => {
   const { send, operations } = await setup(t);
   const operation = await prepareReply(operations, { manual: true });
-  await operations.approve(operation.id, { approvedBy: "PengManager", authorizationNote: "本人手工处理高风险互动" });
+  await operations.approve(operation.id, { approvedBy: "Yao Ayi", authorizationNote: "本人手工处理高风险互动" });
   const result = await send(`/api/operations/${operation.id}/start`, { method: "POST",
     headers: { authorization: `Bearer ${agentToken}` }, body: JSON.stringify({}) });
   assert.equal(result.response.status, 403);
@@ -287,10 +287,10 @@ test("agent cannot execute a human-only manual reply even after owner approval",
 test("agent cannot complete a human-only manual reply started by the owner", async (t) => {
   const { send, operations } = await setup(t);
   const operation = await prepareReply(operations, { manual: true });
-  await operations.approve(operation.id, { approvedBy: "PengManager", authorizationNote: "本人手工处理高风险互动" });
-  await operations.start(operation.id, { actor: "PengManager" });
+  await operations.approve(operation.id, { approvedBy: "Yao Ayi", authorizationNote: "本人手工处理高风险互动" });
+  await operations.start(operation.id, { actor: "Yao Ayi" });
   const result = await send(`/api/operations/${operation.id}/complete`, { method: "POST", headers: { authorization: `Bearer ${agentToken}` },
-    body: JSON.stringify({ receipt: { url: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/1#issuecomment-1",
+    body: JSON.stringify({ receipt: { url: "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/1#issuecomment-1",
       dataMode: "imported", verificationMethod: "manual_readback", publishedAt: fixedDate.toISOString(), verifiedAt: fixedDate.toISOString(),
       capturedBy: "test", verifiedBy: "test" } }) });
   assert.equal(result.response.status, 403);
@@ -300,22 +300,22 @@ test("agent cannot complete a human-only manual reply started by the owner", asy
 test("agent completion records browser verification under the authenticated agent identity", async (t) => {
   const { send, operations } = await setup(t);
   const operation = await prepareReply(operations);
-  await operations.approve(operation.id, { approvedBy: "PengManager", authorizationNote: "授权浏览器执行此条普通回复" });
+  await operations.approve(operation.id, { approvedBy: "Yao Ayi", authorizationNote: "授权浏览器执行此条普通回复" });
   const headers = { authorization: `Bearer ${agentToken}` };
   const start = await send(`/api/operations/${operation.id}/start`, { method: "POST", headers, body: "{}" });
   assert.equal(start.response.status, 200);
   const malformed = await send(`/api/operations/${operation.id}/complete`, { method: "POST", headers, body: JSON.stringify({ receipt: null }) });
   assert.equal(malformed.response.status, 400);
   const result = await send(`/api/operations/${operation.id}/complete`, { method: "POST", headers,
-    body: JSON.stringify({ actor: "李大鹏", receipt: {
-      url: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/1#issuecomment-2",
+    body: JSON.stringify({ actor: "姚阿姨", receipt: {
+      url: "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/1#issuecomment-2",
       publishedAt: fixedDate.toISOString(), verifiedAt: fixedDate.toISOString(), dataMode: "imported",
-      verificationMethod: "manual_readback", capturedBy: "李大鹏", verifiedBy: "李大鹏",
+      verificationMethod: "manual_readback", capturedBy: "姚阿姨", verifiedBy: "姚阿姨",
     } }) });
   assert.equal(result.response.status, 200);
   assert.equal(result.payload.status, "completed");
   assert.equal(result.payload.receipt.verificationMethod, "browser_readback");
-  assert.equal(result.payload.receipt.capturedBy, "PengManager Agent");
-  assert.equal(result.payload.receipt.verifiedBy, "PengManager Agent");
-  assert.equal(result.payload.receipt.recordedBy, "PengManager Agent");
+  assert.equal(result.payload.receipt.capturedBy, "姚阿姨 Agent");
+  assert.equal(result.payload.receipt.verifiedBy, "姚阿姨 Agent");
+  assert.equal(result.payload.receipt.recordedBy, "姚阿姨 Agent");
 });

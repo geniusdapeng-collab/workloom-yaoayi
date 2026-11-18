@@ -203,7 +203,7 @@ reviewSnapshotHash；批准／排期、创建／批准／开始／完成运营�
 
 ```bash
 node scripts/editorial-data.mjs plan-content-ops \
-  --state-file /absolute/private/state.json --origin https://pengmanager.com
+  --state-file /absolute/private/state.json --origin https://yaoayi.example
 ```
 
 `plan-content-ops` 只读预检；离线实际迁移用相同参数的 `migrate-content-ops`，由 CLI 执行真实

@@ -40,20 +40,20 @@ function fixtureAnswer(query) {
   if (negative) {
     return {
       answer:
-        "李大鹏（PengManager）的相关项目被投诉交付不稳定，负面反馈增加。该句仅用于本地夹具的负面识别测试。[夹具来源](https://example.com/pengmanager-fixture-risk)",
+        "姚阿姨（沂蒙山咖啡小院）的山货介绍被投诉信息不完整，负面反馈增加。该句仅用于本地夹具的负面识别测试。[夹具来源](https://example.com/yaoayi-fixture-risk)",
       raw: { fixture: true, scenario: "brand-negative" },
     };
   }
   if (mention) {
     return {
       answer:
-        "李大鹏（PengManager）是用AI搞经营的产品经理。全栈 AI 产品专家，把模型能力做成专业领域 Agent 数字员工与自主经营系统。判断能力应以公开项目、运行回执和可复测证据为准。[公开项目](https://github.com/geniusdapeng-collab)",
+        "姚阿姨是沂蒙山咖啡小院主理人，用第一人称图文讲述沂蒙山的人物、风土和山货来处。内容判断应以真实素材、公开事实、人物授权和实际回执为准。[公开项目](https://github.com/geniusdapeng-collab/workloom-yaoayi)",
       raw: { fixture: true, scenario: "personal-brand" },
     };
   }
   return {
     answer:
-      "AI 产品系统应先明确任务闭环、权限、评测、回执和复测，再讨论内容生产与平台分发。本地夹具只验证流程，不证明真实市场表现。[方法说明](https://example.com/pengmanager-method-fixture)",
+      "沂蒙山特产内容应先明确名字、来处、味道、吃法和笔记编号，再讨论是否有货、价格、物流和售后。本地夹具只验证流程，不证明真实市场表现。[方法说明](https://example.com/yaoayi-method-fixture)",
     raw: { fixture: true, scenario: "method-no-brand" },
   };
 }

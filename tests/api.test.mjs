@@ -48,7 +48,7 @@ test("HTTP API completes a manual publish flow and keeps fixture receipts blocke
     const approvedClaim = await request(baseUrl, "/api/claims/C003/approve", {
       method: "POST",
       body: JSON.stringify({
-        approvedBy: "Dapeng Li",
+        approvedBy: "姚阿姨",
         publicLevel: "private",
       }),
     });
@@ -63,7 +63,7 @@ test("HTTP API completes a manual publish flow and keeps fixture receipts blocke
         contentType: "article",
         claimIds: ["C003"],
         platforms: ["GitHub"],
-        owner: "Dapeng Li",
+        owner: "姚阿姨",
       }),
     });
     assert.equal(created.response.status, 201);
@@ -74,8 +74,8 @@ test("HTTP API completes a manual publish flow and keeps fixture receipts blocke
         method: "POST",
         body: JSON.stringify({
           target,
-          actor: "Dapeng Li",
-          approvedBy: "Dapeng Li",
+          actor: "姚阿姨",
+          approvedBy: "姚阿姨",
           note: "API integration test",
         }),
       });
@@ -88,11 +88,11 @@ test("HTTP API completes a manual publish flow and keeps fixture receipts blocke
       body: JSON.stringify({
         contentId,
         accountId: "github",
-        actor: "Dapeng Li",
+        actor: "姚阿姨",
         receipt: {
           url: "https://example.com/fixture",
           publishedAt: now().toISOString(),
-          capturedBy: "Dapeng Li",
+          capturedBy: "姚阿姨",
           dataMode: "fixture",
         },
       }),
@@ -112,11 +112,11 @@ test("HTTP API completes a manual publish flow and keeps fixture receipts blocke
       body: JSON.stringify({
         contentId,
         accountId: "github",
-        actor: "Dapeng Li",
+        actor: "姚阿姨",
         receipt: {
-          url: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os",
+          url: "https://github.com/geniusdapeng-collab/workloom-yaoayi",
           publishedAt: now().toISOString(),
-          capturedBy: "Dapeng Li",
+          capturedBy: "姚阿姨",
           dataMode: "imported",
         },
       }),
@@ -163,10 +163,10 @@ test("GEO metrics qualify only real and imported observations", async () => {
     await service.recordObservation({
       queryId: "Q001",
       surface: "DeepSeek Search",
-      answer: "李大鹏（鹏栈）是 AI 产品专家，公开项目见 https://github.com/geniusdapeng-collab。",
+      answer: "姚阿姨是沂蒙山咖啡小院主理人，用第一人称图文讲述沂蒙山的人物、风土与山货来处。",
       citations: [
         {
-          url: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os",
+          url: "https://github.com/geniusdapeng-collab/workloom-yaoayi",
         },
       ],
       dataMode: "fixture",
@@ -176,10 +176,10 @@ test("GEO metrics qualify only real and imported observations", async () => {
     await service.recordObservation({
       queryId: "Q001",
       surface: "DeepSeek Search",
-      answer: "李大鹏（鹏栈）是 AI 产品专家，公开项目见 https://github.com/geniusdapeng-collab。",
+      answer: "姚阿姨是沂蒙山咖啡小院主理人，用第一人称图文讲述沂蒙山的人物、风土与山货来处。",
       citations: [
         {
-          url: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os",
+          url: "https://github.com/geniusdapeng-collab/workloom-yaoayi",
         },
       ],
       dataMode: "real",
@@ -203,8 +203,18 @@ test("an approved public claim can move to the public export", async () => {
     const store = new JsonStore({ filePath, clock: now });
     await store.open(() => loadSeedState(dataDir));
     const service = new GeoOsService({ store, clock: now });
+    await store.mutate({ type: "fixture.public_source", actor: "isolated reviewer" }, state => {
+      const claim = state.claims.find((row) => row.id === "C003");
+      claim.source = {
+        label: "Isolated public source for export behavior",
+        url: "https://github.com/geniusdapeng-collab/geo-evidence-studio",
+        visibility: "public",
+      };
+      claim.sensitivity = "low";
+      claim.expiresAt = null;
+    });
     await service.approveClaim("C003", {
-      approvedBy: "Dapeng Li",
+      approvedBy: "姚阿姨",
       publicLevel: "approved_public",
     });
     const preview = service.publicPreview();

@@ -10,7 +10,7 @@ Full video production uses this Agent's shell and the existing standard CLI. A p
 
 ## Default entry for a video request
 
-A request such as “用鹏经理做一支 30 秒的赛道视频” already selects the standard video workflow. After the required guide below, follow [the project video skill](.agents/skills/pengmanager-standard-video/SKILL.md) and use `pengmanager.video.workflow` (MCP: `pengmanager_video_workflow`) or `node scripts/video-standard.mjs plan --input-file -` with the original intent. Continue through native Studio routing and the same project's qualified rendering, official post and media checks. A preview or finished Studio preproduction is not a finished video. Do not handcraft shotlists, call a provider directly, use manual bridging, or substitute local media tools for the official workflow on a standard request. If a formal step cannot proceed, preserve its receipt and identify that step.
+A request such as “用姚阿姨系统做一支 30 秒的赛道视频” already selects the standard video workflow. After the required guide below, follow [the project video skill](.agents/skills/pengmanager-standard-video/SKILL.md) and use `pengmanager.video.workflow` (MCP: `pengmanager_video_workflow`) or `node scripts/video-standard.mjs plan --input-file -` with the original intent. Continue through native Studio routing and the same project's qualified rendering, official post and media checks. A preview or finished Studio preproduction is not a finished video. Do not handcraft shotlists, call a provider directly, use manual bridging, or substitute local media tools for the official workflow on a standard request. If a formal step cannot proceed, preserve its receipt and identify that step.
 
 ## Mandatory first read for every AI agent
 
