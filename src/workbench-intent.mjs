@@ -22,6 +22,7 @@ const VISUAL_KINDS = new Set(["article_visual", "pure_visual"]);
 const VIDEO_KINDS = new Set(["video_ai", "video_edit", "video_talking_head", "video_mixed"]);
 const PUBLICATION_TERMS = /发布|发出去|发到|投递|上线|publicar|publish|post|deliver to|ship to/i;
 const DELIVERY_TERMS = /交付|成片|定稿|导出|下载|deliver|export|final file/i;
+const NEGATION = /不要|不需要|不用|不做|无需|不|别|勿|禁止/gu;
 
 export const WORKBENCH_INTENT_SCHEMA = Object.freeze({
   type: "object",
@@ -143,11 +144,28 @@ function publicationRequested(input, intent) {
     if (typeof input.publicationRequested !== "boolean") invalid("publicationRequested 必须是布尔值。");
     return input.publicationRequested;
   }
-  return PUBLICATION_TERMS.test(intent);
+  return hasPositiveSignal(intent, PUBLICATION_TERMS);
 }
 
 function deliveryRequested(intent) {
-  return DELIVERY_TERMS.test(intent);
+  return hasPositiveSignal(intent, DELIVERY_TERMS);
+}
+
+function hasPositiveSignal(intent, pattern) {
+  const clauses = String(intent).split(/[，,。！？!?；;\n]+/u).map((value) => value.trim()).filter(Boolean);
+  for (const clause of clauses) {
+    const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+    const expression = new RegExp(pattern.source, flags);
+    for (const match of clause.matchAll(expression)) {
+      const prefix = clause.slice(0, match.index).replace(/“[^”]*”|「[^」]*」|"[^"]*"/gu, "");
+      const negations = [...prefix.matchAll(new RegExp(NEGATION.source, "gu"))];
+      const negation = negations.at(-1);
+      if (!negation) return true;
+      const between = prefix.slice(negation.index + negation[0].length);
+      if (between.length > 16) return true;
+    }
+  }
+  return false;
 }
 
 function contentDirectorStages(route, claimIds) {

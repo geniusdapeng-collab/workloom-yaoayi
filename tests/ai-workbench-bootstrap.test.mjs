@@ -141,3 +141,13 @@ test("bootstrap rejects symlinked client configuration and validates CLI options
   assert.throws(() => parseAiWorkbenchArgs(["bootstrap", "--client", "workbuddy", "--unknown", "x"]), { code: "USAGE" });
   assert.throws(() => parseAiWorkbenchArgs(["config", "--client", "workbuddy"]), { code: "USAGE" });
 });
+
+test("Qoder merge fails closed instead of discarding a malformed mcpServers value", async (t) => {
+  const { projectDir, outputRoot, dataDir } = await fixture(t);
+  await mkdir(path.join(projectDir, ".qoder"), { recursive: true });
+  await writeFile(path.join(projectDir, ".qoder", "settings.local.json"), JSON.stringify({ mcpServers: [] }));
+  await assert.rejects(
+    bootstrapAiWorkbench({ rootDir: root, dataDir, client: "qoder", projectDir, outputRoot }),
+    { code: "QODER_CONFIG_INVALID" },
+  );
+});

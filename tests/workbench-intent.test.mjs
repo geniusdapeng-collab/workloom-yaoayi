@@ -66,6 +66,24 @@ test("ambiguous and unknown workbench fields fail without pretending to execute"
   });
 });
 
+test("publication and delivery plans respect explicit negated instructions", () => {
+  const draftOnly = planWorkbenchIntent({
+    intent: "写一篇姚阿姨山货文章，只做草稿，不要发布，也不需要导出成片",
+    claimIds: ["C001"],
+  });
+  assert.equal(draftOnly.publicationRequested, false);
+  assert.equal(draftOnly.deliveryRequested, false);
+  assert.equal(draftOnly.stages.some((stage) => stage.id === "publication"), false);
+  assert.equal(draftOnly.authorizationGates.some((gate) => gate.id === "single-target-publication"), false);
+
+  const publish = planWorkbenchIntent({
+    intent: "写一篇姚阿姨山货文章，审核后发到公众号",
+    claimIds: ["C001"],
+  });
+  assert.equal(publish.publicationRequested, true);
+  assert.equal(publish.stages.at(-1).id, "publication");
+});
+
 test("manifest declares verified clients and the unverified Qianwen fallback", () => {
   const manifest = workbenchManifest();
   assert.equal(manifest.productId, "yaoayi-system");

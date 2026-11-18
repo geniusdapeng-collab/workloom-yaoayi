@@ -126,9 +126,11 @@ async function writeQoderConfig({ config, projectDir, backupRoot }) {
       fail("QODER_CONFIG_INVALID", "Existing Qoder settings.local.json must contain a JSON object.");
     }
   }
-  current.mcpServers = current.mcpServers && typeof current.mcpServers === "object" && !Array.isArray(current.mcpServers)
-    ? current.mcpServers
-    : {};
+  if (current.mcpServers !== undefined &&
+      (!current.mcpServers || typeof current.mcpServers !== "object" || Array.isArray(current.mcpServers))) {
+    fail("QODER_CONFIG_INVALID", "Existing Qoder settings.local.json mcpServers must be a JSON object.");
+  }
+  current.mcpServers ??= {};
   current.mcpServers[AI_WORKBENCH_SERVER] = config.qoderConfig.mcpServers[AI_WORKBENCH_SERVER];
   const next = `${JSON.stringify(current, null, 2)}\n`;
   if (previous && previous.toString("utf8") === next) {

@@ -43,7 +43,7 @@ distribution. It is an engineering release check, not a legal opinion.
 
 | Check | Result |
 | --- | --- |
-| Root Node tests | 575 passed |
+| Root Node tests | 577 passed |
 | GEO engine tests | 11 passed |
 | Video post-bridge Node tests | 76 passed |
 | Video post-bridge Vitest tests | 74 passed |
