@@ -1,6 +1,7 @@
 # Security
 
-This repository is private and local-first.
+This repository is open-source and local-first. Source availability does not
+make any runtime data, account, model provider or external platform public.
 
 ## Never commit
 
@@ -25,3 +26,9 @@ If a secret reaches a repository, log, screenshot, or chat:
 2. Remove it from the current working tree.
 3. Rewrite Git history only after coordinating the security impact.
 4. Preserve an incident note without copying the secret.
+
+## Reporting
+
+Report vulnerabilities privately to the repository owner through GitHub's
+security-advisory interface. Do not include live credentials, customer data or
+private account exports in an issue, pull request, screenshot or public log.

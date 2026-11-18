@@ -5,7 +5,7 @@ import { AgentError, createYaoAyiAgent } from '../src/agent.mjs';
 
 export function parseAgentArgs(args) {
   const [command, ...rest] = args;
-  if (!['list', 'guide', 'describe', 'invoke', 'status', 'capabilities'].includes(command)) throw new AgentError('USAGE', 'Usage: node scripts/agent.mjs list|guide|status|capabilities|describe <id>|invoke <id> [--input-file <JSON file or ->] [--data-dir <private directory>]');
+  if (!['list', 'guide', 'plan', 'describe', 'invoke', 'status', 'capabilities'].includes(command)) throw new AgentError('USAGE', 'Usage: node scripts/agent.mjs list|guide|plan|status|capabilities|describe <id>|invoke <id> [--input-file <JSON file or ->] [--data-dir <private directory>]');
   const values = {}, id = ['describe', 'invoke'].includes(command) ? rest.shift() : undefined;
   if (['describe', 'invoke'].includes(command) && (!id || id.startsWith('--'))) throw new AgentError('USAGE', 'A registered capability ID is required.');
   for (let index = 0; index < rest.length; index += 2) {
@@ -13,7 +13,7 @@ export function parseAgentArgs(args) {
     if (!['--input-file', '--data-dir'].includes(name) || !value || value.startsWith('--') || values[name]) throw new AgentError('USAGE', 'Invalid or repeated argument.');
     values[name] = value;
   }
-  if (values['--input-file'] && command !== 'invoke') throw new AgentError('USAGE', '--input-file is only valid with invoke.');
+  if (values['--input-file'] && !['invoke', 'plan'].includes(command)) throw new AgentError('USAGE', '--input-file is only valid with invoke or plan.');
   return { command, id, dataDir: values['--data-dir'] ? path.resolve(values['--data-dir']) : undefined, inputFile: values['--input-file'] };
 }
 async function inputFrom(file) {
@@ -37,7 +37,9 @@ export async function main(args = process.argv.slice(2)) {
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   try {
     const output = parsed.command === 'list' ? agent.list() : parsed.command === 'describe' ? agent.describe(parsed.id)
-      : await agent.invoke(parsed.command === 'guide' ? 'pengmanager.agent.guide' : parsed.command === 'status' ? 'pengmanager.video.status' : parsed.command === 'capabilities' ? 'pengmanager.video.capabilities' : parsed.id, await inputFrom(parsed.inputFile));
+      : await agent.invoke(parsed.command === 'guide' ? 'pengmanager.agent.guide' : parsed.command === 'plan' ? 'yaoayi.workbench.intent'
+        : parsed.command === 'status' ? 'pengmanager.video.status' : parsed.command === 'capabilities' ? 'pengmanager.video.capabilities' : parsed.id,
+      await inputFrom(parsed.inputFile));
     process.stdout.write(JSON.stringify(output) + '\n');
   } catch (error) { process.stderr.write(JSON.stringify({ error: agent.error(error) }) + '\n'); process.exitCode = 1; }
   finally { process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop); await agent.stop(); }

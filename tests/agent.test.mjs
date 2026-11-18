@@ -25,7 +25,9 @@ test('Yao Ayi CLI and MCP expose the complete reviewed catalog and local invento
   runtime.capabilities = async () => ({ schemaVersion: actual.schemaVersion, scope: 'complete-edit', sourceMain: pin.commit, state: 'stopped', ready: false, catalog: actual, inventory: {} });
   assert.equal(agent.list().productId, 'yaoayi-system');
   assert.ok(agent.list().capabilities.some(item => item.id === 'growth.video.production.shots'));
+  assert.ok(agent.list().capabilities.some(item => item.id === 'yaoayi.workbench.intent'));
   assert.ok(agent.tools().some(item => item.name === 'pengmanager_core_agents_list'));
+  assert.ok(agent.tools().some(item => item.name === 'yaoayi_workbench_intent'));
   assert.equal(new Set(agent.tools().map(item => item.name)).size, agent.tools().length);
   const result = await agent.invoke('pengmanager.video.capabilities');
   assert.deepEqual(result.catalog.roles.map(item => item.id), actual.roles.map(item => item.id));
@@ -134,6 +136,7 @@ test('unknown routes, wrong arguments and disabled execution reject before acqui
 });
 test('CLI argument validation keeps capability and input-file boundaries', () => {
   assert.equal(parseAgentArgs(['invoke', 'core.workspace.profile', '--input-file', '-']).inputFile, '-');
+  assert.equal(parseAgentArgs(['plan', '--input-file', '-']).command, 'plan');
   for (const args of [[], ['invoke'], ['unknown'], ['list', '--input-file', 'data'], ['status', '--base-url', 'https://example.com'], ['invoke', 'id', '--data-dir', '/tmp/a', '--data-dir', '/tmp/b']]) assert.throws(() => parseAgentArgs(args), { code: 'USAGE' });
 });
 function child(script, args = [], input = '') {
@@ -159,13 +162,18 @@ test('actual MCP stdio initialize, list and call use valid JSON-RPC and preserve
     { jsonrpc: '2.0', id: 2, method: 'tools/list' },
     { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'pengmanager_video_status', arguments: {} } },
     { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'unregistered', arguments: {} } },
+    { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'yaoayi_workbench_intent', arguments: { intent: '做一张沂蒙山秋天的信息图' } } },
   ];
   const result = await child('scripts/agent-mcp.mjs', [], requests.map(item => JSON.stringify(item)).join('\n') + '\n');
   assert.equal(result.code, 0, result.stderr); const messages = result.stdout.trim().split('\n').map(line => JSON.parse(line));
-  assert.deepEqual(messages.map(item => item.id), [1, 2, 3, 4]);
+  assert.deepEqual(messages.map(item => item.id), [1, 2, 3, 4, 5]);
   assert.equal(messages[0].result.serverInfo.name, 'yaoayi-system');
   assert.match(messages[0].result.instructions, /pengmanager_video_preflight/);
+  assert.match(messages[0].result.instructions, /yaoayi_workbench_intent/);
   assert.ok(messages[1].result.tools.some(item => item.name === 'pengmanager_core_workspace_profile'));
+  assert.ok(messages[1].result.tools.some(item => item.name === 'yaoayi_workbench_intent'));
   assert.equal(messages[2].result.isError, false); assert.equal(JSON.parse(messages[2].result.content[0].text).ready, false);
   assert.equal(messages[3].result.isError, true); assert.equal(JSON.parse(messages[3].result.content[0].text).error.code, 'NOT_FOUND');
+  assert.equal(messages[4].result.isError, false);
+  assert.equal(JSON.parse(messages[4].result.content[0].text).route.artifactKind, 'pure_visual');
 });

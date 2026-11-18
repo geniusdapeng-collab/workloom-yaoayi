@@ -1,14 +1,45 @@
-# 在 Codex 和 Qoder 中对话使用姚阿姨系统
+# 在 Codex、WorkBuddy、Qoder 和其他 AI 工作台中使用姚阿姨系统
 
 本指南面向在自己电脑上使用 Codex 或 Qoder 的姚阿姨系统 owner。用户说明目标、素材和交付要求，Agent 负责找到当前入口、检查权限与工位、执行命令并读回结果。已获得的同一任务授权继续有效，缺少必要输入或实际审批时按对应业务规则处理。
 
 例如，用户说“用姚阿姨系统做一支三十秒的雨夜赛道短片”，Agent 应保留这句原话并使用现有标准视频流程。用户无需自己拼接 CLI 参数。本文的命令供 Agent 完成接入和执行时使用。
 
+## 克隆后自动接入
+
+首次 checkout 或新机器运行一次：
+
+```sh
+node scripts/ai-workbench.mjs bootstrap --client all
+```
+
+`codex` 会以原子方式合并受 Git 忽略的项目 `.codex/config.toml`；`qoder`
+会合并 `.qoder/settings.local.json`；`workbuddy` 会生成 MCP + Skill
+Connector 包及 zip；`generic` 和 `qianwen` 会生成可复制的项目提示词。
+旧配置先备份到 `var/workbench/backups/`，生成结果不复制模型密钥、GitHub
+Token、Cookie 或平台密码。Codex 写入后需要新建会话，让宿主重新发现 MCP。
+
+只生成某一种客户端时，把 `--client all` 改为 `codex`、`qoder`、
+`workbuddy`、`generic` 或 `qianwen`。WorkBuddy 的开发者认证、Connector
+导入/审核/发布是平台门，不属于本仓库自动写配置；千问办公在
+2026-11-18 未检索到公开原生 MCP/Connector 导入协议，因此只生成通用降级提示词。
+完整证据和能力矩阵见[AI 工作台接入与任务交付](AGENT-WORKBENCH-INTEGRATION.md)。
+
+接入后的统一规划入口是 MCP `yaoayi_workbench_intent`，CLI 对应用：
+
+```sh
+printf '%s\n' '{"intent":"围绕姚阿姨的沂蒙山秋日山货写一篇图文"}' |
+  node scripts/agent.mjs plan --input-file -
+```
+
+它复用现有创作总控路由，返回生产线、任务 DAG、所需输入、审批门和下游
+入口。它不创建 Job、不调用模型、不渲染、不审批、不发布。
+
 ## 已有入口与本次补齐
 
 | 项目 | 当前实现与使用方式 |
 | --- | --- |
-| CLI 与 stdio MCP | 两者复用同一登记目录和原生权限。`scripts/agent.mjs` 提供发现与调用，`scripts/agent-mcp.mjs` 提供 MCP。 |
+| 统一意图规划 | `yaoayi_workbench_intent` / `node scripts/agent.mjs plan` 复用 `resolveContentIntent`，把外部工作台意图转成现有生产线的可审核任务图。 |
+| CLI 与 stdio MCP | 两者复用同一登记目录和原生权限。`scripts/agent.mjs` 提供发现、规划与调用，`scripts/agent-mcp.mjs` 提供 MCP。 |
 | 视频生产 | `scripts/video-standard.mjs` 已提供 `plan`、`start`、`status`、`resume`、`deliver`，沿用 owner 授权、原生审批、预算和项目回执。 |
 | 接入指南发现 | `pengmanager_agent_guide` 返回当前 checkout 的完整指南、文件 SHA-256、绝对路径和实际支持范围。MCP 初始化指引要求先读取它。 |
 | 客户端配置 | `scripts/ai-workbench.mjs config` 根据本机实际 Node、checkout 和私有目录生成配置，结果只输出到 stdout。 |

@@ -13,3 +13,5 @@ dist/
 build/
 data/private/
 outputs/
+.codex/config.toml
+.qoder/settings.local.json

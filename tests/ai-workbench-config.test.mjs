@@ -130,6 +130,7 @@ test('invalid arguments and unsupported target selection fail without echoing in
     assert.ok(!result.stderr.includes('synthetic-secret-input'));
   }
   assert.equal(parseAiWorkbenchArgs(['config']).client, 'all');
+  assert.equal(parseAiWorkbenchArgs(['bootstrap']).command, 'bootstrap');
   const help = await configCli(['--help'], { cwd: directory });
   assert.equal(help.code, 0); assert.match(help.stdout, /--client/);
 });
