@@ -6,7 +6,7 @@
 
 私有仓库为 [`geniusdapeng-collab/workloom-yaoayi`](https://github.com/geniusdapeng-collab/workloom-yaoayi)。完整系统能力保留，`pengmanager.*` schema、MCP 工具名和部分环境变量是继承的兼容协议，不是当前人物或品牌。
 
-姚阿姨的完整长期约束见[姚阿姨人设系统 v1.0.1](docs/personas/yao-ayi-yimeng-coffee-courtyard.md)，首批 GEO 图文目标和品类地图见[沂蒙山首批宣传方案](docs/GEO-YAO-AYI-FIRST-CAMPAIGN.md)。
+姚阿姨的完整长期约束见[姚阿姨人设系统 v1.0.1](docs/personas/yao-ayi-yimeng-coffee-courtyard.md)，首批 GEO 图文目标和 32 物产品类地图见[沂蒙山首批宣传方案](docs/GEO-YAO-AYI-FIRST-CAMPAIGN.md)及其[机器可读计划](data/campaigns/yao-ayi-first-geo-campaign.json)。
 
 **AI Agent 接手必读：** 克隆、拉取更新或开始任务后，先完整阅读根目录 [AGENTS.md](AGENTS.md) 和[AI Agent 接入与操作指南](docs/AI-AGENT-GUIDE.md)，再执行操作。指南包含其他平台接入、管理员与受限令牌的权限、GEO 内容生产与最终审批、单账号发布／回复、真实回执与幂等恢复、本机视频 CLI/MCP 和 Mac 定稿备份的使用条件。仓库访问权不等于网站管理权；拉到新代码也不表示云端已经部署同一版本。
 

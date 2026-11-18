@@ -1,0 +1,991 @@
+{
+  "schema": "yaoayi.geo-campaign/v1",
+  "campaignId": "yao-ayi-yimeng-first-geo",
+  "version": "1.1.0",
+  "status": "planning",
+  "personaId": "yao_ayi_yimeng_coffee_courtyard",
+  "personaVersion": "1.0.1",
+  "primaryForm": "image_text",
+  "objective": "以姚阿姨第一人称图文，建立姚阿姨、沂蒙山咖啡小院和沂蒙山物产三个稳定实体；先讲来处、时令、吃法与真实生活，再讨论品质、交易和复购。",
+  "audiences": [
+    {
+      "id": "new-reader",
+      "problem": "第一次认识姚阿姨，想知道她是谁、为什么咖啡和煎饼会在同一张桌上",
+      "answer": "稳定身份、杭州学习经历、回乡动机、小院场景和具体劳动"
+    },
+    {
+      "id": "yimeng-curious",
+      "problem": "想了解沂蒙山有哪些风物、四季和人情",
+      "answer": "小院日记、村庄关系、农时、手写笔记和真实素材"
+    },
+    {
+      "id": "product-searcher",
+      "problem": "想搜索一种山货是什么、哪里来、怎么挑、怎么吃",
+      "answer": "品类卡、五栏笔记、时令表、选购问题和评论问答"
+    },
+    {
+      "id": "local-brand-peer",
+      "problem": "想知道地方品牌怎样不靠卖惨、猎奇和虚构建立信任",
+      "answer": "事实分级、授权、AI 标识、发布回执和 GEO 复测方法"
+    }
+  ],
+  "evidencePolicy": {
+    "defaultPublishState": "blocked_pending_fact_check",
+    "labels": {
+      "owner_provided_unverified": "所有者提供的内容线索，只能用于计划和研究，不得直接写成公开事实",
+      "official_verified": "已读取政府部门、地理标志登记公告、机构官网或平台官方来源",
+      "current_inventory_verified": "当期真实库存、规格、价格、发货和售后均已核对",
+      "rights_verified": "图片、人物、商标、音乐和品牌素材的授权范围已记录",
+      "approved_public": "事实、素材和文案均完成人工审核，允许用于公开内容"
+    },
+    "sourcePriority": [
+      "农业农村部、国家知识产权局及省市县政府/主管部门的公告和数据库",
+      "地理标志登记证书、证明商标公告、中欧互认清单等可核验材料",
+      "当期真实商品资料、检测报告、生产记录、库存与售后说明",
+      "经授权的品牌、企业和农户一手材料",
+      "公开可访问且能保存原文与抓取时间的辅助资料"
+    ],
+    "mustVerifyBeforePublishing": [
+      "地理标志的具体类型，不能混用农产品地理标志、地理标志保护产品和地理标志证明商标",
+      "称号、产量占比、出口范围、排名、年份和授牌机构",
+      "核心产区、品种、成熟期、采收期和当期真实供应",
+      "产品风味中的量化比较，如甜度、酸度、果径、出油率和米油厚度",
+      "企业、合作社、品牌、农户、照片、对白和出镜授权",
+      "加工食品的配料、生产资质、检疫、保质期、保存方式、价格和售后",
+      "药食同源、保健、治疗、滋补、含量和功效表达"
+    ]
+  },
+  "contentPillars": [
+    {
+      "id": "courtyard-diary",
+      "name": "小院日记",
+      "promise": "用一个真实动作和一个可感知细节建立日常感"
+    },
+    {
+      "id": "notes",
+      "name": "笔记翻翻",
+      "promise": "用五栏手写卡片讲清名字、来处、味道、吃法和笔记编号"
+    },
+    {
+      "id": "guests",
+      "name": "山里的客人",
+      "promise": "只写经授权的真实到访、真实反应和互相尊重"
+    },
+    {
+      "id": "handmade-food",
+      "name": "手工吃食",
+      "promise": "展示工序、失败、学习和共同劳动，不表演完美"
+    },
+    {
+      "id": "produce-map",
+      "name": "沂蒙物产图鉴",
+      "promise": "按鲜果、畜禽、干果、山珍、粮油、加工品和茶药分类建立检索入口"
+    },
+    {
+      "id": "trust-notes",
+      "name": "信任与辟谣",
+      "promise": "说清哪些话有来源、哪些话待核实、哪些不能由内容替产品背书"
+    }
+  ],
+  "productGroups": [
+    {
+      "id": "fresh-fruit",
+      "name": "鲜果",
+      "contentPromise": "先讲季、再讲树、再讲果；未确认品种与批次时不写统一口感"
+    },
+    {
+      "id": "livestock",
+      "name": "畜禽",
+      "contentPromise": "先讲地方品种、饲养环境和真实劳动，不使用可爱化或猎奇化叙事"
+    },
+    {
+      "id": "dried-fruit",
+      "name": "干果",
+      "contentPromise": "讲采收、脱壳、晾晒、保存和食用方法，不把单批表现写成全体标准"
+    },
+    {
+      "id": "fungi-and-specialty",
+      "name": "菌菇山珍",
+      "contentPromise": "明确野生、人工、加工与食用风险，不提供医疗或采摘安全背书"
+    },
+    {
+      "id": "mountain-food",
+      "name": "山区杂项",
+      "contentPromise": "从真实采集、加工和季节入手，避免把普通物产包装成稀缺神物"
+    },
+    {
+      "id": "grain-oil",
+      "name": "粮油",
+      "contentPromise": "讲原料、工艺、检测和保存；产量、占比与互认等说法必须查原始来源"
+    },
+    {
+      "id": "processed-food",
+      "name": "加工食品与调味",
+      "contentPromise": "先核对配料、工艺、资质、保质期、价格和售后，再写推荐"
+    },
+    {
+      "id": "tea-medicinal",
+      "name": "茶与药食同源",
+      "contentPromise": "严格区分食品、农产品、代用茶和药用；未经授权不作功效承诺"
+    }
+  ],
+  "products": [
+    {
+      "id": "mengyin-peach",
+      "name": "蒙阴蜜桃",
+      "aliases": ["中华水蜜桃", "蒙阴水蜜桃"],
+      "groupId": "fresh-fruit",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称蒙阴蜜桃是国家地理标志产品，并有“中国蜜桃之都”“中国水蜜桃之乡”等称号线索",
+        "材料提到岱崮、联城、旧寨等主产区线索",
+        "材料称通常在7至9月集中上市"
+      ],
+      "contentAngles": [
+        "第一张蜜桃五栏卡片怎么写",
+        "蜜桃先问谁家的、哪天采的",
+        "为什么同一个产区也不能用一个甜度概括所有桃",
+        "外地人第一次认识蒙阴蜜桃先看什么"
+      ],
+      "verificationNeeds": ["地理标志类型与持有人", "称号、授牌机构和年份", "合法产区范围", "品种与真实成熟期", "当期批次与售后"],
+      "riskFlags": ["不得编造甜度、糖度、出口和增收数字", "不得把获准使用的标志用于未授权主体"]
+    },
+    {
+      "id": "mengyin-apple",
+      "name": "蒙阴苹果",
+      "aliases": ["沂蒙苹果"],
+      "groupId": "fresh-fruit",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称蒙阴野店镇是“蒙阴苹果”地理标志所在地",
+        "材料提到红富士等品种，以及部分优质果出口欧盟、东南亚等线索"
+      ],
+      "contentAngles": [
+        "苹果笔记先记树、再记果",
+        "红富士只是品种名，不是品质保证",
+        "十一月的苹果怎么讲储存",
+        "同村两户苹果为什么也要分开记"
+      ],
+      "verificationNeeds": ["地理标志归属", "合法产区", "品种清单", "出口事实与年份", "当期批次和检测"],
+      "riskFlags": ["不得凭品种写“最好吃”", "出口线索未核实前不得作为卖点"]
+    },
+    {
+      "id": "tianbao-pear",
+      "name": "天宝黄梨",
+      "aliases": ["天宝山黄梨"],
+      "groupId": "fresh-fruit",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称天宝黄梨是沂蒙山传统名特产水果之一",
+        "材料称肉质细嫩、汁多味甜",
+        "材料称费县被列为“中国优质梨基地县”"
+      ],
+      "contentAngles": [
+        "黄梨先看成熟度，不先写甜",
+        "梨的时令和储存怎么记",
+        "一张卡片讲清鲜食与熟食",
+        "老梨树和新果园要分开讲"
+      ],
+      "verificationNeeds": ["品种与产地", "称号来源", "真实成熟期", "风味描述依据", "当期批次与价格"],
+      "riskFlags": ["不得把单批口感写成全年统一标准", "不得虚构古树、树龄和传统技艺"]
+    },
+    {
+      "id": "feixian-hawthorn",
+      "name": "费县山楂",
+      "aliases": ["天宝山山楂", "大金星山楂"],
+      "groupId": "fresh-fruit",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称费县山楂尤其是大金星品种果肉厚、酸度足",
+        "材料称其为国家地理标志商标产品",
+        "材料提到山楂条、山楂糕等制品"
+      ],
+      "contentAngles": [
+        "山楂为什么先问用途再谈挑法",
+        "鲜食、做糕和泡水有什么不同",
+        "一张卡片记录酸度与加工方式",
+        "山楂制品先看配料表"
+      ],
+      "verificationNeeds": ["地理标志类型与使用主体", "品种名称", "风味依据", "加工食品配料和资质", "当期规格"],
+      "riskFlags": ["不得宣传降脂、消食等医疗功效", "加工品不得只写山楂原料而省略糖和添加物"]
+    },
+    {
+      "id": "yinan-cherry",
+      "name": "沂南大樱桃",
+      "aliases": ["沂南樱桃"],
+      "groupId": "fresh-fruit",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": ["材料将沂南大樱桃列为区域内有口碑的品类"],
+      "contentAngles": ["樱桃季先记采果日期", "果径、色泽和口感要分批记录", "外地客人问樱桃怎么带走"],
+      "verificationNeeds": ["主要产区", "品种", "成熟期", "分级标准", "物流与售后"],
+      "riskFlags": ["不得用“进口替代”等未经证实说法", "不得虚构采摘现场"]
+    },
+    {
+      "id": "yishui-cherry",
+      "name": "沂水大樱桃",
+      "aliases": ["圣母山大樱桃"],
+      "groupId": "fresh-fruit",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": [
+        "材料将沂水大樱桃列为区域内有口碑的品类",
+        "材料提到圣母山大樱桃曾作为地理标志品牌培育"
+      ],
+      "contentAngles": ["同一个县不同山片的樱桃为什么要分开记", "樱桃笔记里的天气和采摘时间", "怎样向客人说明批次差异"],
+      "verificationNeeds": ["品牌培育事实", "地理标志状态", "核心产区", "品种与成熟期", "真实供应"],
+      "riskFlags": ["不得把“品牌培育”写成已获地理标志", "不得虚构评奖"]
+    },
+    {
+      "id": "feixian-cherry",
+      "name": "费县大樱桃",
+      "aliases": ["费县樱桃"],
+      "groupId": "fresh-fruit",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": ["材料将费县大樱桃列为区域内有口碑的品类"],
+      "contentAngles": ["费县樱桃的来处怎么问", "樱桃保鲜先讲真实方法", "酸甜差异如何客观表达"],
+      "verificationNeeds": ["产区", "品种", "成熟期", "农残与检测", "包装和冷链事实"],
+      "riskFlags": ["不得承诺全部冷链", "不得借用其他产区认证"]
+    },
+    {
+      "id": "feixian-crisp-jujube",
+      "name": "费县脆枣",
+      "aliases": ["费县鲜食脆枣"],
+      "groupId": "fresh-fruit",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": ["材料称费县脆枣是地理标志商标产品，在费县果业布局中占有一席之地"],
+      "contentAngles": ["脆枣的五栏卡片", "鲜枣与干枣不是同一件事", "脆枣怎么问品种和采摘日"],
+      "verificationNeeds": ["地理标志状态", "品种", "成熟期", "供应周期", "储存方式"],
+      "riskFlags": ["不得把脆枣加工品混同为鲜枣", "不得虚构产量和规模"]
+    },
+    {
+      "id": "mengshan-black-goat",
+      "name": "蒙山黑山羊",
+      "aliases": ["沂蒙黑山羊", "蒙山山羊"],
+      "groupId": "livestock",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称蒙山黑山羊已获农业部地理标志登记",
+        "材料提到平邑、蒙阴一带为主要产区"
+      ],
+      "contentAngles": [
+        "黑山羊先讲地方品种和饲养环境",
+        "一只羊的产品笔记先问检疫和加工",
+        "羊肉内容不能只拍热锅",
+        "养殖户不是产品照片里的背景"
+      ],
+      "verificationNeeds": ["地理标志登记类型", "法定产区", "养殖与检疫", "屠宰和加工资质", "当期供应"],
+      "riskFlags": ["不得作滋补、壮阳等功效表达", "动物素材须有养殖与拍摄授权"]
+    },
+    {
+      "id": "yimeng-black-pig",
+      "name": "沂蒙黑猪",
+      "aliases": ["临沂沂蒙黑猪"],
+      "groupId": "livestock",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称临沂沂蒙黑猪是地理标志登记产品",
+        "材料提到沂南、沂水、莒县交界一带为产区线索"
+      ],
+      "contentAngles": [
+        "黑猪先问什么是有据可查的地方品种",
+        "饲养周期不能只靠一句“养得久”",
+        "猪肉制品的配料和加工怎么讲",
+        "养殖、屠宰、销售三段责任怎么分开"
+      ],
+      "verificationNeeds": ["地理标志登记", "法定产区", "品种档案", "检疫与加工", "批次追溯"],
+      "riskFlags": ["不得虚构散养、土猪、喂养年限", "不得把普通黑猪冒充登记产品"]
+    },
+    {
+      "id": "langya-chicken",
+      "name": "琅琊鸡",
+      "aliases": ["琅琊鸡地方品种"],
+      "groupId": "livestock",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": ["材料将琅琊鸡列为沂蒙山优质地方鸡种"],
+      "contentAngles": ["琅琊鸡先讲地方品种档案", "鸡种、饲养方式和产品不是同一个概念", "鸡蛋笔记怎样记录饲料与环境"],
+      "verificationNeeds": ["品种保护依据", "产区", "养殖标准", "检疫", "产品批次"],
+      "riskFlags": ["不得把“地方品种”直接写成有机或散养", "不得虚构遗传纯度"]
+    },
+    {
+      "id": "yimeng-chicken",
+      "name": "沂蒙鸡",
+      "aliases": ["沂蒙地方鸡"],
+      "groupId": "livestock",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": ["材料将沂蒙鸡列为优质地方鸡种"],
+      "contentAngles": ["沂蒙鸡和普通商品鸡怎么区分", "从一只鸡讲清养殖与加工", "鸡汤内容先去掉功效承诺"],
+      "verificationNeeds": ["品种身份", "饲养记录", "检疫和加工", "实际销售主体"],
+      "riskFlags": ["不得宣传治病或大补", "不得用统一包装代替批次追溯"]
+    },
+    {
+      "id": "mengshan-free-range-eggs",
+      "name": "蒙山草鸡蛋",
+      "aliases": ["蒙山土鸡蛋"],
+      "groupId": "livestock",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": ["材料将蒙山草鸡蛋视为山区散养禽蛋的代表性品类"],
+      "contentAngles": ["草鸡蛋先问从哪里来", "蛋壳颜色不能证明散养", "一张卡片记录采收、保存和批次"],
+      "verificationNeeds": ["实际养殖方式", "饲料与用药", "采收日期", "检测与保存", "销售主体"],
+      "riskFlags": ["不得用“土鸡蛋”替代可核验养殖事实", "不得宣称更高营养而无检测依据"]
+    },
+    {
+      "id": "yimeng-angora-rabbit",
+      "name": "沂蒙长毛兔",
+      "aliases": ["蒙阴长毛兔"],
+      "groupId": "livestock",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": [
+        "材料称沂蒙长毛兔是地理标志登记品种",
+        "材料称蒙阴有“中国长毛兔之乡”称号"
+      ],
+      "contentAngles": ["长毛兔内容先讲品种与养殖", "兔毛产品的来源和加工", "不把动物外形当猎奇卖点"],
+      "verificationNeeds": ["地理标志登记", "称号来源", "养殖用途", "毛纺加工与授权", "动物福利边界"],
+      "riskFlags": ["不得虚构兔毛等级和出口数据", "不以动物受苦或奇特外观制造流量"]
+    },
+    {
+      "id": "mengshan-cattle",
+      "name": "蒙山牛",
+      "aliases": ["沂蒙山区地方牛种"],
+      "groupId": "livestock",
+      "priority": "P2",
+      "wave": 3,
+      "ownerProvidedClues": ["材料将蒙山牛列为沂蒙山区优良地方畜种"],
+      "contentAngles": ["地方牛种先看档案", "养殖周期与饲料怎么核验", "牛肉产品从检疫和加工讲起"],
+      "verificationNeeds": ["品种认定", "产区", "检疫与加工", "养殖周期", "批次追溯"],
+      "riskFlags": ["不得用“草饲”“谷饲”作无证卖点", "不得宣传功效"]
+    },
+    {
+      "id": "mengshan-chestnut",
+      "name": "蒙山板栗",
+      "aliases": ["沂蒙山板栗", "蒙山魁栗"],
+      "groupId": "dried-fruit",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称蒙山板栗是国家地理标志农产品",
+        "材料提到费县、莒南为核心产区，费县被称为“中国板栗之乡”",
+        "材料称蒙山魁栗果粒饱满、粉糯香甜"
+      ],
+      "contentAngles": [
+        "板栗先看刺壳和采收，再谈粉糯",
+        "板栗怎么挑、怎么剥、怎么存",
+        "鲜板栗和糖炒栗子不是同一种商品",
+        "一张卡片记录产区、品种和加工方式"
+      ],
+      "verificationNeeds": ["地理标志类型", "法定产区", "称号来源", "魁栗品种关系", "风味依据与批次"],
+      "riskFlags": ["不得虚构野生板栗", "不得把单批风味写成全部产品标准"]
+    },
+    {
+      "id": "feixian-walnut",
+      "name": "费县核桃",
+      "aliases": ["芍药山核桃"],
+      "groupId": "dried-fruit",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": [
+        "材料称费县核桃是农业部地理农产品登记保护产品",
+        "材料称费县有“中国核桃之乡”称号",
+        "材料称其皮薄仁满、口感香醇"
+      ],
+      "contentAngles": ["核桃先看壳和仁，不只看皮薄", "干核桃怎么存", "生食、烘烤和榨油的不同", "五栏卡片怎样写品种和批次"],
+      "verificationNeeds": ["登记类型与名称", "称号来源", "核心产区", "品种", "检测与保存"],
+      "riskFlags": ["不得宣传补脑等功效", "不得把薄皮核桃写成全部费县核桃"]
+    },
+    {
+      "id": "mengshan-pine-mushroom",
+      "name": "蒙山松菇",
+      "aliases": ["松蛾子"],
+      "groupId": "fungi-and-specialty",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称蒙山松菇是当地辨识度较高的野生菌",
+        "材料称目前基本不能人工种植",
+        "材料称菌肉肥厚、松菇香气浓郁"
+      ],
+      "contentAngles": [
+        "松菇内容先讲识别与食用风险",
+        "雨天和松林不是营销布景，是采集条件",
+        "干松菇怎么清洗、泡发和保存",
+        "不替读者判断野生菌是否可食"
+      ],
+      "verificationNeeds": ["物种学名与地方名", "人工栽培现状", "合法采集区域", "食品安全与检测", "采集者授权"],
+      "riskFlags": ["不得提供野外采摘识别指南", "不得把未知野生菌当作可食", "不得宣称抗癌或增强免疫"]
+    },
+    {
+      "id": "mengshan-scorpion",
+      "name": "蒙山全蝎",
+      "aliases": ["蒙山十足全蝎"],
+      "groupId": "fungi-and-specialty",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": [
+        "材料称蒙山十足全蝎比普通蝎子多两条腿",
+        "材料提到油炸食用和泡全蝎酒等用途"
+      ],
+      "contentAngles": ["全蝎内容为什么必须先讲风险", "来源、加工和食用许可怎么核", "不拍猎奇吞咽镜头"],
+      "verificationNeeds": ["物种身份", "养殖来源", "食品/药品属性", "加工与销售资质", "过敏与中毒风险"],
+      "riskFlags": ["不得提供自行泡酒或食用建议", "不得宣传药用功效", "必须由相关专业审核"]
+    },
+    {
+      "id": "mengshan-honey",
+      "name": "蒙山蜂蜜",
+      "aliases": ["荆条蜜", "洋槐蜜", "蒙山土蜂蜜"],
+      "groupId": "mountain-food",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": ["材料将荆条蜜、洋槐蜜等列为蒙阴、费县一带常见山货物产线索"],
+      "contentAngles": ["蜂蜜先问蜜源和采蜜期", "结晶不等于掺糖", "蜂农、花期和蜂箱的真实记录"],
+      "verificationNeeds": ["蜜源植物", "采蜜期和地点", "蜂农授权", "检测报告", "包装标签"],
+      "riskFlags": ["不得宣传治疗咳嗽或增强免疫", "不得虚构野生蜜和稀有花源"]
+    },
+    {
+      "id": "toona-sprout",
+      "name": "沂蒙香椿芽",
+      "aliases": ["蒙山椿芽"],
+      "groupId": "mountain-food",
+      "priority": "P2",
+      "wave": 3,
+      "ownerProvidedClues": ["材料将椿芽列为蒙阴、费县一带常见山区物产"],
+      "contentAngles": ["香椿的第一口春", "香椿芽怎么选、焯水和保存", "谁家树上采的、什么时候采的"],
+      "verificationNeeds": ["品种", "采摘期", "农残与保存", "包装销售资质", "图片来源"],
+      "riskFlags": ["不得宣称排毒或治病", "不得误导读者野外随意采食"]
+    },
+    {
+      "id": "shandong-pepper",
+      "name": "沂蒙花椒",
+      "aliases": ["蒙山花椒", "沂蒙山红花椒"],
+      "groupId": "mountain-food",
+      "priority": "P2",
+      "wave": 3,
+      "ownerProvidedClues": ["材料将花椒列为蒙阴、费县一带常见山区物产"],
+      "contentAngles": ["花椒先闻香，再看干度和杂质", "鲜花椒和干花椒的用途", "五栏卡片怎样记录采收日"],
+      "verificationNeeds": ["品种", "产区", "采收期", "检测与包装", "当期供应"],
+      "riskFlags": ["不得使用药用功效背书", "不得虚构“古树花椒”"]
+    },
+    {
+      "id": "yimeng-peanut-oil",
+      "name": "沂蒙花生油",
+      "aliases": ["莒南花生油", "沂蒙山花生油"],
+      "groupId": "grain-oil",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称“沂蒙花生油”是临沂区域公共品牌",
+        "材料称临沂花生油年产量约占全国五分之一",
+        "材料称莒南花生是国家地理标志产品，并提到中欧互认和部分企业线索"
+      ],
+      "contentAngles": [
+        "花生油先看原料、工艺和检测",
+        "压榨、初榨和精炼不要混着说",
+        "企业品牌和区域品牌必须分开",
+        "开封后的油怎么存"
+      ],
+      "verificationNeeds": ["区域品牌持有人", "产量占比年份与来源", "地理标志类型", "中欧互认清单", "企业授权与检测报告"],
+      "riskFlags": ["未核实前不得使用全国占比和互认作卖点", "不得写绝对健康和零添加", "企业名称须有商业授权"]
+    },
+    {
+      "id": "sunzu-millet",
+      "name": "孙祖小米",
+      "aliases": ["沂南孙祖小米"],
+      "groupId": "grain-oil",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称孙祖小米产自沂南孙祖镇，是地理标志农产品",
+        "材料称熬粥米油厚、粥香浓"
+      ],
+      "contentAngles": ["小米从谷穗、脱壳到熬粥", "米油是观感，不是功效证明", "五栏笔记怎样记录产地和年份", "新米和陈米怎么讲清"],
+      "verificationNeeds": ["登记类型", "保护区范围", "品种和年份", "加工与检测", "真实批次"],
+      "riskFlags": ["不得宣传养胃等功效", "不得把观感描述写成营养结论"]
+    },
+    {
+      "id": "yimeng-pancake",
+      "name": "沂蒙煎饼",
+      "aliases": ["山东煎饼", "沂蒙山煎饼"],
+      "groupId": "processed-food",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称其以小米、玉米、高粱等杂粮为原料",
+        "材料称其薄韧焦香，是沂蒙山传统主食"
+      ],
+      "contentAngles": [
+        "第一张煎饼糊了以后怎么改",
+        "鏊子的温度和面糊的稀稠",
+        "杂粮配比与真实配料表",
+        "煎饼怎么叠、怎么卷、怎么存"
+      ],
+      "verificationNeeds": ["配料表", "制作工艺", "生产主体与资质", "保质期和保存", "设备与作坊授权"],
+      "riskFlags": ["不得把家庭做法暗示为已取得网售资质", "不得虚构非遗和传承谱系"]
+    },
+    {
+      "id": "eight-treasure-fermented-beans",
+      "name": "八宝豆豉",
+      "aliases": ["临沂八宝豆豉"],
+      "groupId": "processed-food",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": [
+        "材料称八宝豆豉是临沂传统非遗酱料，以黑豆发酵制成",
+        "材料称酱香咸鲜，并提到老字号线索"
+      ],
+      "contentAngles": ["豆豉从黑豆发酵讲起", "配料、盐分和保存怎么看", "家常吃法与一餐搭配", "非遗与商品品牌不能混为一谈"],
+      "verificationNeeds": ["非遗项目正式名称", "配料与工艺", "盐分和检测", "生产资质", "老字号授权"],
+      "riskFlags": ["不得使用企业名义背书", "不得作预防疾病或保健宣传"]
+    },
+    {
+      "id": "dazhuang-roast-chicken",
+      "name": "大庄烧鸡",
+      "aliases": ["沂南大庄烧鸡"],
+      "groupId": "processed-food",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": [
+        "材料称其是沂南大庄镇代表性熟食",
+        "材料提到卤制、真空礼盒和伴手礼场景"
+      ],
+      "contentAngles": ["烧鸡先讲原料、卤制和检疫", "真空礼盒不能替代保质期说明", "怎么复热、怎么保存", "一只熟食如何成为伴手礼"],
+      "verificationNeeds": ["实际生产主体", "禽类来源和检疫", "配料与添加剂", "真空包装及保质期", "价格与售后"],
+      "riskFlags": ["不得把地方熟食名称当作任意商家共用品牌", "未核验不得写“手工老汤”"]
+    },
+    {
+      "id": "dry-fried-spicy-pork",
+      "name": "干煸辣肉丝",
+      "aliases": ["蒙阴干煸辣肉丝"],
+      "groupId": "processed-food",
+      "priority": "P2",
+      "wave": 3,
+      "ownerProvidedClues": [
+        "材料称其为蒙阴一带传统加工肉食",
+        "材料提到红辣椒、精猪肉和花生油等制作线索"
+      ],
+      "contentAngles": ["辣肉丝先看肉、油、辣椒和配料", "家常菜与预包装食品的边界", "香辣内容不靠挑战吃辣博流量"],
+      "verificationNeeds": ["地域与传统依据", "配料和过敏原", "肉源与检疫", "生产资质", "价格和保存"],
+      "riskFlags": ["不得打保健或驱寒功效", "不得暗示所有家庭作坊均可销售"]
+    },
+    {
+      "id": "pingyi-honeysuckle",
+      "name": "平邑金银花",
+      "aliases": ["沂蒙金银花", "郑城金银花", "流峪金银花"],
+      "groupId": "tea-medicinal",
+      "priority": "P0",
+      "wave": 1,
+      "ownerProvidedClues": [
+        "材料称平邑是全国核心产区，郑城、流峪一带产量占全国很大比重",
+        "材料称花蕾肥硕、绿原酸含量高",
+        "材料称其属于双地理标志认证产品，并提到泡茶或入药"
+      ],
+      "contentAngles": [
+        "金银花先分清农产品、代用茶和药材",
+        "花蕾、开放花和加工方式有什么不同",
+        "只讲来处与饮用方法，不讲治疗",
+        "一张卡片记录采收期和批次"
+      ],
+      "verificationNeeds": ["地理标志类型与权利人", "产量占比原始来源", "绿原酸检测依据", "食品/药品边界", "加工和销售资质"],
+      "riskFlags": ["不得宣传清热解毒、抗病毒等功效", "不得给特殊人群自行用药建议", "所有入药表述须专业审核"]
+    },
+    {
+      "id": "linshu-taizishen",
+      "name": "临沭太子参",
+      "aliases": ["临沂太子参"],
+      "groupId": "tea-medicinal",
+      "priority": "P2",
+      "wave": 3,
+      "ownerProvidedClues": [
+        "材料称临沭太子参是临沂名贵药材特产之一",
+        "材料提到山坡岩隙生长及滋补用途线索"
+      ],
+      "contentAngles": ["太子参内容只做来源与身份科普", "药材、食品和农产品边界", "为什么不替读者判断是否适合食用"],
+      "verificationNeeds": ["物种身份", "产区与种植方式", "药材/食品资质", "检测", "药用和剂量专业审核"],
+      "riskFlags": ["不得作滋补、儿童保健或疾病治疗建议", "不得根据传闻写野生资源"]
+    },
+    {
+      "id": "yimeng-green-tea",
+      "name": "沂蒙绿茶",
+      "aliases": ["临沂绿茶", "沂蒙山绿茶"],
+      "groupId": "tea-medicinal",
+      "priority": "P1",
+      "wave": 2,
+      "ownerProvidedClues": ["材料称沂蒙绿茶已获农产品地理标志登记"],
+      "contentAngles": ["沂蒙绿茶先问采摘季和等级", "水温、投茶量和耐泡度怎么记", "茶叶的香气描述与冲泡条件", "五栏卡片记录茶园和加工日"],
+      "verificationNeeds": ["地理标志登记", "保护区范围", "品种与等级", "检测和包装", "当期批次"],
+      "riskFlags": ["不得宣传降脂减肥等功效", "香气和耐泡度须绑定具体批次与冲泡法"]
+    },
+    {
+      "id": "junan-green-tea",
+      "name": "莒南绿茶",
+      "aliases": ["蒙山龙雾茶"],
+      "groupId": "tea-medicinal",
+      "priority": "P2",
+      "wave": 3,
+      "ownerProvidedClues": ["材料将莒南绿茶、蒙山龙雾茶列为沂蒙山区茶叶代表"],
+      "contentAngles": ["莒南绿茶与沂蒙绿茶是什么关系", "一杯茶先看冲泡条件", "茶园、加工和包装的真实记录"],
+      "verificationNeeds": ["名称权属", "地理标志关系", "企业或区域品牌授权", "等级和检测"],
+      "riskFlags": ["不得把企业品牌写成公共地理标志", "不得宣传医疗功效"]
+    }
+  ],
+  "excludedClaimCandidates": [
+    {
+      "claim": "“菇婆婆”等品牌的有机食用菌进入“沂蒙好货”名单",
+      "reason": "涉及企业、商标、有机认证和名单年份，未取得当期官方名单与品牌授权前不发布"
+    },
+    {
+      "claim": "金胜、玉皇等企业的原生初榨花生油进入“沂蒙好货”名单",
+      "reason": "涉及企业名称、商标、产品工艺和名单事实，须取得官方名单及企业授权"
+    },
+    {
+      "claim": "“惟一等”老字号代表八宝豆豉",
+      "reason": "企业简称、老字号认定和产品关系均待核实，不作为公共品类背书"
+    },
+    {
+      "claim": "部分优质苹果出口欧盟、东南亚",
+      "reason": "须确认主体、年份、品种、数量和海关/企业原始材料"
+    },
+    {
+      "claim": "临沂花生油年产量约占全国五分之一",
+      "reason": "须确认统计口径、年份、产品和来源；不得用单年区域数据替代当前事实"
+    },
+    {
+      "claim": "平邑金银花产量占全国很大比重，绿原酸含量高",
+      "reason": "涉及产量统计、检测标准和批次；须查原始报告，且不得延伸为功效"
+    },
+    {
+      "claim": "蒙山全蝎、金银花、太子参具有药食同源或滋补作用",
+      "reason": "食品、药品和药用边界高风险，须专业法规审核，不进入首批普通宣传稿"
+    }
+  ],
+  "waves": [
+    {
+      "id": "W0",
+      "name": "实体与信任基础",
+      "goal": "让读者记住姚阿姨、小院和内容方法",
+      "productIds": [],
+      "deliverables": [
+        "姚阿姨是谁",
+        "咖啡是学的，煎饼是打小就会的",
+        "沂蒙山物产为什么不是一张名单",
+        "一张五栏笔记怎样写清来处"
+      ]
+    },
+    {
+      "id": "W1",
+      "name": "首批认知锚点",
+      "goal": "先建立六个最有辨识度的品类入口",
+      "productIds": ["mengyin-peach", "mengshan-chestnut", "mengshan-black-goat", "yimeng-peanut-oil", "sunzu-millet", "pingyi-honeysuckle"],
+      "deliverables": [
+        "每件物产一篇品类卡",
+        "每件物产一篇五栏笔记",
+        "每件物产一个真实评论问答"
+      ]
+    },
+    {
+      "id": "W2",
+      "name": "风味地图扩展",
+      "goal": "补齐鲜果、畜禽、干果、山珍和加工食品的代表品类",
+      "productIds": ["mengyin-apple", "tianbao-pear", "feixian-hawthorn", "yimeng-black-pig", "feixian-walnut", "mengshan-pine-mushroom", "yimeng-pancake", "eight-treasure-fermented-beans"],
+      "deliverables": [
+        "品类是非题卡",
+        "时令与选购问题卡",
+        "真实工序或人物关系图文"
+      ]
+    },
+    {
+      "id": "W3",
+      "name": "长尾与风险解释",
+      "goal": "覆盖更多地方种、加工品与药食同源边界",
+      "productIds": ["yinan-cherry", "yishui-cherry", "feixian-cherry", "feixian-crisp-jujube", "langya-chicken", "yimeng-chicken", "mengshan-free-range-eggs", "yimeng-angora-rabbit", "mengshan-cattle", "mengshan-scorpion", "mengshan-honey", "toona-sprout", "shandong-pepper", "dazhuang-roast-chicken", "dry-fried-spicy-pork", "linshu-taizishen", "yimeng-green-tea", "junan-green-tea"],
+      "deliverables": [
+        "本地物种与名称消歧卡",
+        "加工食品风险与保存卡",
+        "药食同源边界卡"
+      ]
+    }
+  ],
+  "firstBatchEditorial": [
+    {
+      "order": 1,
+      "productId": null,
+      "title": "来了？坐，先喝口水",
+      "format": "image_text",
+      "goal": "建立姚阿姨和小院实体"
+    },
+    {
+      "order": 2,
+      "productId": null,
+      "title": "咖啡是学的，煎饼是打小就会的",
+      "format": "image_text",
+      "goal": "建立两段人生和咖啡角/鏊子区记忆"
+    },
+    {
+      "order": 3,
+      "productId": null,
+      "title": "沂蒙山物产不是一张名单，是一村一季的来处",
+      "format": "image_text",
+      "goal": "建立地方物产内容地图"
+    },
+    {
+      "order": 4,
+      "productId": null,
+      "title": "一张五栏笔记，先写不知道的部分",
+      "format": "image_text",
+      "goal": "建立事实核验方法"
+    },
+    {
+      "order": 5,
+      "productId": "mengyin-peach",
+      "title": "蜜桃先问谁家的、哪天采的",
+      "format": "image_text",
+      "goal": "第一个鲜果品类入口"
+    },
+    {
+      "order": 6,
+      "productId": "mengyin-peach",
+      "title": "同一产区，也不止一种桃子",
+      "format": "image_text",
+      "goal": "用品种与批次防止单一化表达"
+    },
+    {
+      "order": 7,
+      "productId": "mengshan-chestnut",
+      "title": "板栗从刺壳开始，不从“糖炒”开始",
+      "format": "image_text",
+      "goal": "建立采收和加工链"
+    },
+    {
+      "order": 8,
+      "productId": "mengshan-chestnut",
+      "title": "板栗怎么挑、怎么剥、怎么存",
+      "format": "image_text",
+      "goal": "解决问题型搜索"
+    },
+    {
+      "order": 9,
+      "productId": "mengshan-black-goat",
+      "title": "黑山羊先讲品种和养殖，再讲一口热锅",
+      "format": "image_text",
+      "goal": "去猎奇化，建立地方品种档案"
+    },
+    {
+      "order": 10,
+      "productId": "mengshan-black-goat",
+      "title": "一张羊肉卡片为什么要先写检疫和加工",
+      "format": "image_text",
+      "goal": "建立高风险食品边界"
+    },
+    {
+      "order": 11,
+      "productId": "yimeng-peanut-oil",
+      "title": "花生油先看原料、工艺和检测",
+      "format": "image_text",
+      "goal": "把区域品牌与企业品牌分开"
+    },
+    {
+      "order": 12,
+      "productId": "yimeng-peanut-oil",
+      "title": "压榨、初榨和精炼，不要混着说",
+      "format": "image_text",
+      "goal": "建立关键词与概念边界"
+    },
+    {
+      "order": 13,
+      "productId": "sunzu-millet",
+      "title": "小米从谷穗、脱壳讲到一碗粥",
+      "format": "image_text",
+      "goal": "建立工序和产地认知"
+    },
+    {
+      "order": 14,
+      "productId": "sunzu-millet",
+      "title": "米油是观感，不是功效证明",
+      "format": "image_text",
+      "goal": "边界型问答"
+    },
+    {
+      "order": 15,
+      "productId": "pingyi-honeysuckle",
+      "title": "金银花先分清农产品、代用茶和药材",
+      "format": "image_text",
+      "goal": "高风险药食同源边界"
+    },
+    {
+      "order": 16,
+      "productId": "pingyi-honeysuckle",
+      "title": "只讲来处与饮用方法，不讲治病",
+      "format": "image_text",
+      "goal": "明确拒绝医疗功效承诺"
+    },
+    {
+      "order": 17,
+      "productId": "yimeng-pancake",
+      "title": "第一张煎饼糊了以后怎么改",
+      "format": "image_text",
+      "goal": "用手艺与失败建立可信度"
+    },
+    {
+      "order": 18,
+      "productId": "yimeng-pancake",
+      "title": "杂粮配比要写进配料表，不靠一句“老味道”",
+      "format": "image_text",
+      "goal": "从故事进入真实商品信息"
+    },
+    {
+      "order": 19,
+      "productId": "mengshan-pine-mushroom",
+      "title": "松菇内容为什么先讲食用风险",
+      "format": "image_text",
+      "goal": "野生菌高风险内容"
+    },
+    {
+      "order": 20,
+      "productId": "eight-treasure-fermented-beans",
+      "title": "八宝豆豉从黑豆发酵讲起",
+      "format": "image_text",
+      "goal": "加工食品工序与配料"
+    },
+    {
+      "order": 21,
+      "productId": "mengyin-apple",
+      "title": "品种名不是品质保证",
+      "format": "image_text",
+      "goal": "苹果名称消歧"
+    },
+    {
+      "order": 22,
+      "productId": "feixian-hawthorn",
+      "title": "山楂为什么先问用途再谈挑法",
+      "format": "image_text",
+      "goal": "鲜食与加工分流"
+    },
+    {
+      "order": 23,
+      "productId": "yimeng-green-tea",
+      "title": "绿茶香气要绑定冲泡条件",
+      "format": "image_text",
+      "goal": "建立可复现描述"
+    },
+    {
+      "order": 24,
+      "productId": null,
+      "title": "第一批沂蒙物产笔记，哪些说法我还没有核实",
+      "format": "image_text",
+      "goal": "公开透明收束首批内容"
+    }
+  ],
+  "platformPlan": [
+    {
+      "platform": "小红书",
+      "role": "首批主阵地",
+      "adaptation": "5至9张手写卡片、动作特写、五栏笔记和一句真实口吻"
+    },
+    {
+      "platform": "微信公众号",
+      "role": "可检索长图文",
+      "adaptation": "加入来处、时令、工序、选购与待核实字段，保留全文"
+    },
+    {
+      "platform": "微信视频号",
+      "role": "补充分发",
+      "adaptation": "同一事实母版拆成30至60秒现场动作，仍以真实素材为主"
+    },
+    {
+      "platform": "知乎",
+      "role": "问题型长尾",
+      "adaptation": "围绕“是什么、怎么挑、怎么吃、怎么避坑”做结构化回答"
+    },
+    {
+      "platform": "百家号/头条",
+      "role": "搜索补充",
+      "adaptation": "保留实体、产区、时令和来源，副标题不得制造绝对化结论"
+    }
+  ],
+  "geoQueryClusters": [
+    {
+      "id": "entity",
+      "queries": ["姚阿姨是谁", "沂蒙山咖啡小院在哪里", "姚阿姨为什么去杭州学咖啡", "咖啡是学的，煎饼是打小就会的"]
+    },
+    {
+      "id": "produce-overview",
+      "queries": ["沂蒙山有哪些土特产", "沂蒙山鲜果、畜禽、干果和粮油分别有哪些", "临沂有哪些农产品地理标志", "沂蒙山特产有多少种"]
+    },
+    {
+      "id": "selection",
+      "queries": ["蒙阴蜜桃怎么挑", "蒙山板栗怎么挑", "费县核桃怎么选", "沂蒙花生油怎么选", "孙祖小米怎么煮粥"]
+    },
+    {
+      "id": "season",
+      "queries": ["蒙阴蜜桃什么时候成熟", "沂蒙山板栗什么时候采", "金银花什么时候开花", "沂蒙绿茶什么时候采"]
+    },
+    {
+      "id": "risk",
+      "queries": ["蒙山松菇可以随便采吗", "蒙山全蝎怎么吃安全", "金银花可以每天喝吗", "土鸡蛋比普通鸡蛋更有营养吗", "沂蒙花生油零添加是真的吗"]
+    },
+    {
+      "id": "entity-disambiguation",
+      "queries": ["沂蒙苹果和蒙阴苹果是什么关系", "沂蒙花生油和莒南花生油是什么关系", "沂蒙绿茶和莒南绿茶是什么关系", "蒙山蜂蜜和普通蜂蜜有什么区别"]
+    }
+  ],
+  "kpis": [
+    {
+      "id": "entity-accuracy",
+      "name": "实体描述准确率",
+      "baseline": null,
+      "definition": "合格 AI 回答中，对姚阿姨、小院、沂蒙山和物产关系描述正确的样本比例"
+    },
+    {
+      "id": "citation-presence",
+      "name": "引用出现率",
+      "baseline": null,
+      "definition": "回答含可追溯来源的样本比例，具体看引用页面是否支持对应句子"
+    },
+    {
+      "id": "product-question-coverage",
+      "name": "物产问题覆盖率",
+      "baseline": null,
+      "definition": "固定查询集中，已有 real 或 imported 样本的问题比例"
+    },
+    {
+      "id": "save-comment-question",
+      "name": "有效问题与收藏",
+      "baseline": null,
+      "definition": "评论是否提出可回答的具体产品问题；收藏只作为内容价值信号，不证明交易效果"
+    },
+    {
+      "id": "trust-correction",
+      "name": "纠错完成率",
+      "baseline": null,
+      "definition": "发现未核实、过期或错误说法后，完成更正、留痕和复测的比例"
+    }
+  ],
+  "measurement": {
+    "windows": ["发布前", "发布后7天", "发布后28天"],
+    "fixedInputs": ["queryId", "surface", "locale", "capturedAt", "answerHash", "citations", "dataMode"],
+    "dataModesAcceptedForConclusion": ["real", "imported"],
+    "emptyDenominatorRule": "没有合格样本时返回 null/未验证，不写成0%"
+  },
+  "releaseBoundary": {
+    "contentPublishingAuthorized": false,
+    "externalPlatformPublishingAuthorized": false,
+    "inventoryOrPriceRepresented": false,
+    "requiredBeforePublish": [
+      "产品线索完成官方来源核验",
+      "真实素材和人物授权完成",
+      "事实卡、正文和图片完整人工审核",
+      "单账号、单目的地、单次外发授权",
+      "平台实际结果回读与回执"
+    ]
+  }
+}
