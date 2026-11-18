@@ -1,12 +1,12 @@
-# 鹏经理系统 · PengManager System — Architecture
+# 姚阿姨系统 · Yao Ayi System — Architecture
 
 ## Decision
 
-鹏经理系统 (PengManager System) is an independent private, local-first system for 李大鹏 / PengManager. It keeps the personal entity, claims, content graph, approvals and receipt ledger in one control plane, and runs a vendored personal GEO engine plus a vendored media-production engine inside the same repository. The repository slug remains `geniusdapeng-geo-os` so existing repository URLs keep working.
+姚阿姨系统 (Yao Ayi System) is an independent private, local-first system for 姚阿姨 / Yao Ayi. It keeps the person, place, product-claim, content-graph, approval and receipt ledger in one control plane, and runs a vendored personal GEO engine plus a vendored media-production engine inside the same private repository.
 
-The Chinese display name is `李大鹏｜用AI搞经营的产品经理`; the English display name is `Dapeng Li · PengManager`. The canonical bilingual profile also supplies account bios, content ownership defaults and public-preview identity fields. Historical aliases remain available for GEO entity recognition.
+The Chinese display name is `姚阿姨｜沂蒙山咖啡小院主理人`; the English display name is `Yao Ayi · Yimeng Mountain Coffee Courtyard`. The canonical profile also supplies account bios, content ownership defaults and public-preview identity fields. The long-form persona and truth boundaries live in `docs/personas/yao-ayi-yimeng-coffee-courtyard.md`.
 
-The complete pinned Edit source is contained under `engines/video-edit`, including the native server, web workbench, PostgreSQL schema, model routing, production SDK, digital employees, skills, tools, research and media libraries. PengManager supervises its own separate video database and native services; it does not delegate production to a separately running Edit installation. A private repository still does not serve as the public GEO evidence layer.
+The complete pinned Edit source is contained under `engines/video-edit`, including the native server, web workbench, PostgreSQL schema, model routing, production SDK, digital employees, skills, tools, research and media libraries. Yao Ayi supervises its own separate video database and native services; it does not delegate production to a separately running Edit installation. A private repository still does not serve as the public GEO evidence layer.
 
 ## Runtime
 
@@ -64,7 +64,7 @@ The event chain is tamper-evident. It is not a trusted timestamp, platform signa
 ## Integrated engines and external adapters
 
 - `DeepSeekAdapter` uses the unified `text.primary` Chat dispatcher and the process-scoped credential resolver. The canonical model is `deepseek-flash`; every call records the scene policy, full-window token plan, usage, model identity, finish reason and request/response hashes. Search remains the provider's separate tools endpoint.
-- `PersonalGeoEngine` runs the adapted GeoEvidence SQLite store, providers, analysis, incidents, article generation and publication receipts in-process. Its default case keeps the stable ID `pengstack-personal-geo` for database compatibility while its current display identity is PengManager. Stable `ps-*` query IDs continue to link historical samples to their queries.
+- `PersonalGeoEngine` runs the adapted GeoEvidence SQLite store, providers, analysis, incidents, article generation and publication receipts in-process. Its default case is `yaoayi-yimeng-coffee-courtyard`; `ps-*` query IDs link observations to entity, story, local-produce and risk questions.
 - `VideoMediaEngine` retains the existing local quick-post workflow: it clips inputs to at most four seconds each, creates synthetic ambient audio and runs FFmpeg post-production, cover and packaging. Its UI states these limits. The complete native workbench owns AI generation, editing and presenter workflows.
 - `VideoEditAdapter` exposes cover knowledge hints and feedback triage from the same vendored engine.
 - `GitHubAdapter` creates a real owner/repo Issue through the official REST API and records the issue URL and content hash.
@@ -73,9 +73,9 @@ No adapter may convert fixture or mock output into a real publication receipt.
 
 ## Identity migration
 
-New state uses the current PengManager profile. After opening an existing JSON store, the server runs the profile migration before constructing services and engines. The migration updates identity and platform profile fields, merges recognition aliases and appends an `identity.updated` event instead of rewriting past events. Repeated starts do not append the same migration again.
+New state uses the current Yao Ayi profile. After opening an older store, the server runs the profile migration before constructing services and engines. The migration updates the system/profile fields, resets built-in account templates to “待核对”, replaces default tests and unapproved facts, preserves approved history and appends an `identity.updated` event. Repeated starts do not append the same migration again.
 
-Only recognized legacy defaults are replaced in queries and unapproved claims; customized queries, approved claims, published content, publication receipts and event history retain their original values. Draft ownership may move from the previous default to PengManager. The GEO database retains its existing case and query IDs, and refreshes recognized default query templates without renaming historical samples. These are local data migrations; no external platform profile or publication is updated by startup.
+Custom IDs and non-default content remain separate from the built-in Yao Ayi seed. Approved claims, published content, publication receipts and event history remain append-only. The private repository is not a public GEO source, and startup never updates an external platform profile or publication.
 
 ## Domain objects
 

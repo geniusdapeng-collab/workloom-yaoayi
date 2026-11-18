@@ -1,10 +1,10 @@
 {
-  "name": "pengmanager-system",
+  "name": "yaoayi-system",
   "version": "0.4.1",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.25.0",
-  "description": "鹏经理系统（PengManager System）：李大鹏的个人 GEO、内容与社媒经营控制面",
+  "description": "姚阿姨系统（Yao Ayi System）：围绕姚阿姨与沂蒙山咖啡小院的故事、风土人情、山货内容和 GEO 经营控制面",
   "engines": {
     "node": ">=24"
   },

@@ -77,7 +77,7 @@ function safeCode(error) {
 
 export function createMacFinalContentBackup({ platform = process.platform, homeDir = homedir(),
   clock = () => new Date() } = {}) {
-  const directory = platform === "darwin" ? join(homeDir, "Downloads", "pengmanager 备份") : null;
+  const directory = platform === "darwin" ? join(homeDir, "Downloads", "yaoayi 备份") : null;
   let current = platform === "darwin" ? { status: "not_prepared", directory } : { status: "pending_local_sync" };
   async function prepare() {
     if (platform !== "darwin") return { ...current };

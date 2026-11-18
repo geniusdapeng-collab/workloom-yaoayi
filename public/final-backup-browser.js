@@ -1,7 +1,7 @@
 import { isFinalContent, prepareFinalContentBackup, finalContentBackupMatches } from "./final-backup-format.js";
 
-const FOLDER_NAME = "pengmanager 备份";
-const LOCK_NAME = "pengmanager-final-content-backup";
+const FOLDER_NAME = "yaoayi 备份";
+const LOCK_NAME = "yaoayi-final-content-backup";
 
 function backupError(code) {
   const error = new Error(code);
@@ -82,7 +82,7 @@ export async function backupFinalRows(directory, rows) {
 
 function directoryStorage(indexedDB, value) {
   return new Promise((resolve, reject) => {
-    const open = indexedDB.open("pengmanager-final-content-backup", 1);
+    const open = indexedDB.open("yaoayi-final-content-backup", 1);
     open.onupgradeneeded = () => open.result.createObjectStore("settings");
     open.onerror = () => reject(backupError("BACKUP_STORAGE_FAILED"));
     open.onblocked = () => reject(backupError("BACKUP_STORAGE_BLOCKED"));
@@ -173,12 +173,12 @@ export function mountFinalBackup({ api, window: browser = window, document: page
     if (!supported || busy || selecting || disposed) return;
     selectionVersion += 1;
     selecting = true;
-    show("working", "请选择下载文件夹里的“pengmanager 备份”，并允许写入。");
+    show("working", "请选择下载文件夹里的“yaoayi 备份”，并允许写入。");
     try {
       // The picker is called directly from a button gesture, never by a timer.
-      const selected = await browser.showDirectoryPicker({ id: "pengmanager-final-backup", mode: "readwrite", startIn: "downloads" });
+      const selected = await browser.showDirectoryPicker({ id: "yaoayi-final-backup", mode: "readwrite", startIn: "downloads" });
       if (selected.name !== FOLDER_NAME) {
-        show("permission", "请选择下载文件夹里的“pengmanager 备份”文件夹。尚未向所选文件夹写入终稿。");
+        show("permission", "请选择下载文件夹里的“yaoayi 备份”文件夹。尚未向所选文件夹写入终稿。");
         return;
       }
       if (await selected.queryPermission({ mode: "readwrite" }) !== "granted") {
@@ -206,7 +206,7 @@ export function mountFinalBackup({ api, window: browser = window, document: page
   if (!supported) {
     show("unsupported", "当前浏览器不支持文件夹自动备份。请在这台 Mac 的 Chrome 中打开 HTTPS 管理后台并登录后启用。");
   } else {
-    show("permission", "尚未启用。请选择下载文件夹里的“pengmanager 备份”，允许本站自动保存终稿。");
+    show("permission", "尚未启用。请选择下载文件夹里的“yaoayi 备份”，允许本站自动保存终稿。");
     void (async () => {
       const version = selectionVersion;
       try {

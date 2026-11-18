@@ -28,7 +28,7 @@ function base64url(value) {
 
 /**
  * Issues a 60-second Ed25519 launch assertion for the WorkLoom assistant.
- * The private key remains in the PengManager service process. The code is
+ * The private key remains in the Yao Ayi System service process. The code is
  * returned only in the authenticated response and is not logged or persisted.
  */
 export function createWorkloomLaunch({ env = process.env, clock = () => Date.now() } = {}) {
@@ -72,9 +72,9 @@ export function createWorkloomLaunch({ env = process.env, clock = () => Date.now
         throw new ApiError(503, "WORKLOOM_LAUNCH_CLOCK_INVALID", "服务时钟不可用，拒绝签发登录入口。");
       }
       const claims = {
-        iss: "pengmanager",
+        iss: "yaoayi",
         aud: "workloom-pm",
-        sub: "pengmanager-owner",
+        sub: "yaoayi-owner",
         jti: randomUUID(),
         iat: nowSeconds,
         nbf: nowSeconds - 1,

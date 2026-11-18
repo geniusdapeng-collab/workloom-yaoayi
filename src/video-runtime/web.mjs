@@ -30,14 +30,14 @@ export function createWorkbenchServer({ config, nativeSession, health, safe, onE
     let target;try{target=new URL(req.url,origin);}catch{return json(res,400,{error:'PATH_INVALID'});}
     if(target.origin!==origin) return json(res,400,{error:'PATH_INVALID'});
     const pathname=target.pathname;
-    if(pathname==='/_pengmanager/video/session') {
+    if(pathname==='/_yaoayi/video/session') {
       if(req.method!=='POST') return json(res,405,{error:'METHOD_NOT_ALLOWED'});
-      if(!authorizedBrowser(req)||!sameOrigin(req)||!equalSecret(req.headers['x-pengmanager-video-csrf'],csrf)) return json(res,403,{error:'SESSION_REQUEST_REJECTED'});
+      if(!authorizedBrowser(req)||!sameOrigin(req)||!equalSecret(req.headers['x-yaoayi-video-csrf'],csrf)) return json(res,403,{error:'SESSION_REQUEST_REJECTED'});
       let count=0;for await(const chunk of req){count+=chunk.length;if(count>1024)return json(res,413,{error:'BODY_TOO_LARGE'});}
       const session=await nativeSession();
       return json(res,200,session);
     }
-    if(pathname==='/_pengmanager/video/health') {
+    if(pathname==='/_yaoayi/video/health') {
       if(req.method!=='GET'||!authorizedBrowser(req))return json(res,403,{error:'SESSION_REQUIRED'});
       return json(res,200,await health());
     }
@@ -49,7 +49,7 @@ export function createWorkbenchServer({ config, nativeSession, health, safe, onE
       if(Number(req.headers['content-length']||0)>limit)return json(res,413,{error:'BODY_TOO_LARGE'});
       return new Promise(resolve=>{
         const headers={...req.headers,host:`127.0.0.1:${config.ports.backend}`};
-        delete headers.cookie;delete headers['x-pengmanager-video-csrf'];delete headers['x-workloom-desktop-key'];delete headers.connection;
+        delete headers.cookie;delete headers['x-yaoayi-video-csrf'];delete headers['x-workloom-desktop-key'];delete headers.connection;
         const upstream=http.request({host:'127.0.0.1',port:config.ports.backend,path:target.pathname+target.search,method:req.method,headers,timeout:240000},reply=>{
           for(const [key,value]of Object.entries(reply.headers))if(value!==undefined&&!['connection','set-cookie','access-control-allow-origin','access-control-allow-credentials'].includes(key))res.setHeader(key,value);
           res.statusCode=reply.statusCode||502;reply.pipe(res);reply.once('end',resolve);
@@ -62,7 +62,7 @@ export function createWorkbenchServer({ config, nativeSession, health, safe, onE
         req.once('aborted',()=>upstream.destroy());res.once('close',()=>{if(!res.writableEnded)upstream.destroy();});req.pipe(upstream);
       });
     }
-    if(pathname.startsWith('/trpc/')||pathname.startsWith('/_pengmanager/')||pathname.startsWith('/sync/')||pathname.startsWith('/api/')||pathname.startsWith('/media/'))return json(res,404,{error:'ROUTE_NOT_EXPOSED'});
+    if(pathname.startsWith('/trpc/')||pathname.startsWith('/_yaoayi/')||pathname.startsWith('/sync/')||pathname.startsWith('/api/')||pathname.startsWith('/media/'))return json(res,404,{error:'ROUTE_NOT_EXPOSED'});
     if(!['GET','HEAD'].includes(req.method))return json(res,405,{error:'METHOD_NOT_ALLOWED'});
     let decoded;try{decoded=decodeURIComponent(pathname);}catch{return json(res,400,{error:'PATH_INVALID'});}
     if(decoded.includes('\0')||decoded.includes('\\'))return json(res,400,{error:'PATH_INVALID'});
@@ -76,7 +76,7 @@ export function createWorkbenchServer({ config, nativeSession, health, safe, onE
     const extension=path.extname(file).toLowerCase();
     if(extension==='.html'){
       const nonce=randomBytes(18).toString('base64');
-      const script=`Object.defineProperty(window,'workloomDesktop',{value:Object.freeze({login:async()=>{const r=await fetch('/_pengmanager/video/session',{method:'POST',headers:{'x-pengmanager-video-csrf':${JSON.stringify(csrf)}},credentials:'same-origin'});if(!r.ok)throw new Error('鹏经理本机视频登录未就绪');return r.json();}}),configurable:false,writable:false});`;
+      const script=`Object.defineProperty(window,'workloomDesktop',{value:Object.freeze({login:async()=>{const r=await fetch('/_yaoayi/video/session',{method:'POST',headers:{'x-yaoayi-video-csrf':${JSON.stringify(csrf)}},credentials:'same-origin'});if(!r.ok)throw new Error('姚阿姨系统本机视频登录未就绪');return r.json();}}),configurable:false,writable:false});`;
       let html=await fsp.readFile(file,'utf8');
       if(!/<head(?:\s[^>]*)?>/i.test(html))throw new VideoRuntimeError('WORKBENCH_HTML_INVALID','Native workbench HTML has no valid head.');
       html=html.replace(/<head(?:\s[^>]*)?>/i,tag=>`${tag}<script nonce="${nonce}">${script}</script>`);

@@ -212,7 +212,7 @@ function failureForm(row, person) {
 }
 
 export function renderOperations(rows, { profile = {}, accounts = [], content = null, nativeReviews = new Map(), nativeErrors = new Map() } = {}) {
-  const person = profile.nameZh || "李大鹏";
+  const person = profile.nameZh || "姚阿姨";
   if (!rows.length) return '<div class="empty-panel operation-empty"><strong>还没有运营动作</strong><p>先准备一条已排期内容，或新建一次回复。完成授权、实际执行与回读后，真实结果会保存在这里。</p></div>';
   return [...rows].reverse().map((row) => {
     const nativeReview = typeof nativeReviews.get === "function" ? nativeReviews.get(`${row.id}:${row.editorialSnapshotHash}`) : nativeReviews[row.id];
@@ -346,7 +346,7 @@ export function mountOperations({ api, getData, reload, showError, profile }) {
     const selected = form.elements.accountId.value;
     form.elements.accountId.innerHTML = current.accounts.filter(account => account.status !== "archived").map((account) => `<option value="${html(account.id)}">${html(account.platform)} · ${html(account.handle)} · ${html(accountLabels[account.status] || account.status)}</option>`).join("");
     if (current.accounts.some((item) => item.id === selected && item.status !== "archived")) form.elements.accountId.value = selected;
-    if (!form.elements.actor.value) form.elements.actor.value = person().nameZh || "李大鹏";
+    if (!form.elements.actor.value) form.elements.actor.value = person().nameZh || "姚阿姨";
     form.elements.interactionId.innerHTML = '<option value="">不关联已有互动</option>' + current.interactions.map((item) => `<option value="${html(item.id)}">${html(item.id)} · ${html(item.text.slice(0, 60))}</option>`).join("");
     updateCreateFields();
   }
@@ -363,7 +363,7 @@ export function mountOperations({ api, getData, reload, showError, profile }) {
           <p>${claim.publicLevel === "approved_public" ? "已批准公开；公开主页仍会检查来源、有效期与敏感信息。" : "当前仅在后台使用。"}</p>
         </div>
         <form data-claim-approval="${html(claim.id)}" class="operation-inline-form">
-          ${actorField("approvedBy", approved ? "复核人" : "审批人", person().nameZh || "李大鹏")}
+          ${actorField("approvedBy", approved ? "复核人" : "审批人", person().nameZh || "姚阿姨")}
           <label><span>事实公开级别</span><select name="publicLevel"><option value="private" ${claim.publicLevel === "approved_public" ? "" : "selected"}>仅在后台使用</option><option value="approved_public" ${claim.publicLevel === "approved_public" ? "selected" : ""}>允许公开导出（需公开来源）</option></select></label>
           <label class="check-label"><input type="checkbox" required /><span>我已核对事实、来源与所选公开范围。</span></label>
           ${feedback()}<button class="primary-button" type="submit">${approved ? "复核并更新公开范围" : "批准这条事实"}</button>
@@ -406,7 +406,7 @@ export function mountOperations({ api, getData, reload, showError, profile }) {
       const action = next[content.status];
       const pending = content.claimIds.filter((id) => !data().claims.some((claim) => claim.id === id && claim.state === "approved"));
       let markup = "";
-      if (action) markup = `<form data-content-transition-form="${html(content.id)}" class="operation-inline-form"><input type="hidden" name="target" value="${action[0]}" />${actorField("actor", action[0] === "approved" ? "审批人" : "操作者", person().nameZh || "李大鹏")}${action[0] === "approved" ? '<label class="check-label"><input type="checkbox" required /><span>我已核对完整正文、事实依据及目标平台。</span></label>' : ""}${action[0] === "approved" && pending.length ? `<p class="operation-field-hint">请先批准事实：${html(pending.join("、"))}。</p>` : ""}${feedback()}<button class="primary-button" type="submit" ${action[0] === "approved" && pending.length ? "disabled" : ""}>${action[1]}</button></form>`;
+      if (action) markup = `<form data-content-transition-form="${html(content.id)}" class="operation-inline-form"><input type="hidden" name="target" value="${action[0]}" />${actorField("actor", action[0] === "approved" ? "审批人" : "操作者", person().nameZh || "姚阿姨")}${action[0] === "approved" ? '<label class="check-label"><input type="checkbox" required /><span>我已核对完整正文、事实依据及目标平台。</span></label>' : ""}${action[0] === "approved" && pending.length ? `<p class="operation-field-hint">请先批准事实：${html(pending.join("、"))}。</p>` : ""}${feedback()}<button class="primary-button" type="submit" ${action[0] === "approved" && pending.length ? "disabled" : ""}>${action[1]}</button></form>`;
       else if (content.status === "scheduled") markup = `<p class="operation-note">已通过内容审批与排期，可以准备一次账号发布。</p><button class="primary-button" data-prepare-publication="${html(content.id)}" type="button">建立发布动作</button>`;
       else if (content.status === "published") {
         const publication = data().publications?.find((item) => item.id === content.publicationId);

@@ -6,13 +6,13 @@ import re
 import shlex
 import shutil
 
-MARKER = "# Managed by PengManager deployment v1"
+MARKER = "# Managed by Yao Ayi deployment v1"
 BINARY = Path("/usr/sbin/nginx")
 CONFIG = Path("/etc/nginx/nginx.conf")
-AVAILABLE = Path("/etc/nginx/sites-available/pengmanager-system.conf")
-ENABLED = Path("/etc/nginx/sites-enabled/pengmanager-system.conf")
-WEBROOT = Path("/var/lib/pengmanager-system-acme")
-HOOK = Path("/etc/letsencrypt/renewal-hooks/deploy/pengmanager-system-nginx.sh")
+AVAILABLE = Path("/etc/nginx/sites-available/yaoayi-system.conf")
+ENABLED = Path("/etc/nginx/sites-enabled/yaoayi-system.conf")
+WEBROOT = Path("/var/lib/yaoayi-system-acme")
+HOOK = Path("/etc/letsencrypt/renewal-hooks/deploy/yaoayi-system-nginx.sh")
 UNIT = "nginx.service"
 OPENSSL = "openssl"
 
@@ -110,7 +110,7 @@ def inspect_dump(dump, domain, require, config=CONFIG, available=AVAILABLE, enab
                         walk(sections[target], context, target, (*stack, target))
             elif directive == "server" and context == ("http",) and children is not None:
                 if source in (available, enabled):
-                    require(managed, "An unmanaged PengManager nginx site is already loaded.")
+                    require(managed, "An unmanaged Yao Ayi nginx site is already loaded.")
                     own_loaded = True
                 else:
                     walk(children, (*context, directive), source, stack)

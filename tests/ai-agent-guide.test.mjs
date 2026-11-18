@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { MCP_INSTRUCTIONS, readAiAgentGuide } from '../src/ai-agent-guide.mjs';
-import { createPengManagerAgent } from '../src/agent.mjs';
+import { createYaoAyiAgent } from '../src/agent.mjs';
 import { modelEnvironmentArgs, validatedModelEnvFile } from '../src/ai-workbench-paths.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -36,7 +36,7 @@ function child(script, args, cwd, dataDir, input = '', nodeArgs = []) {
 test('guide contains complete current documents and exact byte hashes without runtime startup or private writes', async t => {
   const directory = await temporary(t), dataDir = path.join(directory, 'uncreated runtime');
   const guide = readAiAgentGuide({ rootDir: root, dataDir });
-  assert.equal(guide.productId, 'pengmanager-system');
+  assert.equal(guide.productId, 'yaoayi-system');
   assert.equal(guide.support.shellRequiredForProduction, true);
   assert.equal(guide.support.pureMcpProductionSupported, false);
   assert.equal(guide.providerCallsPerformed, false);
@@ -129,7 +129,7 @@ test('missing, redirected, empty and invalid UTF-8 instructions fail closed', as
 test('guide rejects input fields before runtime access and is registered as read-only', async t => {
   const directory = await temporary(t);
   const runtime = new Proxy({}, { get() { throw new Error('guide must not call runtime'); } });
-  const agent = await createPengManagerAgent({ rootDir: root, dataDir: path.join(directory, 'uncreated'), runtimeFactory: () => runtime });
+  const agent = await createYaoAyiAgent({ rootDir: root, dataDir: path.join(directory, 'uncreated'), runtimeFactory: () => runtime });
   assert.equal(agent.toolId('pengmanager_agent_guide'), 'pengmanager.agent.guide');
   assert.equal(agent.tools().find(tool => tool.name === 'pengmanager_agent_guide').annotations.readOnlyHint, true);
   for (const input of [null, [], { path: '/etc/passwd' }, { startNative: true }]) {

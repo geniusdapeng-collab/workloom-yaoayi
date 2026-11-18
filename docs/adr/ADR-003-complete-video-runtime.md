@@ -1,4 +1,4 @@
-# ADR 003: Complete independent video production inside PengManager
+# ADR 003: Complete independent video production inside Yao Ayi
 
 Status: implemented; production capability verification is recorded separately.
 
@@ -13,7 +13,7 @@ The selected design retains the complete pinned Edit source under
 stations and root-origin web workbench. `node src/server.mjs` remains the single
 product launch command after explicit local setup. Native production
 transactions, budget reservations, qualifications, source/character rights,
-G1–G8 and recovery remain in their original implementations. PengManager JSON
+G1–G8 and recovery remain in their original implementations. Yao Ayi JSON
 and GEO SQLite records retain their identity and existing histories.
 
 Two candidates were considered. A same-origin subpath proxy would keep one

@@ -111,7 +111,7 @@ export function initializeVideoWorkbench() {
     else link.href = status.workbenchUrl;
     const copy = {
       "not-installed": "视频环境尚未安装。完成本地安装后，系统会自行管理数据库和生产服务。",
-      stopped: "视频服务已停止。启动鹏经理系统后会自动启动独立视频工作台。",
+      stopped: "视频服务已停止。启动姚阿姨系统后会自动启动独立视频工作台。",
       "setting-up": "正在准备本地依赖，现有 GEO 与内容工作流仍可使用。",
       starting: "正在启动独立数据库和视频服务，请稍候。",
       stopping: "正在安全停止视频服务。",

@@ -82,7 +82,7 @@ test("current-model content can pass the evidence state machine and receive a pl
     });
 
     await service.approveClaim("C003", {
-      approvedBy: "Dapeng Li",
+      approvedBy: "姚阿姨",
       publicLevel: "private",
     });
     await store.mutate({ type: "account.activated", actor: "test" }, (state) => {
@@ -101,8 +101,8 @@ test("current-model content can pass the evidence state machine and receive a pl
     for (const target of ["fact_check", "approved", "scheduled"]) {
       await service.transitionContent(contentId, {
         target,
-        actor: "Dapeng Li",
-        approvedBy: "Dapeng Li",
+        actor: "姚阿姨",
+        approvedBy: "姚阿姨",
       });
     }
     const published = await live.publishContentToGitHub({ contentId });

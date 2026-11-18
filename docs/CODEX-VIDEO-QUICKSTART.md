@@ -4,12 +4,12 @@
 
 ## 默认收到一句制作意图时
 
-在 Codex 将鹏经理仓库选为当前项目根，或在项目外克隆后显式读根 `AGENTS.md`、[项目技能](../.agents/skills/pengmanager-standard-video/SKILL.md)和 [AI Agent 指南](AI-AGENT-GUIDE.md)。只需说“用鹏经理做一支三十秒的赛道短片”；不必另说“严格按管线”。默认由原生 Studio 按 `route:auto` 分流；只有确实缺少总时长或正式分流返回歧义时才补齐必需信息。用户原话保持不变，整数秒数写入 `metadata.brief.duration`（5–180）。
+在 Codex 将姚阿姨系统仓库选为当前项目根，或在项目外克隆后显式读根 `AGENTS.md`、[项目技能](../.agents/skills/pengmanager-standard-video/SKILL.md)和 [AI Agent 指南](AI-AGENT-GUIDE.md)。只需说“用姚阿姨系统做一支三十秒的赛道短片”；不必另说“严格按管线”。默认由原生 Studio 按 `route:auto` 分流；只有确实缺少总时长或正式分流返回歧义时才补齐必需信息。用户原话保持不变，整数秒数写入 `metadata.brief.duration`（5–180）。
 
 首次使用先按第 1 节安装根仓依赖。只查看计划时，完成根仓依赖安装即可运行下列命令。
 
 ```bash
-printf '%s\n' '{"intent":"用鹏经理做一支三十秒的赛道短片"}' |
+printf '%s\n' '{"intent":"用姚阿姨系统做一支三十秒的赛道短片"}' |
   node scripts/video-standard.mjs plan --input-file -
 ```
 
@@ -27,8 +27,8 @@ printf '%s\n' '{"intent":"用鹏经理做一支三十秒的赛道短片"}' |
 用已获授权的 Git 身份克隆。令牌由 Git 凭据机制提供，不放进仓库 URL。已有 checkout 先检查当前分支和未提交改动。
 
 ```bash
-git clone https://github.com/geniusdapeng-collab/geniusdapeng-geo-os.git
-cd geniusdapeng-geo-os
+git clone https://github.com/geniusdapeng-collab/workloom-yaoayi.git
+cd workloom-yaoayi
 cat AGENTS.md
 cat docs/AI-AGENT-GUIDE.md
 git rev-parse HEAD
@@ -76,7 +76,7 @@ Codex／Qoder 的配置生成、项目 Agent 引导和新会话检查见 [AI 办
 仅做目录发现时，可以登记一个无供应商凭据的 stdio 服务器：
 
 ```bash
-codex mcp add pengmanager-video --env PENGMANAGER_VIDEO_DATA_DIR="$PM_DATA" \
+codex mcp add yaoayi-video --env PENGMANAGER_VIDEO_DATA_DIR="$PM_DATA" \
   -- "$PM_NODE" "$PM_REPO/scripts/agent-mcp.mjs"
 codex mcp list
 ```
@@ -85,10 +85,10 @@ codex mcp list
 
 本机预检从当前进程读取文本供应商、端点和密钥（例如 `LLM_PROVIDER=deepseek`、`LLM_BASE_URL`、`LLM_API_KEY`），以及本次实际视频和图像供应商配置（方舟使用 `VOLCENGINE_ARK_API_KEY`，兼容 `ARK_API_KEY`）。检查返回的具体缺项。供应商配置与当前工作区的付费权限、套餐和价格上限分别准备。
 
-首次登记时也可直接使用下面的真实模型环境方式。如果已登记前一个同名配置，先用 `codex mcp get pengmanager-video` 核对它，再移除本次创建的该条并重新登记。登记本身不会启动付费任务。
+首次登记时也可直接使用下面的真实模型环境方式。如果已登记前一个同名配置，先用 `codex mcp get yaoayi-video` 核对它，再移除本次创建的该条并重新登记。登记本身不会启动付费任务。
 
 ```bash
-codex mcp add pengmanager-video --env PENGMANAGER_VIDEO_DATA_DIR="$PM_DATA" \
+codex mcp add yaoayi-video --env PENGMANAGER_VIDEO_DATA_DIR="$PM_DATA" \
   -- "$PM_NODE" "--env-file=$PM_MODEL_ENV" "$PM_REPO/scripts/agent-mcp.mjs"
 codex mcp list
 ```
@@ -110,7 +110,7 @@ codex mcp list
 
 打开新会话或重启客户端连接后，用 `tools/list` 检查实际工具名称及 schema。Codex TUI 可用 `/mcp` 查看已连接服务器。CLI 和 MCP 使用同一私有运行时，一个数据目录同时只由一个监督进程管理。若 MCP 已启动原生服务，在工作完成、没有活跃本地作业后，先在**同一 MCP 会话**调用 `pengmanager_video_stop`，核对返回的 `status.state:stopped`，再关闭客户端或另起工作台。此操作只停止本进程拥有的服务，不能取消已派发供应商任务。客户端强制终止时，先检查本次私有实例的进程与任务状态；不要删除数据目录或终止其他服务。 [Codex MCP 的 stdio 配置和检查](https://learn.chatgpt.com/docs/extend/mcp)
 
-也可以直接检查这个本机进程的握手和目录。下列命令无需启动原生后端。输出应包含 `pengmanager-system` 和 `pengmanager_video_preflight`。
+也可以直接检查这个本机进程的握手和目录。下列命令无需启动原生后端。输出应包含 `yaoayi-system` 和 `pengmanager_video_preflight`。
 
 ```bash
 printf '%s\n' \
@@ -222,4 +222,4 @@ cd "$PM_REPO"
 
 ### 给 Codex 的任务示例
 
-> 用鹏经理做一支 30 秒竖屏短片，主题是雨夜赛道。
+> 用姚阿姨系统做一支 30 秒竖屏短片，主题是雨夜赛道。

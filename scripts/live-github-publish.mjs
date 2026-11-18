@@ -32,7 +32,7 @@ for (const claimId of ["C003", "C005"]) {
   const claim = store.snapshot().claims.find((item) => item.id === claimId);
   if (claim?.state !== "approved") {
     await service.approveClaim(claimId, {
-      approvedBy: "Dapeng Li",
+      approvedBy: "姚阿姨",
       publicLevel: "private",
     });
   }
@@ -58,8 +58,8 @@ const contentId = generated.content.id;
 for (const target of ["fact_check", "approved", "scheduled"]) {
   await service.transitionContent(contentId, {
     target,
-    actor: "Dapeng Li",
-    approvedBy: "Dapeng Li",
+    actor: "姚阿姨",
+    approvedBy: "姚阿姨",
     note: "Live model-driven GitHub adapter verification",
   });
 }

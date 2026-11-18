@@ -1,0 +1,717 @@
+{
+  "schema": "yaoayi.retired-default-hashes/v1",
+  "source": "Immediate private-copy parent HEAD before Yao Ayi identity migration",
+  "purpose": "Identify built-in defaults without retaining retired persona text in the current tree.",
+  "queries": {
+    "Q001": {
+      "textSha256": "625ea520635f15d1fa3efd464f61869d34ad6f1b1d3257819251f657281f3020",
+      "locale": "zh-CN",
+      "intent": "entity",
+      "priority": "P0"
+    },
+    "Q002": {
+      "textSha256": "3070f7eba5ba51d741dae500c956d523fcb84ff9cdd6a03a56d2870be09c372a",
+      "locale": "zh-CN",
+      "intent": "recruiting",
+      "priority": "P0"
+    },
+    "Q003": {
+      "textSha256": "ac104914a99017b1d2ab5cbeb20e629bba2ccf214db396fb0036030373ae60b1",
+      "locale": "zh-CN",
+      "intent": "expertise",
+      "priority": "P0"
+    },
+    "Q004": {
+      "textSha256": "cde61ece79714094990ca5d20c38518180524297ac19042295eedd873219374b",
+      "locale": "zh-CN",
+      "intent": "method",
+      "priority": "P0"
+    },
+    "Q005": {
+      "textSha256": "dfc0688bfe792a727f8bce2544cf4a09cef522806552593593326acee9dc5a5e",
+      "locale": "zh-CN",
+      "intent": "method",
+      "priority": "P0"
+    },
+    "Q006": {
+      "textSha256": "eb49280e2aea8f47fc49e950e3fc568c9f5be897257e93696ba53ba2107107e6",
+      "locale": "zh-CN",
+      "intent": "method",
+      "priority": "P0"
+    },
+    "Q007": {
+      "textSha256": "b3ea373f83f4e5bf1206ea979af39bd47ff0f8b0c445065c4cf0879fc73c0529",
+      "locale": "zh-CN",
+      "intent": "project",
+      "priority": "P0"
+    },
+    "Q008": {
+      "textSha256": "51c93e850674b25a7356b26f9585462e7150bdc52b9c69d6edb752a51527df36",
+      "locale": "zh-CN",
+      "intent": "recruiting",
+      "priority": "P1"
+    },
+    "Q009": {
+      "textSha256": "1fd722d14d71bf1ccbb2db6c6b21ffda1c9fe2dc6fe2499b6b7cb9972d122a03",
+      "locale": "zh-CN",
+      "intent": "method",
+      "priority": "P1"
+    },
+    "Q010": {
+      "textSha256": "838677ce2706b7391023d6587aa65cceabd89fc5d397f0e972a01cc10f35bbb5",
+      "locale": "zh-CN",
+      "intent": "recruiting",
+      "priority": "P1"
+    },
+    "Q011": {
+      "textSha256": "81572dfbf7a5569c95717f0488116a25638562bf99058d2a6e80da6f520f0107",
+      "locale": "en-US",
+      "intent": "entity",
+      "priority": "P1"
+    },
+    "Q012": {
+      "textSha256": "0a69f220aa11395b62bbef75ed6d01fcbb9636e4c08e9b0ae301911840df4a1d",
+      "locale": "en-US",
+      "intent": "expertise",
+      "priority": "P1"
+    }
+  },
+  "claims": {
+    "C001": {
+      "textSha256": "5c71fd9251749ab947c1d8c356055e15c82940e3d17b51d182063867030540ec",
+      "sourceLabelSha256": "52be2cf9b3161feed768966088a6c1b3a7a7d690826a30410d4ecf605573ccd2"
+    },
+    "C002": {
+      "textSha256": "152beedf416a31c2780281939e09cc3f9955531cc1a53e5d7d235d7a3d8129bf",
+      "sourceLabelSha256": "6bb1adf1ff093879c957cafe6defb7ab1a6d788765df18a6fb3614646e41b46a"
+    },
+    "C003": {
+      "textSha256": "5605594b1a773211582c1b04950bb4b74a4752724a4358840f3707e54c00858c",
+      "sourceLabelSha256": "d74c10d859d0fb87bd98c892e34666eda938c9d96a414f3c556f38e94fd617d0"
+    },
+    "C004": {
+      "textSha256": "d60efc4683a223f7df856761f55754da3c2d5444625f0febd39186f1bb3310d5",
+      "sourceLabelSha256": "f3d81779cb6a826a3a28af465c4707c593608edae4c48f1569836e3da1636c2c"
+    },
+    "C005": {
+      "textSha256": "1ed8bf1639b038fb3c2993b6a010ab5e7609cfbd9dcbb1229fc34bd0182fb96c",
+      "sourceLabelSha256": "c13251234f525b02b9ac6137cc3a2f64627e75aaaa8e8daf7e800f3124224914"
+    }
+  },
+  "content": {
+    "CNT-001": {
+      "titleSha256": "20affb4c28e3ed0fc5801c8495fc7c3f9c09c717ac577cf6136af16fe9361291",
+      "bodySha256": "d718ec1b0b445da6ce94a8ed6acfc79c1359517138b5b113d58afa898747d8cf"
+    },
+    "CNT-002": {
+      "titleSha256": "28d6c6b0ec632c8d275d404ef245341688a7c0a5cbef2bd66711f6b35b08022d",
+      "bodySha256": "8b225c0f6b9173d9d2795d3ddc1b0edf1a301fdcadbfb1a8a911b910a1e9cc91"
+    },
+    "CNT-003": {
+      "titleSha256": "7abd9b9c813b7faa8ec47f4d1f0e9f247a8be2fc6d8b16a57bae4ac5a2554229",
+      "bodySha256": "ca16f87d401d6d09a8b26d370d318512c16e7bbf23f00c376b96cf98643774b4"
+    }
+  },
+  "contentBank": {
+    "C001": {
+      "titleSha256": "6bb1febafdeb03ed7d044d9447f633e9de55746c949db95fc4fd4ad1de7acdb3",
+      "hookSha256": "0d9968efd13893faf01e19edd6362427068ec6d65e987aadb0227ac9ab098bff",
+      "thesisSha256": "6fbf997a4c339f97b0a38f95dab841dfa58567757a19a8fe6b3e7c35d2fcc5b0"
+    },
+    "C002": {
+      "titleSha256": "b465a69185ced60d891e65c6307bd1b4fe87ca08b3ec130a94b8f1dd2266da6c",
+      "hookSha256": "9897c24a4d6687d7034fb88e8d3346718762971b8c3f634abc0c7492523fb33e",
+      "thesisSha256": "b5a49bc122cfbda3c364edd9c266f8405a0a5554045769116c1160062b9f9bb7"
+    },
+    "C003": {
+      "titleSha256": "b21ca68c22b757a4131b185ebed2e09360b863f1bcad05938b1b267b87996540",
+      "hookSha256": "aff7171fc1fef61af9a129e0b54579d6d61ea1acdfc778ef6369e7d521227434",
+      "thesisSha256": "cb25157ec7a023eb024ffc28fbcfbda3407f0d1b3c737cc278ff021a015a17fa"
+    },
+    "C004": {
+      "titleSha256": "17031a6ef9ce108dae3a54bcf7b33bf3127e948c9bd6f40246191a81c9ae56dc",
+      "hookSha256": "9e3a6f34b5742266f17e83e5e96f7c15c0da89519adf9b057271c97d98e64276",
+      "thesisSha256": "5414fc2cc1a5c5d59f763f5ef6b2b79f5a04ab39a8d20a7207c506e280975e73"
+    },
+    "C005": {
+      "titleSha256": "63d82d63d10d5c3e08b993244a45b0497052a55541c6820400509fb667c3dadb",
+      "hookSha256": "49201fda00a06a4405ea23f07758d38ab1f89cfa3b2bba0a8f94a5ef8fcbae8d",
+      "thesisSha256": "46dd6b9cc0dc6fc55be5a284d82ebdc4d1c790be08c812b024fa35c6c3c866ff"
+    },
+    "C006": {
+      "titleSha256": "a97470c82f86e1d193d2893bd24981f27aca632b63ba813d34de8e531c9db704",
+      "hookSha256": "bef21fc2fd9077a87fa812c893bf0d4cc08b1a4712862caed2d543845d2ae43d",
+      "thesisSha256": "8f2e5a24ca2e7a922ce586af307592640c2479adefa365c08179f139b24431ed"
+    },
+    "C007": {
+      "titleSha256": "dfd4636ef8308aaf7685d8829cb46d03d5093a3e4066b415309d09dc87e04188",
+      "hookSha256": "941274fde48890566b99654127d94d2fc7cab80084bda495fd0418dd9a48682b",
+      "thesisSha256": "78f87e385d4467d85a7f62a86908d39ade3a30f83c5c8e9675a920f3cc6310d8"
+    },
+    "C008": {
+      "titleSha256": "bba6b7bef31a0c66c1e2c74eef80917278c624c2ee2ed4c18c210bdca066af8c",
+      "hookSha256": "5f37ff3bcf6624c244e7966b063b1efe379685fb85f805116a087aff60cda511",
+      "thesisSha256": "ba83d175ded1fa24913fbc31a00e84b90c716f3c7ce93b0b46a7e205e828582a"
+    },
+    "C009": {
+      "titleSha256": "cd9cabe7f5a2eac5f7e55b4bf5500c1f7f5d32f0b9e379fe77e00c0ac6f0792b",
+      "hookSha256": "27f7e7eeba21840006f07b8add64fa89edc9a999f5c590afa3225659bef20933",
+      "thesisSha256": "46a6153e0be8614a1abc2420ef6f0f2400617d4d85e6544115b0e28ddb5b4eb2"
+    },
+    "C010": {
+      "titleSha256": "1037733c27e777b91349c13609b799c4ac1eb3c5b7e856a748100112c4566a1d",
+      "hookSha256": "923b82a4cfcea86ef5355132e79de10733192427f856a77ce0e2219c17786888",
+      "thesisSha256": "aa4866debe6809f38ee1c05b25cdf3522b81944ec2439d9c22b637636500a56b"
+    },
+    "C011": {
+      "titleSha256": "711a9a661997898d586197f43f20ac377832b73f6e418e574c660eb07b930082",
+      "hookSha256": "dd2622c4dc52d41855b36e500643d053ef9517a4a01251c82ddf7f8958119ba7",
+      "thesisSha256": "c06327365e6783bbdf4267a059af8245c8f2972f291cedff203ca34b4132b39b"
+    },
+    "C012": {
+      "titleSha256": "8c60fcda710de386838af5da80e2232cdbc2c7c4e17ff64db61364e44c26b11d",
+      "hookSha256": "8b667fc71d94e54382e092a43ae2a123d8fab724dd8f04a8d9ad9f6d744096a6",
+      "thesisSha256": "a8b2c51fb22036ef22bcca4622b6e10cc932dfdbea661b514776c22f9440b66b"
+    },
+    "C013": {
+      "titleSha256": "fd9ecc2b7c86786bbab3844c90b4c74f558acd9f21758f67b39dc0e293736d33",
+      "hookSha256": "ed936662d7a677fd559472ca304efd539d08cd6119702b3cd7af1e2b36d4ae1b",
+      "thesisSha256": "855af12a33f58343638315a70d71d9927e9320aef0640a20d647964048ad3fc3"
+    },
+    "C014": {
+      "titleSha256": "f6ec73c8fda01478ebe94afcafe4b980ed84dc5943764ab69ebb2e5e5a97e07f",
+      "hookSha256": "08e743b1777e7d2670c0cb11a9ea61b9632a4cff65e4f734cce1a12638bf5eb1",
+      "thesisSha256": "5f4cef7c17de72a29f33aa95ea931a2968ee57a7c33be22b0fcb80864a6ba2c1"
+    },
+    "C015": {
+      "titleSha256": "d76c93a0c868c21e93741ae7aa9e010459f7bd8b0b9c9a591acef9392c21e162",
+      "hookSha256": "822d46699ea1ccc880ea6fc64b39905c40cf4e9b85ef9a2f43acae494d544fa0",
+      "thesisSha256": "1abcf745ea4c8a690927967ee5c32f93b1e451ab3872b52af82e2f4a5918dd2a"
+    },
+    "C016": {
+      "titleSha256": "20f1a92a366fe6b697f3d5de780b73de06da9586f3831e028846e485ae574104",
+      "hookSha256": "8a9630ef75b0fef3f723894de8c5bf56a20fa92b08562546f2855ed18f22b833",
+      "thesisSha256": "b45e694daaa9bf88011245c6148d9db8d200d3cdef82c5ac850bdf9250ab5e3e"
+    },
+    "C017": {
+      "titleSha256": "79d325f5d2aec83e170fb25c4bbac2eca61d6b679392ecc39312534b55460010",
+      "hookSha256": "cef3f28ec9c3507a485332a7ba8f0e54359ffe824e6abecbb8c9cc16b15b1e9b",
+      "thesisSha256": "db6f66ab5ca1e19642c4b9d16e6a7a922bcac165b880434637a1b3c5bd6dd1bc"
+    },
+    "C018": {
+      "titleSha256": "1caa3e2c579f036ae7fb331cbc144d5940e75a8abcbd1716a2a013fc0dfdcadd",
+      "hookSha256": "d9e90c54da578ca7b471986a3de3a84a9098c30a718b41a4d554f5a86904476c",
+      "thesisSha256": "e17ed3b37107403ed45ce447a3c792aa5e185e8f654561cbbc8a5509c4f5283a"
+    },
+    "C019": {
+      "titleSha256": "41345d87326cfd07a8bf6696cad40bfb64deb16484a0af00b41b5cfc4427196f",
+      "hookSha256": "1470b39d4ece9f9d9388c8fe907bcf43c1ac4a93df4374ca97f9ebc8c8d1ca50",
+      "thesisSha256": "b3888c4f389d1dece6edcb9c4e78da2772f55ee9dc36abe153b59b202edc9923"
+    },
+    "C020": {
+      "titleSha256": "e85075351f56479b75a26aafb589bfe5cf88afc48f4eaa1a40ee17efc8ea3ef7",
+      "hookSha256": "3098f505b78eb65bb5a494d650a430a1be415846532a0c178240d065e4f27a05",
+      "thesisSha256": "20e03ddd86b019f549b379dfe3eb00507c28e888e815825f77a19113caf6d316"
+    },
+    "C021": {
+      "titleSha256": "762ac9fa3e6ca28dfe7a0413375452c8d90edaf2110b2672540c57b6b01acb60",
+      "hookSha256": "40182e7034e7b091e4ff6bd39ef5c84f393b5b0fc2cf8e0dc414deea338425c7",
+      "thesisSha256": "90f457ec95c808326bc6ce54b0feae885eb4f54eb8c6886d7ccbcb8bd9a9058f"
+    },
+    "C022": {
+      "titleSha256": "36b785150cbe75b2bc244d67cdaad97e973d9d524867627f790666b852aa04d5",
+      "hookSha256": "e8cf252930fdf6d6def48e060363d9637c1aabefddd2ac70e5384e850347eaba",
+      "thesisSha256": "75c192b08766a32bde0b8e452bc1007710af008330f9ba364df24288ec292728"
+    },
+    "C023": {
+      "titleSha256": "a317bd931db5467a6dd9dd0bf15ce0b69642e5f655a430c4efa8474838997cdb",
+      "hookSha256": "84f5283eaf26e713f61356b6c0346290b5bdaba09699d0ac03929de65a76c289",
+      "thesisSha256": "762e17a8fbdb5538d22754d4ba047f3df9704f26a23f0125bdc413388815756c"
+    },
+    "C024": {
+      "titleSha256": "e999c06d5d6aa4452705fe40c712523a9f321e402cbcfc6968b9cea1a3ee257e",
+      "hookSha256": "45da6df3d0e18fa266912947f3782ffa853f1ff0c0919ca53d49b3da52fa7e09",
+      "thesisSha256": "cf5796c42abcda531427fce8c760add9cbc171795d7962f794956c853145d03f"
+    },
+    "C025": {
+      "titleSha256": "3753ecb8589f7326ad2c2160de22bf0605e7b6bf665f78e2e2b219cb89bdb051",
+      "hookSha256": "ac6892f2abd8707c4c4413d2c1e31d991981709a3a474142f29b50714fec37cd",
+      "thesisSha256": "98f9d42fa69c8191a1ae30ec6d3835c706b403fe7e0dd4a623327d4ea9093a98"
+    },
+    "C026": {
+      "titleSha256": "517b1850bf6f1989b23dbbb99b10b9a70479e395bf5a8316908b20b96a396bd7",
+      "hookSha256": "6cf533efbc29594baf4a787bbe195c8b52a81d9eaf7ffacd2bf3f37ad636126c",
+      "thesisSha256": "44472e07a947f0fbf44cd52d7f8b5506b610c90b97b8a9aaafd373066d9ccbe9"
+    },
+    "C027": {
+      "titleSha256": "5b5fd674da80eb81c3f151b1756e531dabf63da4e9cc034d651882fdcb2b7e03",
+      "hookSha256": "8020d87b39eb1a0f7f89e05d56b1ff1a657b8e4df8a41c751543272f0236e7ed",
+      "thesisSha256": "513795fed2028074cb81c58dc1e062570049ece035b484dbcf9da179ef6670f7"
+    },
+    "C028": {
+      "titleSha256": "8cccd1e4938c758d43cac35eed3d9309e151692aa4bf059c09009458e4c8dbe8",
+      "hookSha256": "5aec101e508e925f6bf9ef0581a37c2f78e75dd118255f6c372d56531a5636e9",
+      "thesisSha256": "6245f25e6bd26776053d952f6764dccd8373446629c7193f29e237416cc07257"
+    },
+    "C029": {
+      "titleSha256": "cb24fb8b6dae166512ef0e1e95deed2feecb901a047c99532dcdfd06bf690f41",
+      "hookSha256": "98d9a8fa32393740899aa57e3bc576392a5a04c85f44cdde28530497e46d5e49",
+      "thesisSha256": "2f8fb661c067959b0c7f7900b16c8e598d0f4422580764d84685de9f5c1a93c9"
+    },
+    "C030": {
+      "titleSha256": "5952f7e00d3cef6f4344db5d1aa01d75e3363cc4ec73d67a81ebda7c4705ac61",
+      "hookSha256": "5240678a4abd1618c81332a722ee8779c0c42ddb96b6b02769acaf93ac6eee1f",
+      "thesisSha256": "09590cee0d68bcfb4c330acc774d3f79fd309e778d772f2a5c24564e285fa66a"
+    },
+    "C031": {
+      "titleSha256": "8c37466e6792ff20d1cb696af89e862be2eb009889391b7bb9efbe1630989e65",
+      "hookSha256": "56c5e0c5ad506979154fdf538ffd8bc57addd6840458e4c3083d7b5f8c39ffdf",
+      "thesisSha256": "cbbe6ace4a76d498d2fd0fc4d4070d0408ce1fa9e2b99e0a9a4ec85f91fccb1c"
+    },
+    "C032": {
+      "titleSha256": "343197acebd1ae1604955833b2faeefb2680e226992a5ab8388710d371500f70",
+      "hookSha256": "60722d6256996d013b1a7d57b3e5f112e89a6f033a73cb42994b0de3902ea525",
+      "thesisSha256": "854f7b1cfd8f3f6637dba48f48a89a9eaf0abb538facc3f291c7bef06945c513"
+    },
+    "C033": {
+      "titleSha256": "d5b2a032bd6bd6cc13d5aafce5aaeafb61b88ef00b1ea371e63e69b08b0a5c2f",
+      "hookSha256": "6fb6c7346ba46848b0e11f36f1418437283e40a865b4f0e5ea99f42e0b8ec548",
+      "thesisSha256": "0b87d562f9fbdfd4b8efd24a13f6248864a186852936f468d3bd947af8c855fa"
+    },
+    "C034": {
+      "titleSha256": "6b144799fb3205880b9ae405520d9703662964a329ce649ea204df15d5e80df2",
+      "hookSha256": "c4bc6fd40c841b276629c09aa45012c700ad11d1a9eaf5240a551a134a9b8343",
+      "thesisSha256": "e473ac20f8bdd60fca73432618792975e0881610709332b62695fa3bb9bb897c"
+    },
+    "C035": {
+      "titleSha256": "7c367351e5189bbf1f79be9bc1465edd9c6d3771253aa1dddcdc1c4d7ff1494e",
+      "hookSha256": "f964832b421a0e62d41f414ccc906f646cbf6ea60a4f5e31ce613d49e3b00560",
+      "thesisSha256": "6a9c69f4a8cc578d8ba3f92ea5b760612f444d05050f6585a63fab6e7c91eace"
+    },
+    "C036": {
+      "titleSha256": "dc71ad401c32bfbe86e0efc3014e6904023b2c5691a32d6b0a1654d9bffd25e0",
+      "hookSha256": "45089bd18318e083bda52335b8ff23f6181dd61baa99adaf76f4b8d25b885712",
+      "thesisSha256": "15b25865dc916fe43772c774cd669947f4628034d132c292c9a0d74d5e10f83f"
+    },
+    "C037": {
+      "titleSha256": "d6bd22a82f9384c6a8d34b66ad08672932637032043ecbe9c5f162d096f497d6",
+      "hookSha256": "bc20fc73c9fdf2b166ee733f4e3ef124c6eb31b60f702deee8ab536bca1278ce",
+      "thesisSha256": "8b16963b9b5a82c1ad46941051095177a8e684cb87f4f5ef75c1ee990cf929e4"
+    },
+    "C038": {
+      "titleSha256": "f07e5c02953ab4fb9a70631915d9766d28197637d4a7c46c0343fd910f6144c2",
+      "hookSha256": "4fc36a14883a4c39f753c7c8f74ea2024051e590d07f1a224959808bf22ee825",
+      "thesisSha256": "3791dd79b123fbd5ec7fefc2d34e50f6d06444500d7d9a088d5e78ce9bc0c634"
+    },
+    "C039": {
+      "titleSha256": "e2fd879cae767cbf2fa11158827d27ee7d1116b032f8cd4f489ad092d71655d2",
+      "hookSha256": "96a2d7a5411676e9742479a9b80b0c5954399fca5905d311fce9fa010f677fce",
+      "thesisSha256": "f781d98f7e12af9977bb62336aa3653a6b7882e6728e13d8f0314622b5778b12"
+    },
+    "C040": {
+      "titleSha256": "f888a9db19845ef138e7644fba543e141e5c89b23a7afd599dc9cac77353059b",
+      "hookSha256": "fbafa5ff3bbf0217050832b057423f951319f36efe8bd3ad014a134d5fff106a",
+      "thesisSha256": "6a6fde0022793eee3b4ec023fcb9f7c8c8c2e3d13f5ce1872d4e09b49359fb62"
+    },
+    "C041": {
+      "titleSha256": "73c2604ea15cf7f5c5e8f6206ef7496e0d3bef959a19f359ce3f6f556428ac66",
+      "hookSha256": "2f854266e4b6d84fd2da51a505618cd8abc13edc17608d96f5c52216f38d8ee2",
+      "thesisSha256": "a62f5289ce0d11c5753688eae7fa1cdbccce93a17dc28376fdba6f7dc5d938f9"
+    },
+    "C042": {
+      "titleSha256": "2bc95bca42b8f27f1a0fdc09bdecf3531f1ec6730401bfef0135a29343130d18",
+      "hookSha256": "1ea613c39e498c0b5d9eee70f5d3e64410bc560f4f447f7dc5d808961d94084e",
+      "thesisSha256": "065cd0a5e50123edfaa0c40e0ad8e65ee4716d318630c5951abeb5441b04141a"
+    },
+    "C043": {
+      "titleSha256": "c097bf26d180ab66a2de64df92b22623da82b693fc4b9c92f431e252af78196a",
+      "hookSha256": "f732f1839d3c2df2205453ff5971f6f8eea18ad1d71e14714e3b49baa6f8ab96",
+      "thesisSha256": "d0191bfa9898c321c74cac3796dc8677180995141520a495b8dc51709972cbba"
+    },
+    "C044": {
+      "titleSha256": "d3a82f99b5780226fc538755a7ddc988b00f849420267a45d6d0429f1d345c07",
+      "hookSha256": "f2f60126b22a9c151c8093622a8a895add9c072eca2b030a5227db65291fb376",
+      "thesisSha256": "6d1f3b6677f52f9e35ffa776de3608fc9cea251f7834235e876537e9ca81c168"
+    },
+    "C045": {
+      "titleSha256": "5262269db347d865c83345818138e38546f092f7938c631906b156208c0dc0ff",
+      "hookSha256": "61e357c2c5f05e7a46be121bfbc6385e8774d84b8142303edc35287edaaeeb81",
+      "thesisSha256": "368f017c366145e0a1740cb3e83c79ec5da2d17fcae7a94b3ab3133a13ab1aa8"
+    },
+    "C046": {
+      "titleSha256": "59ff946634a134b7d1a85021ad2623ce7cb066ad5f9a1160ae66c42a11d7ead3",
+      "hookSha256": "ad7fa42b5136557efb63e05e8bced5f101c664cc76906ef3437c399b7a2fd1f4",
+      "thesisSha256": "66750b22fb51a8cdc4babd088cde7cf8ae1147ab9382039ed9bfc0a98ba477c4"
+    },
+    "C047": {
+      "titleSha256": "3c15786a7225ada04976681789ba7ff56dbc6db25c12e4fd10760ccd25929141",
+      "hookSha256": "7f8032122e524b84169059de31db8f6537b155996afa40bc1e5c4fea3d7b7996",
+      "thesisSha256": "d30ad32f56fda1b4c053415710173a10fb969346806eeaaabdf779c739bfe9cc"
+    },
+    "C048": {
+      "titleSha256": "c9cf4373a5240a49e914b00f4e0b37a392dc97e4a952657e7a06cbc332c336bf",
+      "hookSha256": "302759870aa1929d8df31258d81a43851d5df686e0ee2f22796840bb033abe45",
+      "thesisSha256": "0ce89412b0f703e98985896f09590dfe42bcbe380b10f04beb8d97712a6492d4"
+    },
+    "C049": {
+      "titleSha256": "d96a9810e7de038ba7970556bc39a91d9fe381c06ec46b59a5a22eac5b4a2164",
+      "hookSha256": "96ffabc5e1d127a1fb69d41d89f8c5c30d312f5db74c566b93564c61322380d2",
+      "thesisSha256": "bd62e0d6f7dabe28bf23541284908ec12170c1da1014f3aa36497ee3a0aa806a"
+    },
+    "C050": {
+      "titleSha256": "c0a08566b5f10adf0aac78c151ab8fbfbf2d0414530568f89e9581038b213af5",
+      "hookSha256": "74bf99b8123a208bfd2b36fae9620e5ee2f2916a9741155dacdad285e04dc64b",
+      "thesisSha256": "9bfde0a62c9201a6ce04966451adb7663ec5ab3afc0e675face6c75387069ce7"
+    },
+    "C051": {
+      "titleSha256": "ab5f429c441509529a8cba2fe8a11897cb99b2b91b8f09fb618502c2f6838dab",
+      "hookSha256": "9a0a5c7770b28440458491e16f0f3f90e6f2d1fed577dae8997da7701b69143b",
+      "thesisSha256": "fe06259af0338ee012a81ed8e04f2e4add9f1142721bf59c16b8a2ab021bf83c"
+    },
+    "C052": {
+      "titleSha256": "1af49f7862840ac0a90442864bb38ecce99cb6004c5bcbb3ed10747c3e93299e",
+      "hookSha256": "80aafa9cf1db3d1206aa2c16e019c6b7865ce40c535ede263093096dcf6e0433",
+      "thesisSha256": "4303a567de39080dc5a7ac5c5017a432433a8160a6c3cd4c82b2b85cfb4fa36f"
+    },
+    "C053": {
+      "titleSha256": "6dd1e74126094217fc42163229f6b7991ab5d4f1a4b676d2361dccf777624cb9",
+      "hookSha256": "9600be3a8c4aefc58e7f0749912ee5375a407060f9e3f14c383bdab74fdccc03",
+      "thesisSha256": "59d702eaba2b328fc08e4000e69380572c8954de9d15c3668f82fba59b344dab"
+    },
+    "C054": {
+      "titleSha256": "9300a8777cce89428f128e6962581bf867d7934d1f4196554db41bd57add612b",
+      "hookSha256": "80b4e8a8a20c3f05c50bbdfe29d028c3a50bc5c1260940796cb020e0b8f07e06",
+      "thesisSha256": "f77c476bd7d6d6912a90ffdf3818a96d0fb96a04e98fbb669185432abede8662"
+    },
+    "C055": {
+      "titleSha256": "9e469ada8818c12ddc2b64275d4cb35c7a42db5d0afa198ed5ecc1f1bc9ceadc",
+      "hookSha256": "7375d2a8ce00029c98ca1309e72e77178826048aa2a77602cf77e57c36e817e1",
+      "thesisSha256": "809b5b81c52640412834a3b091dc63b321283ca44fc3e3dd74adc880909abacc"
+    },
+    "C056": {
+      "titleSha256": "3533ec6309d8324706d964b8ef35214a21b43781650aad5d9e29b07344034b9e",
+      "hookSha256": "54008815cd26904c3cba5d6e9cb189f93d8e64ce6db2b1afc207689bcc854a70",
+      "thesisSha256": "2af0db779696890d64b12fb80a0ce773e4479b60d746f8d7efaaecaf9b342b16"
+    },
+    "C057": {
+      "titleSha256": "8c103101e3a286aa7f2b50f26385f0ae0622e62b405ef78e61284cdc4abcc32f",
+      "hookSha256": "2cee5574413f60a83e6d389164c06b49e49746806becc83310254fad9b6eafa5",
+      "thesisSha256": "56f380e69dcecb5db2bb5e31d74c5d606a14c62f68f6493e4ab6f021b97a0cc9"
+    },
+    "C058": {
+      "titleSha256": "37535e5232416a517c492d184b1ef7d92b2461b0e8abfdb6c097b64484dec9b6",
+      "hookSha256": "2a318e4b5a794c8bedce9287f2d4cc3831110f482bc4db84e7b742818c8b291c",
+      "thesisSha256": "c77ba1c15560a484e32df1434a62a71d2fdaf483b211bc7025c06985c0a06d90"
+    },
+    "C059": {
+      "titleSha256": "5e012c71365a4ff53f4162d61639669c75170adec734df7d7a4beeb5327b4101",
+      "hookSha256": "48ec978e4ad704833cdeb6f16804090562fe31b01c1fe5c478284c1686d5efab",
+      "thesisSha256": "c617d0cd25f11e444eef5fd9ede0bdf5708aa9b3954ca81becc1c84792acc45b"
+    },
+    "C060": {
+      "titleSha256": "1c70564f84f34ae129bde50b84ccf4ea40a719a8f4a81c043ec15d94c14352cc",
+      "hookSha256": "073921a28e8c7dc497d356ea87d4cd8a78b603550f57bddf458fec8a2bd4e1ce",
+      "thesisSha256": "d49a99e6eef123b8251082c4729e82f5f0d5545beaad862656c4c0ceb1d995bc"
+    },
+    "C061": {
+      "titleSha256": "a956b940f0bbeca59fc25379dd714f5ae453296d7a7fd656c7b126135de7d6bc",
+      "hookSha256": "7fe2ad251a26988e8a400bb387351c338b0dced55082fad36e6e0a3c74a383a5",
+      "thesisSha256": "860114104ec5218a1e3bbdd3f73d59792ad49c56e4e10d68cd2991af52e830d3"
+    },
+    "C062": {
+      "titleSha256": "0204a6c32e47cc40c877bddaa24434875d8c0d19cbdeaae9a05021a767813901",
+      "hookSha256": "cb8507a4166f96e950161e5660aae1a35cd4c650373a89407f2e678bff356794",
+      "thesisSha256": "6e1ec5ddb586e31dcc8804640b19903a4e91d0626969f4fff724a31b410df10d"
+    },
+    "C063": {
+      "titleSha256": "86b0615fb51239de163513c074aac283c8ee902ac00bfb592d6a1a7c0ba5dfc2",
+      "hookSha256": "8a55e5919ae89a72a6a7110561207e6efb89e7bcb189a7f428d158ece2ce79f7",
+      "thesisSha256": "e1f71839172c46c0e72621b8a241d7d8445c7cc2db135b09b85391bc8c745057"
+    },
+    "C064": {
+      "titleSha256": "0d32eee0d8766c0ae1f4c0dfb4f0cf9c0e0737ad796cd1747c9b1fdcd99220c2",
+      "hookSha256": "4a9210e85c1fea7627711e7afeba91be0cd4f4f458134022b7eec84a8c4e445a",
+      "thesisSha256": "1eb97f258b7ca829b833fa962ff5c30e054309876838ef42e8e947fa7e52ca47"
+    },
+    "C065": {
+      "titleSha256": "cc8918849373c8c1efc75d53b470c0ac098d3788c7604af00a48490ddca3f5a0",
+      "hookSha256": "494444a25413528fc6bfcd711040897f6122431a198ba9d9cf8fe2a933a0ec7b",
+      "thesisSha256": "f46a55359ac26236d9599175caed1403d804ce5499d6d5984e759e9ea0f31a3e"
+    },
+    "C066": {
+      "titleSha256": "2709365625192222b4f36690acf597c15f7b42977cec2c0e0c9fd3ebb1c51daf",
+      "hookSha256": "e7c6bd62865a89cc5ac711560c1cba089c249df6454e1a000ad3d3ac6ceb2bd8",
+      "thesisSha256": "718bbaf303818588eef5a6d754b8fdad5a870e99993b61f3dfd4897f442e8650"
+    },
+    "C067": {
+      "titleSha256": "adb0d21408b97f81bb9bbae069afd7bd161d71ddbe0b270b2601c3a4e052e17b",
+      "hookSha256": "5740abdc8526c0726d3bc681dc68362630a35f64b3732316ed3643619b1c03c7",
+      "thesisSha256": "c1de3707244cefc75b36a4fba4452d98e275b34d2dd8f3d113dba7ad52a018fd"
+    },
+    "C068": {
+      "titleSha256": "ae6d0f870819a4e7210246fd6987af23ada5490530ef7a3e0c28c598ef09d993",
+      "hookSha256": "52dfb793fe42503a8577582db4384aacdabbae9cea48e731ad88230421934ee5",
+      "thesisSha256": "6dbdc447c3ff62e36b144a2023c44a1ce211dae56bd2c87aa3fa9075091f3852"
+    },
+    "C069": {
+      "titleSha256": "6f8fdd9804342a0f7f2e2f407726e82f50cb51f90815e35ef70e99b723e1060a",
+      "hookSha256": "2039148cfaa630dc790f2df672f6fc2f402b6713ef76afe663f45ec9db52c0e2",
+      "thesisSha256": "ffb7de334cc5b3e882191e72bbde01026fe8fbe93e71cdd813cac4b6b622538f"
+    },
+    "C070": {
+      "titleSha256": "f5afc8606ce6d302f0a4f035e2c09c680fcfc39985aa2e7ae7eb7c52e773547b",
+      "hookSha256": "e09d254b76112e1afe8594c844effaccf8a5c7a5ecacd3dfbb5c10e9429aab25",
+      "thesisSha256": "f9492b9803a2f1438641cb4664b1e41c54956ed35df53a6814fbe938268f30fd"
+    },
+    "C071": {
+      "titleSha256": "7beff029145c6a38df0b2c872f638af6455572b922f86b9439eca2a80d53c1c7",
+      "hookSha256": "cb2e63e7aef09b9435b151da28a02641a7167b3c4e044cac18193661cc7f549a",
+      "thesisSha256": "c30e8da97ea8d8ea87ac34bc930bc24432c027454632b75d908eb77a37da3275"
+    },
+    "C072": {
+      "titleSha256": "0dd45080738ec86558171580a027b2744ca63935819dea521d77344a26dcf5bc",
+      "hookSha256": "ffe9d289cbd8e5cb7eae2e0fc148d118277eefcb89dbde874ed46d3d510560ff",
+      "thesisSha256": "9caea8743b0c02406fc37a6afe8fc274e0c8973e470e0383b0af4f59f49a691d"
+    },
+    "C073": {
+      "titleSha256": "2b2f67bc2bba379e6176a3ff7bbab520e527ae346c21260f763f77493a0444c6",
+      "hookSha256": "4bb858191eeca0725745eb1608418178a50dd4c40b1e976f9061b484d4ff2db9",
+      "thesisSha256": "879697baf67d67120e9678687f279ad16b2dc0fa227163c08b1fe2fce92bbd9a"
+    },
+    "C074": {
+      "titleSha256": "79e4dc8679cea03855ddea72ae091877a3d626052e1eed2a1898c44ddda26754",
+      "hookSha256": "909b1404c737346d07f6a4200ecc9dcea594e037cf11f30e8ece650038023f11",
+      "thesisSha256": "21989f50d1cb292872ed249d821126f97bcd4b9ef3c335294d3275de6457515e"
+    },
+    "C075": {
+      "titleSha256": "6550b5b8335d2d9374089856d5aca0a4a7191e2540c57de0dc0359ccb6183361",
+      "hookSha256": "d42234cd6899087782b50eb6442281a4af04013ba334923523903ee5ebb7b8b0",
+      "thesisSha256": "de3dbfaa7bc8944726c298450f5b15a6f3d35cc26022d1f310337795539091bd"
+    },
+    "C076": {
+      "titleSha256": "eb33081c50beea93a1682a9c0cf1d52351480f07d0df50f7a3f7759d2c56e1b6",
+      "hookSha256": "1febafc74c1fc88eabada888edac719438ca9dfdc91c745403724c024e3fd24b",
+      "thesisSha256": "76a9fd6b028fbc1db8945f55afd938414ffff9e97b43d488601599fa68a80b48"
+    },
+    "C077": {
+      "titleSha256": "5dec05b1b92b31ba425f26a4cfbdaf3cc72fea61b30e5cb66b937ade0fd64481",
+      "hookSha256": "bda82e85122d934b199a6b7fbc92cb51fc9d7b426158aef8dbb94cec31b79b88",
+      "thesisSha256": "dbba8d10b3247bac535cfc5fb3bcc5dc61776f7029c602036764bb4ab9d9d852"
+    },
+    "C078": {
+      "titleSha256": "e0dd7815bccde52a54e6a85a4717cbcb0716e4fa5a5960304a053482b613450c",
+      "hookSha256": "a9ee0c42d64195a1b724abdcc598946cf6288a6d41a375aae833c190c48b00ea",
+      "thesisSha256": "1ba273addbf01eb99c7bdd053eff335c5834d98fcbed137e8edce7d1f5f9a69c"
+    },
+    "C079": {
+      "titleSha256": "caa8f513e65b8fe86142d948a8d119958bfbf65e57444596f3c187b9abc2f00f",
+      "hookSha256": "e0a02f8a1eca7b105a3955199642e7edc33234afa994e9777c195c10d874b485",
+      "thesisSha256": "29d5967da0591c239a8c5fa9909e55732d06d9b51319317fe4305d1efc18bd1f"
+    },
+    "C080": {
+      "titleSha256": "70ef9f41f0f164c73090683f919a7a79e17be4c34fe39870018ae03982b8ce7c",
+      "hookSha256": "5df70dca41e251018f6c7b88f464686bff08ff3bf8ad17f81731c33e94449f73",
+      "thesisSha256": "16baf9a64006d8903bd302e4f424fbf14698ed9e611cf2caaccead7b8171fc9b"
+    },
+    "C081": {
+      "titleSha256": "d8232851df64a4ca3bf564e47e2847eaebcf6c9e40d5d5ee635e9d7682964ac7",
+      "hookSha256": "00b51fe9382a3563796f2173649172a4b1f0daf472d563e817597c284833532b",
+      "thesisSha256": "50d2cc8360dc3c95d9ffe9ace0a69493788f5e0651685cc4a7842f8b30f25719"
+    },
+    "C082": {
+      "titleSha256": "17b439ebef9e3e14f6d861fc669e8452f3501f0c8ad2865c0d5fd6de5cc214b5",
+      "hookSha256": "750eb597c32efa67c271b48694434e0f4a1acef8f2e16abad480571d82a11e10",
+      "thesisSha256": "f22c6e30e9427ce9ac2228017b00a996442e23f8362aa2cb30c63e2eef52ce7c"
+    },
+    "C083": {
+      "titleSha256": "c97cc25804f33ccfea525b115b42ee99c92881f5acb8ed1b43e275453c22ae66",
+      "hookSha256": "65c33d2bc8cd94bb0eb60a3b7e654807327ceb06e2e3e38b17008eea436d31e0",
+      "thesisSha256": "b8242f382ae8ec406ec93092fd79a030d37f3bc1eab0502e1559458b8b41e0b8"
+    },
+    "C084": {
+      "titleSha256": "210990b0fcff3ee085efdfe69114812469841bfc9b2cf2ec9f5cb32b6f05622b",
+      "hookSha256": "e8f5fff16f795910e45749a7f7c83f14eab06f8b7e2ab3b3176b6faf6b8e300b",
+      "thesisSha256": "59ed74b71e4a2b67fdb0839c6ba4b373c665e1d5aba4c7862d4a41a23f337bc1"
+    },
+    "C085": {
+      "titleSha256": "0a7feafc8487e2b9110fee35346e0d496acd6d66fbcd755115738157e775a201",
+      "hookSha256": "3e1bab51e959c62ee5ffcdc9490599bff2fabb56aa8b0965dfb96233bf26dda9",
+      "thesisSha256": "f8a0c74ac62a588c9023529569202ab600ed124d348660713dde73ba7ceab82b"
+    },
+    "C086": {
+      "titleSha256": "0dd9078db3456f19049aaafcbe5ae4a45c14be3673b6378ae18b52d8be297fe4",
+      "hookSha256": "b3b6155573a572d6a5ba2589dc013f7f2aaf7796eef538d54230befd5d2f5c67",
+      "thesisSha256": "066990473f5643e04669f8330c11b4bea49466504f9d7d4a7ab7abb86a2acfc3"
+    },
+    "C087": {
+      "titleSha256": "bc8869634d83c51c86354e4c0c8101b821ab960df96f1d9b87963776fb56ab66",
+      "hookSha256": "0bce3ef5410d729bd854b9216adf3405e7d99c05fd9eb5a26db6f599af51a3c8",
+      "thesisSha256": "c68e46e1708086e44bcd31bea2b24f0bc6834378e59d8e9bd4a8243674502c52"
+    },
+    "C088": {
+      "titleSha256": "02de31cc29ef2d7aa1f6d0afde01975bef6f6cda9be6fbd8149c8fcc5418f0fb",
+      "hookSha256": "d2073d0a0f407c203b2cb6b84dcda0b11b72907631109029553ec8d2d70fa0bc",
+      "thesisSha256": "599cbceea383baa4ad82f5010d0f0a95bf007594d8333df553c737f04e5fce7c"
+    },
+    "C089": {
+      "titleSha256": "f38c7c2b9997460dd41c07697d66e7438ba7db69ca0ef6c12b8c34f94edc3b54",
+      "hookSha256": "095a5776e13d1fd89fa62b3ec05b85e440c4c92c042387dafacd4df921bd2d82",
+      "thesisSha256": "977289759ada693ff161624e4e7e9464a994cd186b74de9522c574a73a4723f1"
+    },
+    "C090": {
+      "titleSha256": "6a69aabe6857985ad8eca88a252eb584753339e6e568e94c967c30f2a4a236e1",
+      "hookSha256": "aaa24b51b3897bd4cac1d5a16d4e31d599cc7b5a38e48939fde453ca524c43c1",
+      "thesisSha256": "0c8a150308c897ac83e28fce01ce158e89cb0b272df4f8be4d6e25857974af32"
+    },
+    "C091": {
+      "titleSha256": "210f7d5fdc37ecea5980f8c66e867c0c16019608340c4fe02cfb1008b8a79616",
+      "hookSha256": "3d20b204e41444bd39704c7d8917023bce46dfe2ec361af2f69a196e38ad0b40",
+      "thesisSha256": "60cc7dfb957e8ac6e90f5bf99b312ae6835637907f1ac5a79369cc86f1453375"
+    },
+    "C092": {
+      "titleSha256": "1a5af4e48b69eea93a01b8efde802fdc8adc968f767bb66610103c3fcef03c88",
+      "hookSha256": "37eca89832b9e86075432dfa3c7334b12f14fae7d588357711385aa23e0b83c0",
+      "thesisSha256": "beb992630ead4e7c77c29c3a86655a56c096cb006175d65ddde05cba86eb74ae"
+    },
+    "C093": {
+      "titleSha256": "8bfb9a161890ede2a4e2c4a95f00d7ea17d104e2ab3898e173b528035e033189",
+      "hookSha256": "e0c297ca4ded5d11f3623ff3d3797276784671d092ab40a91d38f53758f4a569",
+      "thesisSha256": "c119423bd9af43e35f270ff1cc46a892e838fdfafccbb2a336557282108fb23b"
+    },
+    "C094": {
+      "titleSha256": "648a60e7ea733bf3d2bdf808c6ae759184e70903c612b81a1bd1618bb70daca2",
+      "hookSha256": "6295aab88896bda67d38d1ecf2c1ae89a8853ce3d97bf2d9396258293326f9f0",
+      "thesisSha256": "1c840f2c9e269a6b31e54d20fe5876408f31df98f325878625c062a9346df240"
+    },
+    "C095": {
+      "titleSha256": "cb228221bc95206f0a746fbb81768d0f656f5911484de29e8d611e4ea6452973",
+      "hookSha256": "240a77a8b909f7c54a5c93d2135be049b0786c3a497020f496403cdc53b30970",
+      "thesisSha256": "86ee710f0ce6cca5d50ea1dd012c8be06e40cce7c3746519185e6a8372739660"
+    },
+    "C096": {
+      "titleSha256": "6ff8b3fcae8b40c42dab35b6283df7f3599e8ea9786270d266f3f8aa35e26597",
+      "hookSha256": "7f98efb4aebbc6e1114dc2bdca82cb81a2e4776db577b00969980df252743338",
+      "thesisSha256": "c15cd3bde4b8755ceb9a71155ea566eb30abb244c2314a2c008c0c908d8c9e50"
+    },
+    "C097": {
+      "titleSha256": "54d0e2acc594721f865433b80220b97e925ec1e3d0e4cc13e84cb868d35c0152",
+      "hookSha256": "bb762bb0ad0a63722a7e651d067abac73fcaf8ff1a080a76f3a69353204f2760",
+      "thesisSha256": "904a7dc05b3db70520c4f15c8d40639856b3613e9d0074c6d4147ad485068e68"
+    },
+    "C098": {
+      "titleSha256": "221001178ca7bc0e660ec36eeca2dd03d2315fa642359809320347cc573064f6",
+      "hookSha256": "ed76b98f89198bdb27d2cf462193a9971873181722be37d4a9ed6398785c5ce9",
+      "thesisSha256": "a862cbb8b2682512f22020bdf08cfc28dd4e43940e666e7dd6558a8b9fe72e2d"
+    },
+    "C099": {
+      "titleSha256": "7648271a50f438636d524a21e590eb0d97b18337c932ffa3d380b37023b12c09",
+      "hookSha256": "b87632f49caef57d09b39d6f2002c0d924de272c71c543cc00f9bf547292e802",
+      "thesisSha256": "7a1779aa7bae43ff0e3307d300749cf4ad7571a9c84f80a9348af24ca6edd5ee"
+    },
+    "C100": {
+      "titleSha256": "41d788d3fefae84a6c4050943cbf3bfc6af3bfe24061be647dfc8046454fc043",
+      "hookSha256": "a6528222e88f71507ce5fd5752d77d98737b7048d17e2815926ae17c44234cb8",
+      "thesisSha256": "332121e547f433aecc10bc4967567ad9e2e328da375cefee6472cc1f23c4dda4"
+    },
+    "C101": {
+      "titleSha256": "18b3d3e9a938cec844b38e238dc0b9d0a92c0b8d907281702057f4b0fee4dfbb",
+      "hookSha256": "7fa547271d079ff44cf7741b814041627ea45855fca62d5b94c10091f66678b5",
+      "thesisSha256": "24e8ccc335a06ac18ad094165064a3e8130001249f80fb7d177ac97c98d65ff9"
+    },
+    "C102": {
+      "titleSha256": "af48f652ddc7011ea144254a1a28b7e1708a021857916f1e1af1498f83c5c280",
+      "hookSha256": "2876665e2a7dccb85fd3c210aac8fc41a400e27869da885cf0d4275902f3f4cc",
+      "thesisSha256": "a79c874725be0eef834d4499c3fff89b66c4b6ce82c63f69a99ebfad7322067a"
+    },
+    "C103": {
+      "titleSha256": "dcb39502b8f39aab02f141882e862fff838fad5034757ebe85797ac0e9853f17",
+      "hookSha256": "7eb0019a0620d585d3c00861bcd901f85cb7f1c30b60ab658f00ce8ca36116db",
+      "thesisSha256": "3fbe801c24674fac970510a4097e6d6d085e6c409c56b0de9d709aa1c0b581c3"
+    },
+    "C104": {
+      "titleSha256": "ffbef2e23fc091644607c837adfa0f6ffbab90c8d006dd49353ba3a89ef5575a",
+      "hookSha256": "59b80c2f5090ba550798c4458f793020bb719ffb3e7cf1f91bb6964b1b2013fc",
+      "thesisSha256": "8b72d3190b9973570d8e34b183c5123092c59cca74371c67ce65230e66d9d49d"
+    },
+    "C105": {
+      "titleSha256": "8aeba2a659b1f85e18cf9d4f963d4d41f03605c0a844746cf456f9629772edd6",
+      "hookSha256": "bef27d287f7e0d221179efd8805291cab418a2e1fb7b5efc15dbc2900769863a",
+      "thesisSha256": "2c5467108ab7fe01054cdc361f8749cb1f4b2c82873cc361eea5f79d9efc023f"
+    },
+    "C106": {
+      "titleSha256": "903e6e0006f337cdf1796e483421ff5729954bea939ccc5e8190e54f0c6ac78c",
+      "hookSha256": "58267f0fbd06fb9479364854043d1dea4656e9910ebe28a62ed66df6e30d4bef",
+      "thesisSha256": "9d78057da0e7f608784e439e79b347fbf00c67e5d7d3cdd5e6c49bef430d2c63"
+    },
+    "C107": {
+      "titleSha256": "04120e685b914f65a3c90cd21146ff81d6acf62b5ca9246b2aec0d7aad7fd79e",
+      "hookSha256": "c9a53303c639a5eb18b26bd9c23fcd99353d6ffc3d85c6f171093e3a341fe61b",
+      "thesisSha256": "f6236b9e4b05184127c6c993ced2d90e3b0a635c349488b611475471c181ff01"
+    },
+    "C108": {
+      "titleSha256": "d62ae9d9cd534e3b624e8ce2da50bcbfd7a766c17cb47af9fa4ba757583a52ee",
+      "hookSha256": "a21644d613d942e5e5e28fcf8365dd4632ff74aaf396fbb88592961a16c43cb2",
+      "thesisSha256": "d9bc0f86fefd30c4dc2b72d5c13a8453096954537242296082721eb9df931421"
+    },
+    "C109": {
+      "titleSha256": "dd4079f775b63b6e7056afb5baf315afd080a202355d54358e2243cc97f4d5a2",
+      "hookSha256": "1bfda69f26dfae3888773955cde061ed84e3c576465f26abd813110e7936cf0d",
+      "thesisSha256": "79dcd12cecb59f6f84e7becb859fa182bc8aed29d6cb6d3b1636b87067d376a1"
+    },
+    "C110": {
+      "titleSha256": "2c60acf498278ef8bfea9f34a470a2a8f522ca4bf97d83b0767d1b191737e68a",
+      "hookSha256": "70518ebb09d23cbcaf24ff79130aa686c668192d3dc7af7b2d8c7d2fcde35972",
+      "thesisSha256": "c2bd04cb8fd5e84cc574396bde90514db282d1f311f0563fe6d4012155e0009a"
+    },
+    "C111": {
+      "titleSha256": "3d8225be952a50d8e7fee039b8052d8324829c7d03a3a86f6f75d46128fd6507",
+      "hookSha256": "778bdbe4a92a3051281ad24f40268cc9973ca64087a6c439e1101cddc1dca5ad",
+      "thesisSha256": "8169fea686345cbaa69b985e394722545437f8a13203b7f3194c1b769843afd6"
+    },
+    "C112": {
+      "titleSha256": "d611119f073f33dea13149e97288f7ecff4d40e15904869578f4c32bd13b90ee",
+      "hookSha256": "2a7b8cca77d776fb66522e905f5255255105dd102b79f8fde49c7b85c9053aa2",
+      "thesisSha256": "cd7436297d25fd957a34a1f8c6b2b06918ab6b53b9cc65307113802097177fd2"
+    },
+    "C113": {
+      "titleSha256": "3b7573b2fba90457a24f9a1003825cfc6c51e7acfce1cad0f082ed2aaa9a2415",
+      "hookSha256": "0d8091cd99fe79264b4879498dd697955f193b71aff63cb807075c4fcbbf7535",
+      "thesisSha256": "80b2a808c2c0627fd21b50be80491dc7a63f32829856c8350574a459459d771f"
+    },
+    "C114": {
+      "titleSha256": "3759f8e2377092b7164555a1d7542280017bebe1d5133710ec8ec39d0bafda66",
+      "hookSha256": "53c28f2e6739350baccfeda50c6f22082b0130dd93dcb4297b974f162ca7e9a4",
+      "thesisSha256": "c6698d3dac708b8483dc0dac7d1bce612a4f3f7a008925b7511492f8ed29e917"
+    },
+    "C115": {
+      "titleSha256": "ed67e35027af2ecb213dd998c72b134540b0eb8f9dbc03ea9f806eb0849209a0",
+      "hookSha256": "a73abda5964b2c09b416eba93974a3c87ad0c0d04947ebeece68831b2c540048",
+      "thesisSha256": "df4437223d8dc9b2c052c5e1899c6f74b40135485c4b87a46fe9cd6e18c82fef"
+    },
+    "C116": {
+      "titleSha256": "19d099818308337dc8d9517c89aee6b863ad0a2ab04a8370544277f84571fc5d",
+      "hookSha256": "bd78c0e185f087b521a0fc2fbf6270cd3b613aa31baa70101d14bf105b1cc3e9",
+      "thesisSha256": "6dd1ad2945ff3467c7b209b9b51268efb37805cb743dcb6b3b6e932450647316"
+    },
+    "C117": {
+      "titleSha256": "ad1deb8826357dbeaf46faeb67b8faa3a73f0cfd94cc195d3cdffe0a2f8f57e3",
+      "hookSha256": "e2ba0829390abddad59b788f4f0ed04d5a8a70471267138aafe55ccc2af296c9",
+      "thesisSha256": "c1b2147dfe7ba4902d85aca0521d6e50c4a26bfeda333b438659ab76c8f7e31d"
+    },
+    "C118": {
+      "titleSha256": "97f5fcb5305a85d78ff432cc001c5d5c3d6e2a612c7d848b5977a7ded56de1b5",
+      "hookSha256": "c05e4b083fba66f94756143867e852779900aabde0bf39d8981b8e51e98ba128",
+      "thesisSha256": "8377f1d0427730fbbd8e1c7a438e1b4a04707334d7c26f7bfccb093fc9786bc6"
+    },
+    "C119": {
+      "titleSha256": "57e189a6400a0e1b497c6fa75baf6541bc41eee77c714690641eef48c39ac84c",
+      "hookSha256": "0feebab30c59ac19f78bc23a655e35f4726e9a5007e512ed2e6f6a3c00a19576",
+      "thesisSha256": "98a0239a7c97e73817c70425f515eeae87bc8f9adfcdc55fef4897fd84663fd0"
+    },
+    "C120": {
+      "titleSha256": "bb1221bdb030b467592388a7245c13e40caf900e9b7434d325434bf77431427b",
+      "hookSha256": "928904050119963d4f5bb354cad5ca097f9e9e37aa6ebf459a38148f3472ecb6",
+      "thesisSha256": "f31d129d526e52f0009db1ca00b911da111e3ce02dd4c6d42df4f0cd2630c920"
+    }
+  }
+}

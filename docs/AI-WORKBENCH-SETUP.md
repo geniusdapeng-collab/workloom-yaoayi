@@ -1,8 +1,8 @@
-# 在 Codex 和 Qoder 中对话使用鹏经理
+# 在 Codex 和 Qoder 中对话使用姚阿姨系统
 
-本指南面向在自己电脑上使用 Codex 或 Qoder 的鹏经理 owner。用户说明目标、素材和交付要求，Agent 负责找到当前入口、检查权限与工位、执行命令并读回结果。已获得的同一任务授权继续有效，缺少必要输入或实际审批时按对应业务规则处理。
+本指南面向在自己电脑上使用 Codex 或 Qoder 的姚阿姨系统 owner。用户说明目标、素材和交付要求，Agent 负责找到当前入口、检查权限与工位、执行命令并读回结果。已获得的同一任务授权继续有效，缺少必要输入或实际审批时按对应业务规则处理。
 
-例如，用户说“用鹏经理做一支三十秒的雨夜赛道短片”，Agent 应保留这句原话并使用现有标准视频流程。用户无需自己拼接 CLI 参数。本文的命令供 Agent 完成接入和执行时使用。
+例如，用户说“用姚阿姨系统做一支三十秒的雨夜赛道短片”，Agent 应保留这句原话并使用现有标准视频流程。用户无需自己拼接 CLI 参数。本文的命令供 Agent 完成接入和执行时使用。
 
 ## 已有入口与本次补齐
 
@@ -27,7 +27,7 @@
 
 | 用户说的话 | Agent 执行的流程 | 权限和完成依据 |
 | --- | --- | --- |
-| “用鹏经理做一支三十秒的赛道短片” | 读取当前指南，保留原话，用 `pengmanager_video_workflow` 或标准 CLI `plan` 核对总时长，检查本机工位后使用标准 CLI `start` | 读取本次 owner 授权、素材权利和预算要求。交付依据是同一项目的当前媒体、清单、技术检查与实际播放。 |
+| “用姚阿姨系统做一支三十秒的赛道短片” | 读取当前指南，保留原话，用 `pengmanager_video_workflow` 或标准 CLI `plan` 核对总时长，检查本机工位后使用标准 CLI `start` | 读取本次 owner 授权、素材权利和预算要求。交付依据是同一项目的当前媒体、清单、技术检查与实际播放。 |
 | “继续上次那个视频，看看卡在哪并完成它” | 找到原 `jobId`、私有目录和原话，先 `status`。按实际状态使用同一请求的 `resume` 或 `deliver` | 未知用量或供应商结果先沿原项目对账。保留旧任务与新尝试，成功素材按当前字节核验后复用。 |
 | “查看那篇内容有没有发布成功，把结果告诉我” | 按 AI Agent 指南核对目标站点和当前可用身份，读取内容、运营动作与原始回执，必要时查看获准平台的真实结果 | 受限 HTTP Agent bearer 只能访问其允许的路由。新的内容审批、单账号外发和平台登录仍按实际权限执行。目录发现本身不授予云站管理权。 |
 
@@ -55,11 +55,11 @@ node scripts/ai-workbench.mjs config --client codex \
 
 `--client qoder` 和 `--client generic` 使用相同的可选参数。环境文件由 owner 的秘密管理方式提供，配置仅引用其路径。文件必须已经存在于本 checkout 之外，使用规范绝对路径，文件与祖先路径均无软链，是单一硬链接的普通文件，大小为 1 字节到 1 MiB。在 macOS/Linux 上还需由当前用户所有、owner 可读，并禁止组和其他用户访问，通常设为 0600。校验只读文件元数据，失败返回 `MODEL_ENV_FILE_INVALID`。密钥值、Cookie 和私有授权内容都不应复制进配置片段、仓库或对话。无需模型的目录发现可省略环境文件。
 
-生成器输出后，由 Agent 检查并合并配置。它不会写入宿主设置。应保留其他 server 与无关配置，遇到同名 `pengmanager-video` 项先核对其 checkout 和私有目录，再更新这一项。不要把完整 stdout 直接重定向覆盖已有配置文件。
+生成器输出后，由 Agent 检查并合并配置。它不会写入宿主设置。应保留其他 server 与无关配置，遇到同名 `yaoayi-video` 项先核对其 checkout 和私有目录，再更新这一项。不要把完整 stdout 直接重定向覆盖已有配置文件。
 
 ## Codex 接入
 
-`--client codex` 输出 `pengmanager-video` 的 TOML 配置片段。将该表合并到所选主机的 `~/.codex/config.toml`，或受信任项目的 `.codex/config.toml`。同一 Codex 主机上的桌面客户端、CLI 和 IDE 扩展共享 MCP 配置。客户端重启连接后检查实际服务器状态和 `tools/list`。官方说明列出了配置位置、`command`、`args`、`env` 和 MCP 初始化指引的含义。 [Codex MCP 官方说明](https://learn.chatgpt.com/docs/extend/mcp)
+`--client codex` 输出 `yaoayi-video` 的 TOML 配置片段。将该表合并到所选主机的 `~/.codex/config.toml`，或受信任项目的 `.codex/config.toml`。同一 Codex 主机上的桌面客户端、CLI 和 IDE 扩展共享 MCP 配置。客户端重启连接后检查实际服务器状态和 `tools/list`。官方说明列出了配置位置、`command`、`args`、`env` 和 MCP 初始化指引的含义。 [Codex MCP 官方说明](https://learn.chatgpt.com/docs/extend/mcp)
 
 配置使用本机 stdio。Agent 仍通过宿主已有的 shell 权限执行标准视频 CLI，执行审批遵循当前会话规则。配置服务器本身不会完成视频生产，也不会自动授予模型费用权限。
 
@@ -67,11 +67,11 @@ node scripts/ai-workbench.mjs config --client codex \
 
 `--client qoder` 输出带 `mcpServers` 的 JSON，使用同一份片段按实际客户端接入。
 
-在 Qoder IDE 中打开 **Settings → MCP → My Servers → Add**，在出现的 JSON 中合并 `pengmanager-video` 一项，保留其他服务器，保存后核对连接图标并展开工具列表。在 Chat 中使用 Agent 模式，按宿主的实际调用确认继续任务。IDE 的 MCP 设置与连接检查流程见官方说明。 [Qoder IDE MCP](https://docs.qoder.com/user-guide/chat/model-context-protocol)
+在 Qoder IDE 中打开 **Settings → MCP → My Servers → Add**，在出现的 JSON 中合并 `yaoayi-video` 一项，保留其他服务器，保存后核对连接图标并展开工具列表。在 Chat 中使用 Agent 模式，按宿主的实际调用确认继续任务。IDE 的 MCP 设置与连接检查流程见官方说明。 [Qoder IDE MCP](https://docs.qoder.com/user-guide/chat/model-context-protocol)
 
-在 Qoder CLI 中，按范围选择用户级 `~/.qoder/settings.json`，或项目级 `.qoder/settings.json`、`.mcp.json`，本机项目私有设置也支持 `.qoder/settings.local.json`。合并 `pengmanager-video` 一项后遵循对应信任与审批，用 `/mcp` 检查，修改后可用 `/mcp reload` 重新发现。CLI 官方文档说明了各层覆盖顺序及 stdio 的 `command`、`args`、`env`、`cwd`。 [Qoder CLI MCP reference](https://docs.qoder.com/cli/mcp-reference)
+在 Qoder CLI 中，按范围选择用户级 `~/.qoder/settings.json`，或项目级 `.qoder/settings.json`、`.mcp.json`，本机项目私有设置也支持 `.qoder/settings.local.json`。合并 `yaoayi-video` 一项后遵循对应信任与审批，用 `/mcp` 检查，修改后可用 `/mcp reload` 重新发现。CLI 官方文档说明了各层覆盖顺序及 stdio 的 `command`、`args`、`env`、`cwd`。 [Qoder CLI MCP reference](https://docs.qoder.com/cli/mcp-reference)
 
-仓库提供的 `.qoder/agents/pengmanager.md` 是项目级自定义 Agent。它关联名为 `pengmanager-video` 的 MCP，允许 `Read`、`Grep`、`Glob`、`Bash`，模型沿用当前会话。用户可在对话中说明鹏经理任务，或使用 `/pengmanager` 选择该 Agent。实际是否自动选中取决于宿主的 Agent 加载和调度结果。 [Qoder Custom Agent 官方说明](https://docs.qoder.com/extensions/subagent)
+仓库提供的 `.qoder/agents/pengmanager.md` 是项目级自定义 Agent。它关联名为 `yaoayi-video` 的 MCP，允许 `Read`、`Grep`、`Glob`、`Bash`，模型沿用当前会话。用户可在对话中说明姚阿姨系统任务，或使用 `/pengmanager` 选择该 Agent。实际是否自动选中取决于宿主的 Agent 加载和调度结果。 [Qoder Custom Agent 官方说明](https://docs.qoder.com/extensions/subagent)
 
 `--client generic` 提供相同启动信息的通用 JSON，其他 stdio 客户端按自己的配置结构接入。远端宿主需要能在持有该私有运行时的受控主机上启动对应进程。
 
@@ -91,7 +91,7 @@ Agent 从指南返回的 `cli.standardVideo` 取得 Node、脚本和私有目录
 没有显式环境文件时，`modelEnvironment.source` 为 `current-process-only`，owner CLI 需另由已有授权的 shell 环境取得当前模型配置。不得把 MCP 预检的配置结果当成 shell 已继承配置。`--env-file-if-exists` 不用于这项交接，文件缺失需明确处理。多个显式环境文件会按顺序交给 CLI，配置生成器只接受一个 `--model-env-file`，需为新的客户端配置明确选择合格文件。下例只展示计划，原句应替换为用户本次完整原话。
 
 ```sh
-printf '%s\n' '{"intent":"用鹏经理做一支三十秒的雨夜赛道短片"}' | \
+printf '%s\n' '{"intent":"用姚阿姨系统做一支三十秒的雨夜赛道短片"}' | \
   "$PM_NODE" "$PM_REPO/scripts/video-standard.mjs" plan --input-file -
 ```
 

@@ -5,7 +5,7 @@ This directory adapts the production GeoEvidence Studio application at commit
 
 The SQLite schema, providers, answer analysis, incident detection, metrics,
 article generation and publication receipts are retained. The default case is
-replaced with `pengstack-personal-geo`, and control-plane queries can be
+replaced with `yaoayi-yimeng-coffee-courtyard`, and control-plane queries can be
 upserted into the same query store.
 
 The upstream customer-facing future-frontdesk constants remain available only

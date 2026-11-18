@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { createPengManagerAgent } from '../src/agent.mjs';
+import { createYaoAyiAgent } from '../src/agent.mjs';
 import { parseAgentArgs } from '../scripts/agent.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -13,17 +13,17 @@ async function fixture(t, { fetchImplementation, env = {} } = {}) {
   t.after(() => rm(directory, { recursive: true, force: true }));
   const calls = [];
   const runtime = { async start() { calls.push('start'); }, async nativeSession() { calls.push('session'); return { token: 'test-only-session' }; }, async stop() { calls.push('stop'); }, async status() { return { state: 'stopped', ready: false, workbenchEnabled: false }; } };
-  const agent = await createPengManagerAgent({ rootDir: root, dataDir: directory, env, runtimeFactory: () => runtime, fetchImplementation });
+  const agent = await createYaoAyiAgent({ rootDir: root, dataDir: directory, env, runtimeFactory: () => runtime, fetchImplementation });
   return { agent, calls, directory, runtime };
 }
-test('PengManager CLI and MCP expose the complete reviewed catalog and local inventory without starting services', async t => {
+test('Yao Ayi CLI and MCP expose the complete reviewed catalog and local inventory without starting services', async t => {
   const { agent, calls, runtime } = await fixture(t);
   const actual = JSON.parse(await readFile(path.join(root, 'engines/video-edit/pengmanager-capabilities.json'), 'utf8'));
   const pin = JSON.parse(await readFile(path.join(root, 'upstreams/workloom-video-edit.pin.json'), 'utf8'));
   assert.equal(actual.source.pin, pin.commit);
   assert.equal(actual.source.tree, pin.tree);
   runtime.capabilities = async () => ({ schemaVersion: actual.schemaVersion, scope: 'complete-edit', sourceMain: pin.commit, state: 'stopped', ready: false, catalog: actual, inventory: {} });
-  assert.equal(agent.list().productId, 'pengmanager-system');
+  assert.equal(agent.list().productId, 'yaoayi-system');
   assert.ok(agent.list().capabilities.some(item => item.id === 'growth.video.production.shots'));
   assert.ok(agent.tools().some(item => item.name === 'pengmanager_core_agents_list'));
   assert.equal(new Set(agent.tools().map(item => item.name)).size, agent.tools().length);
@@ -144,11 +144,11 @@ function child(script, args = [], input = '') {
     processChild.on('error', reject); processChild.on('close', code => resolve({ code, stdout, stderr })); processChild.stdin.end(input);
   });
 }
-test('actual CLI lists PengManager capabilities and reads stopped status without a service or provider call', async () => {
+test('actual CLI lists Yao Ayi capabilities and reads stopped status without a service or provider call', async () => {
   for (const command of ['list', 'status']) {
     const result = await child('scripts/agent.mjs', [command]);
     assert.equal(result.code, 0, result.stderr); const value = JSON.parse(result.stdout);
-    if (command === 'list') assert.equal(value.productId, 'pengmanager-system');
+    if (command === 'list') assert.equal(value.productId, 'yaoayi-system');
     else assert.equal(value.ready, false);
   }
 });
@@ -163,7 +163,7 @@ test('actual MCP stdio initialize, list and call use valid JSON-RPC and preserve
   const result = await child('scripts/agent-mcp.mjs', [], requests.map(item => JSON.stringify(item)).join('\n') + '\n');
   assert.equal(result.code, 0, result.stderr); const messages = result.stdout.trim().split('\n').map(line => JSON.parse(line));
   assert.deepEqual(messages.map(item => item.id), [1, 2, 3, 4]);
-  assert.equal(messages[0].result.serverInfo.name, 'pengmanager-system');
+  assert.equal(messages[0].result.serverInfo.name, 'yaoayi-system');
   assert.match(messages[0].result.instructions, /pengmanager_video_preflight/);
   assert.ok(messages[1].result.tools.some(item => item.name === 'pengmanager_core_workspace_profile'));
   assert.equal(messages[2].result.isError, false); assert.equal(JSON.parse(messages[2].result.content[0].text).ready, false);

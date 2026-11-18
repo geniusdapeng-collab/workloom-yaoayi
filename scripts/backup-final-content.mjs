@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { createMacFinalContentBackup } from "../src/services/final-content-backup.mjs";
 
 const defaultState = resolve(import.meta.dirname, "../var/state.json");
-const HELP = "用法：node scripts/backup-final-content.mjs [--state-file /绝对路径/state.json | --input-file /绝对路径/content.json | --prepare]。只读取输入；定稿备份到当前 Mac 用户的 Downloads/pengmanager 备份。";
+const HELP = "用法：node scripts/backup-final-content.mjs [--state-file /绝对路径/state.json | --input-file /绝对路径/content.json | --prepare]。只读取输入；定稿备份到当前 Mac 用户的 Downloads/yaoayi 备份。";
 
 export async function readFinalBackupInput(path) {
   let handle;

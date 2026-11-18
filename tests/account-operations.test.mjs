@@ -12,7 +12,7 @@ import { AccountOperationsService } from "../src/services/account-operations.mjs
 const rootDir = resolve(import.meta.dirname, "..");
 const clock = () => new Date("2026-10-24T10:00:00.000Z");
 const receipt = (overrides = {}) => ({
-  url: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/999999",
+  url: "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/999999",
   publishedAt: clock().toISOString(), capturedBy: "unit-test operator", dataMode: "imported",
   verificationMethod: "manual_readback", verifiedAt: clock().toISOString(), verifiedBy: "unit-test reviewer",
   ...overrides,
@@ -22,6 +22,13 @@ async function withServices(callback) {
   const directory = await mkdtemp(join(tmpdir(), "pengmanager-operations-"));
   const store = new JsonStore({ filePath: join(directory, "state.json"), clock });
   await store.open(() => loadSeedState(join(rootDir, "data", "seed")));
+  await store.mutate({ type: "fixture.github_ready", actor: "isolated reviewer" }, state => {
+    const github = state.accounts.find(row => row.id === "github");
+    github.status = "active";
+    github.policyStatus = "reviewed";
+    github.policyCheckedAt = clock().toISOString();
+    github.identityReview = { status: "verified", reason: "isolated_fixture_only" };
+  });
   const service = new GeoOsService({ store, clock });
   const operations = new AccountOperationsService({ service, clock });
   try { return await callback({ store, service, operations, directory }); }
@@ -29,13 +36,13 @@ async function withServices(callback) {
 }
 
 async function scheduled(service) {
-  await service.approveClaim("C003", { approvedBy: "Dapeng Li", publicLevel: "private" });
+  await service.approveClaim("C003", { approvedBy: "姚阿姨", publicLevel: "private" });
   const content = await service.createContent({
     title: "单元测试中的运营草稿", body: "这段内容只验证运营动作的审批、回执和持久化，不是线上发布。",
     claimIds: ["C003"], platforms: ["GitHub"], owner: "unit-test operator",
   });
   for (const target of ["fact_check", "approved", "scheduled"]) {
-    await service.transitionContent(content.id, { target, actor: "Dapeng Li", approvedBy: "Dapeng Li" });
+    await service.transitionContent(content.id, { target, actor: "姚阿姨", approvedBy: "姚阿姨" });
   }
   return content;
 }
@@ -43,7 +50,7 @@ async function scheduled(service) {
 async function publishOperation(service, operations) {
   const content = await scheduled(service);
   const operation = await operations.create({ accountId: "github", type: "publish", contentId: content.id, executionMode: "browser", actor: "unit-test operator" });
-  await operations.approve(operation.id, { approvedBy: "Dapeng Li", authorizationNote: "授权此精确草稿的一次浏览器发布。" });
+  await operations.approve(operation.id, { approvedBy: "姚阿姨", authorizationNote: "授权此精确草稿的一次浏览器发布。" });
   await operations.start(operation.id, { actor: "unit-test operator" });
   return operation;
 }
@@ -51,14 +58,14 @@ async function publishOperation(service, operations) {
 async function replyOperation(operations, overrides = {}) {
   return operations.create({
     accountId: "github", type: "reply", replyText: "感谢交流，评测需要保存输入与实际输出。",
-    targetUrl: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/1",
+    targetUrl: "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/1",
     executionMode: "browser", actor: "unit-test operator", ...overrides,
   });
 }
 
 async function readyReply(operations, overrides = {}) {
   const row = await replyOperation(operations, overrides);
-  await operations.approve(row.id, { approvedBy: "Dapeng Li", authorizationNote: "授权此精确回复一次。" });
+  await operations.approve(row.id, { approvedBy: "姚阿姨", authorizationNote: "授权此精确回复一次。" });
   await operations.start(row.id, { actor: "unit-test operator" });
   return row;
 }
@@ -68,12 +75,12 @@ test("old states list no operations and account setup retains the 16 platform pr
     assert.deepEqual(operations.list(), []);
     const original = store.snapshot().accounts.find((row) => row.id === "zhihu");
     const account = await operations.updateAccount("zhihu", {
-      handle: "PengManager", profileUrl: "https://www.zhihu.com/people/pengmanager",
+      handle: "Yao Ayi", profileUrl: "https://www.zhihu.com/people/yaoayi",
       status: "active", policyStatus: "reviewed", policyCheckedAt: "2026-10-24",
-      actor: "Dapeng Li",
+      actor: "姚阿姨",
     });
     assert.equal(account.status, "active");
-    assert.equal(account.policyReviewedBy, "Dapeng Li");
+    assert.equal(account.policyReviewedBy, "姚阿姨");
     assert.equal(account.displayName, original.displayName);
     assert.equal(store.snapshot().accounts.length, 16);
     assert.equal(verifyEventChain(store.snapshot().events).valid, true);
@@ -118,18 +125,18 @@ test("state transitions require explicit actor, per-action authorization and cor
     const row = await replyOperation(operations);
     await assert.rejects(operations.start(row.id, { actor: "operator" }), { code: "INVALID_OPERATION_TRANSITION" });
     await assert.rejects(operations.complete(row.id, { actor: "operator", receipt: receipt() }), { code: "INVALID_OPERATION_TRANSITION" });
-    await assert.rejects(operations.approve(row.id, { approvedBy: "Dapeng Li" }), { code: "INVALID_INPUT" });
-    await operations.approve(row.id, { approvedBy: "Dapeng Li", authorizationNote: "批准这条回复。" });
+    await assert.rejects(operations.approve(row.id, { approvedBy: "姚阿姨" }), { code: "INVALID_INPUT" });
+    await operations.approve(row.id, { approvedBy: "姚阿姨", authorizationNote: "批准这条回复。" });
     await assert.rejects(operations.start(row.id, {}), { code: "INVALID_INPUT" });
     await operations.start(row.id, { actor: "operator" });
-    await assert.rejects(operations.approve(row.id, { approvedBy: "Dapeng Li", authorizationNote: "重复审批" }), { code: "INVALID_OPERATION_TRANSITION" });
+    await assert.rejects(operations.approve(row.id, { approvedBy: "姚阿姨", authorizationNote: "重复审批" }), { code: "INVALID_OPERATION_TRANSITION" });
   });
 });
 
 test("inactive accounts and unreviewed platform policies block approval", async () => {
   await withServices(async ({ operations }) => {
     const row = await replyOperation(operations, { accountId: "zhihu", targetUrl: "https://www.zhihu.com/question/123" });
-    await assert.rejects(operations.approve(row.id, { approvedBy: "Dapeng Li", authorizationNote: "批准回复。" }), { code: "ACCOUNT_NOT_READY" });
+    await assert.rejects(operations.approve(row.id, { approvedBy: "姚阿姨", authorizationNote: "批准回复。" }), { code: "ACCOUNT_NOT_READY" });
     await assert.rejects(operations.updateAccount("zhihu", { status: "unknown", actor: "operator" }), { code: "INVALID_ACCOUNT_STATUS" });
     await assert.rejects(operations.updateAccount("zhihu", { policyStatus: "unknown", actor: "operator" }), { code: "INVALID_POLICY_STATUS" });
     await assert.rejects(operations.updateAccount("missing", { actor: "operator" }), { code: "ACCOUNT_NOT_FOUND" });
@@ -151,7 +158,7 @@ test("publication approval cannot bypass content scheduling and Claim expiry is 
   await withServices(async ({ service, operations }) => {
     const content = await service.createContent({ title: "观点", body: "个人观点用于单测。", opinion: true, platforms: ["GitHub"] });
     const row = await operations.create({ accountId: "github", type: "publish", contentId: content.id, actor: "operator" });
-    await assert.rejects(operations.approve(row.id, { approvedBy: "Dapeng Li", authorizationNote: "批准发布。" }), (error) => error.code === "PUBLICATION_BLOCKED" && error.details.findings.some((item) => item.code === "CONTENT_NOT_SCHEDULED"));
+    await assert.rejects(operations.approve(row.id, { approvedBy: "姚阿姨", authorizationNote: "批准发布。" }), (error) => error.code === "PUBLICATION_BLOCKED" && error.details.findings.some((item) => item.code === "CONTENT_NOT_SCHEDULED"));
   });
 });
 
@@ -184,7 +191,7 @@ test("fixture receipts, missing readback, invalid dates and receipt overwrites n
       assert.equal(operations.list()[0].status, "in_progress");
     }
     await operations.complete(row.id, { actor: "operator", receipt: receipt() });
-    await assert.rejects(operations.complete(row.id, { actor: "operator", receipt: receipt({ url: "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/999998" }) }), { code: "RECEIPT_CONFLICT" });
+    await assert.rejects(operations.complete(row.id, { actor: "operator", receipt: receipt({ url: "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/999998" }) }), { code: "RECEIPT_CONFLICT" });
     await assert.rejects(operations.fail(row.id, { actor: "operator", reason: "不能覆盖已完成动作" }), { code: "INVALID_OPERATION_TRANSITION" });
   });
 });
@@ -204,7 +211,7 @@ test("public URL validation rejects localhost, numeric hosts, examples, credenti
 
 test("target and receipt URL fragments reject credentials while preserving platform comment anchors", async () => {
   await withServices(async ({ operations }) => {
-    const prefix = "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/1";
+    const prefix = "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/1";
     for (const fragment of [
       "#access_token=placeholder", "#access%5Ftoken%3Dplaceholder", "#/callback?session_id=placeholder",
       "#%2561ccess_token%253Dplaceholder", "#signature=placeholder", "#api_key=placeholder",
@@ -295,12 +302,12 @@ test("credentials and sensitive text are rejected before any write, including ne
 test("high-risk replies remain human-only and spam never enters execution", async () => {
   await withServices(async ({ operations }) => {
     const risky = await replyOperation(operations, { replyText: "关于合同和法律问题，请由本人进一步沟通。" });
-    await assert.rejects(operations.approve(risky.id, { approvedBy: "Dapeng Li", authorizationNote: "批准回复" }), { code: "HUMAN_ONLY_INTERACTION" });
+    await assert.rejects(operations.approve(risky.id, { approvedBy: "姚阿姨", authorizationNote: "批准回复" }), { code: "HUMAN_ONLY_INTERACTION" });
     const manual = await readyReply(operations, { replyText: risky.replyText, executionMode: "manual" });
     assert.equal(manual.classification.level, "L0");
-    await operations.complete(manual.id, { actor: "Dapeng Li", receipt: receipt() });
+    await operations.complete(manual.id, { actor: "姚阿姨", receipt: receipt() });
     const spam = await replyOperation(operations, { replyText: "加我微信，内部消息稳赚。", executionMode: "manual" });
-    await assert.rejects(operations.approve(spam.id, { approvedBy: "Dapeng Li", authorizationNote: "批准回复" }), { code: "REPLY_BLOCKED" });
+    await assert.rejects(operations.approve(spam.id, { approvedBy: "姚阿姨", authorizationNote: "批准回复" }), { code: "REPLY_BLOCKED" });
   });
 });
 
@@ -309,7 +316,7 @@ test("original interaction risk is preserved when linking an otherwise harmless 
     const interaction = await service.createInteraction({ text: "请处理我的退款投诉。", actor: "test" });
     const row = await replyOperation(operations, { interactionId: interaction.id, replyText: "已收到，将由本人处理。" });
     assert.equal(row.classification.level, "L0");
-    await assert.rejects(operations.approve(row.id, { approvedBy: "Dapeng Li", authorizationNote: "批准回复" }), { code: "HUMAN_ONLY_INTERACTION" });
+    await assert.rejects(operations.approve(row.id, { approvedBy: "姚阿姨", authorizationNote: "批准回复" }), { code: "HUMAN_ONLY_INTERACTION" });
     await assert.rejects(replyOperation(operations, { interactionId: "missing" }), { code: "INTERACTION_NOT_FOUND" });
   });
 });

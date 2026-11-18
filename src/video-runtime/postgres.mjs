@@ -33,7 +33,7 @@ export async function installPostgres(config, { sourceRoot, signal, safe } = {})
     await assertInternalLinks(root);return;
   }
   const source = sourceRoot || config.env.PENGMANAGER_POSTGRES_HOME;
-  if (!source) throw new VideoRuntimeError('POSTGRES_INSTALL_REQUIRED', 'Install a PostgreSQL 17 tool package with pgvector using video-setup --postgres-root <installation>. The tool files will be copied into PengManager private storage.');
+  if (!source) throw new VideoRuntimeError('POSTGRES_INSTALL_REQUIRED', 'Install a PostgreSQL 17 tool package with pgvector using video-setup --postgres-root <installation>. The tool files will be copied into Yao Ayi System private storage.');
   const origin = assertPrefix(path.resolve(source));
   if (inside(config.rootDir, origin) && !inside(config.engineRoot, origin)) throw new VideoRuntimeError('POSTGRES_SOURCE_INVALID', 'PostgreSQL tool source must be an explicit installation, not another application worktree.');
   await assertInternalLinks(origin);
@@ -98,7 +98,7 @@ export function createPostgresManager(config, credentialRecord, safe = String) {
         await inspect();
       } else {
         await requireFreePort(config.ports.postgres);
-        const hba = '# PengManager owned PostgreSQL: authenticated loopback only\nlocal all all scram-sha-256\nhost all all 127.0.0.1/32 scram-sha-256\nhost all all ::1/128 scram-sha-256\n';
+        const hba = '# Yao Ayi System owned PostgreSQL: authenticated loopback only\nlocal all all scram-sha-256\nhost all all 127.0.0.1/32 scram-sha-256\nhost all all ::1/128 scram-sha-256\n';
         fs.writeFileSync(path.join(config.pgData, 'pg_hba.conf'), hba, { mode: 0o600 });
         const log = path.join(config.logs, 'postgres-control.log');
         // pg_ctl can have started postmaster before its own acknowledgement is cancelled.

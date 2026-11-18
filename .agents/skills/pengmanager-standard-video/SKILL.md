@@ -1,6 +1,6 @@
 ---
 name: pengmanager-standard-video
-description: Use for one-line requests to make, generate, edit, or deliver an AI video with PengManager (鹏经理). Route general and marketing video through native Studio, qualified render and the repository post workflow; never replace a standard job with manual production.
+description: Use for one-line requests to make, generate, edit, or deliver an AI video with Yao Ayi System (姚阿姨系统). Route general and marketing video through native Studio, qualified render and the repository post workflow; never replace a standard job with manual production.
 ---
 
 1. Read the root [AGENTS.md](../../../AGENTS.md), complete [AI Agent guide](../../../docs/AI-AGENT-GUIDE.md) and current [video quickstart](../../../docs/CODEX-VIDEO-QUICKSTART.md). In a projectless chat, read these explicitly after cloning. Use this repository's actual GitHub default-branch checkout.

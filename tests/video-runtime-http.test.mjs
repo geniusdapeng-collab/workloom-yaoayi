@@ -13,7 +13,7 @@ const status = state => ({ version: 1, state, ready: state === "ready", sourceMa
   workbenchUrl: "http://127.0.0.1:4321/", backendHealth: { ok: true }, dbHealth: { ok: true, owned: true } });
 
 async function fixture(t, videoRuntime) {
-  const service = { summary: () => ({ preserved: true }), bootstrap: () => ({ identity: "pengmanager-system" }) };
+  const service = { summary: () => ({ preserved: true }), bootstrap: () => ({ identity: "yaoayi-system" }) };
   const server = createGeoOsServer({ service, videoRuntime, publicDir: resolve(rootDir, "public") });
   await new Promise(done => server.listen(0, "127.0.0.1", done));
   t.after(() => new Promise(done => server.close(done)));
@@ -169,7 +169,7 @@ test("missing, broken and malformed runtime cannot break the existing control pl
       const health = await request("/api/health");
       assert.equal(health.response.status, 200);
       assert.equal(health.payload.summary.preserved, true);
-      assert.equal((await request("/api/bootstrap")).payload.identity, "pengmanager-system");
+      assert.equal((await request("/api/bootstrap")).payload.identity, "yaoayi-system");
       const current = await request("/api/video-runtime/status");
       assert.equal(current.response.status, runtime ? 503 : 200);
       const catalog = await request("/api/video-runtime/capabilities");

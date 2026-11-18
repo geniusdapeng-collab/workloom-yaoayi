@@ -1512,7 +1512,7 @@ A 为本次完整读到的包装/文档行为；B 为全量JSON解析的声明/�
 
 A 文档：当前 Edition/Variant 支持 article/image_text/video；顺序和媒体摘要入审核。媒资仅现有受支持类型，ipynb/CSV/代码包/模型权重未作为批准附件；不能塞任意路径或用 body 代替实物。新 native 包在实现专门验证/预览/备份/审批之前只能安全导出。
 
-A 源码加载路径＋B JSON：嵌入引擎默认 core8+geo-growth16 共24条登记；鹏经理包装加 status/capabilities 两条。这里是静态源码发现，不是当前工位实际 tools/list 回执；80能力/334工具目录不表示所有ID可由CLI invoke。
+A 源码加载路径＋B JSON：嵌入引擎默认 core8+geo-growth16 共24条登记；姚阿姨系统包装加 status/capabilities 两条。这里是静态源码发现，不是当前工位实际 tools/list 回执；80能力/334工具目录不表示所有ID可由CLI invoke。
 
 | 已登记入口 | 只支持的行为 | 证据 |
 |---|---|---|
@@ -1590,7 +1590,7 @@ ProductionTask 拟议字段：
 可定位的本地出处：
 
 - `src/agent.mjs:17`：默认能力目录加载、运行时与本地/远端分发。
-- `src/agent.mjs:24`：鹏经理额外status/capabilities入口。
+- `src/agent.mjs:24`：姚阿姨系统额外status/capabilities入口。
 - `engines/video-edit/scripts/agent-capabilities.mjs:115`：core/行业能力清单加载。
 - `engines/video-edit/scripts/agent-capabilities.mjs:184`：输入及execute幂等校验。
 - `engines/video-edit/scripts/agent-capabilities.mjs:350`：已登记能力查找与受控transport。

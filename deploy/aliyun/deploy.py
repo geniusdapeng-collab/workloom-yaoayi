@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Isolated, explicit PengManager deployment. Never execute runtime.env as shell code."""
+"""Isolated, explicit Yao Ayi deployment. Never execute runtime.env as shell code."""
 import argparse
 import base64
 from contextlib import contextmanager
@@ -27,16 +27,16 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nginx_proxy import NginxProxy, path_argument
 
-BASE = Path("/opt/pengmanager-system")
-DATA = Path("/var/lib/pengmanager-system")
-CONFIG = Path("/etc/pengmanager-system")
+BASE = Path("/opt/yaoayi-system")
+DATA = Path("/var/lib/yaoayi-system")
+CONFIG = Path("/etc/yaoayi-system")
 ENV_FILE = CONFIG / "runtime.env"
-UNIT = Path("/etc/systemd/system/pengmanager-system.service")
-SERVICE = "pengmanager-system.service"
-USER = "pengmanager-system"
+UNIT = Path("/etc/systemd/system/yaoayi-system.service")
+SERVICE = "yaoayi-system.service"
+USER = "yaoayi-system"
 CADDYFILE = Path("/etc/caddy/Caddyfile")
-CADDY_SITE = Path("/etc/caddy/pengmanager-sites/pengmanager-system.caddy")
-MARKER = "# Managed by PengManager deployment v1"
+CADDY_SITE = Path("/etc/caddy/yaoayi-sites/yaoayi-system.caddy")
+MARKER = "# Managed by Yao Ayi deployment v1"
 MAX_SOURCE = 1024 * 1024 * 1024
 MAX_BACKUP = 64 * MAX_SOURCE
 PNPM_RELEASE_STORE = "pnpm-store-copy-v1"
@@ -78,12 +78,12 @@ def exclusive_operation(enabled):
         return
     require(platform.system() == "Linux" and os.geteuid() == 0,
             "Host mutations require root on the installed Linux machine.")
-    descriptor = os.open("/run/lock/pengmanager-system.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    descriptor = os.open("/run/lock/yaoayi-system.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     try:
         try:
             fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise DeployError("Another PengManager install/update/backup/restore is active; no concurrent mutation was started.")
+            raise DeployError("Another Yao Ayi install/update/backup/restore is active; no concurrent mutation was started.")
         yield
     finally:
         os.close(descriptor)
@@ -244,7 +244,7 @@ def proxy_settings(args, domain):
         require(path.is_file() and stat.S_IMODE(path.stat().st_mode) == 0o600,
                 "Installed proxy settings must be a regular 0600 file.")
         settings = json.loads(path.read_text())
-        require(isinstance(settings, dict) and settings.get("schema") == "pengmanager-proxy/v1" and settings.get("proxy") in ("caddy", "nginx"),
+        require(isinstance(settings, dict) and settings.get("schema") == "yaoayi-proxy/v1" and settings.get("proxy") in ("caddy", "nginx"),
                 "Installed proxy settings schema is unsupported.")
         require(settings.get("domain") == domain and requested in (None, settings["proxy"]),
                 "Domain/proxy changes require a separately reviewed migration; existing routing is preserved.")
@@ -254,11 +254,11 @@ def proxy_settings(args, domain):
         mode = requested or "caddy"
         require(getattr(args, "command", None) != "update" or mode == "caddy",
                 "Legacy updates retain Caddy; switching to nginx requires a reviewed migration.")
-        settings = {"schema": "pengmanager-proxy/v1", "proxy": mode, "domain": domain}
+        settings = {"schema": "yaoayi-proxy/v1", "proxy": mode, "domain": domain}
         if mode == "nginx":
             certificate, key = getattr(args, "tls_cert", None), getattr(args, "tls_key", None)
             require(bool(certificate) == bool(key), "Provide both --tls-cert and --tls-key, or neither.")
-            name = f"pengmanager-system-{domain}"
+            name = f"yaoayi-system-{domain}"
             lineage = Path("/etc/letsencrypt/live") / name
             settings.update(certificate=str(path_argument(certificate, require)) if certificate else str(lineage / "fullchain.pem"),
                             privateKey=str(path_argument(key, require)) if key else str(lineage / "privkey.pem"),
@@ -268,7 +268,7 @@ def proxy_settings(args, domain):
         expected |= {"certificate", "privateKey", "certName", "managedCertificate"}
         path_argument(settings.get("certificate", ""), require)
         path_argument(settings.get("privateKey", ""), require)
-        require(settings.get("certName") == f"pengmanager-system-{domain}" and
+        require(settings.get("certName") == f"yaoayi-system-{domain}" and
                 type(settings.get("managedCertificate")) is bool, "Installed nginx certificate settings are invalid.")
     else:
         require(not any(getattr(args, field, None) for field in
@@ -334,7 +334,7 @@ def verify_source(archive, expected):
                         digest.update(block)
                 files[path] = (member.size, digest.hexdigest())
     require(manifest is not None, "Deployment manifest is missing.")
-    require(isinstance(manifest, dict) and manifest.get("schema") == "pengmanager-deployment/v1" and
+    require(isinstance(manifest, dict) and manifest.get("schema") == "yaoayi-deployment/v1" and
             re.fullmatch(r"[a-f0-9]{40}", manifest.get("gitSha", "")), "Deployment manifest identity is invalid.")
     records = manifest.get("files", [])
     require(isinstance(records, list) and records, "Deployment manifest has no source files.")
@@ -428,7 +428,7 @@ def preflight(domain=None, require_root=False, proxy_mode="caddy"):
     elif ENV_FILE.exists() and (not ENV_FILE.is_file() or stat.S_IMODE(ENV_FILE.stat().st_mode) != 0o600):
         issues.append("Installed runtime.env must be a regular 0600 file.")
     if UNIT.is_symlink() or (UNIT.exists() and not UNIT.read_text().startswith(MARKER)):
-        issues.append("An unmanaged pengmanager-system unit already exists; it will not be overwritten.")
+        issues.append("An unmanaged yaoayi-system unit already exists; it will not be overwritten.")
     proxy_file = CONFIG / "proxy.json"
     if proxy_file.is_symlink() or (proxy_file.exists() and
             (not proxy_file.is_file() or stat.S_IMODE(proxy_file.stat().st_mode) != 0o600)):
@@ -658,7 +658,7 @@ def install_caddy():
     key = Path("/usr/share/keyrings/caddy-stable-archive-keyring.gpg")
     sources = Path("/etc/apt/sources.list.d/caddy-stable.list")
     require(not key.exists() and not sources.exists(), "An existing Caddy repository needs review; it will not be overwritten.")
-    with tempfile.TemporaryDirectory(prefix="pengmanager-caddy-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="yaoayi-caddy-") as temporary:
         temporary = Path(temporary)
         download("https://dl.cloudsmith.io/public/caddy/stable/gpg.key", temporary / "key.asc")
         download("https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt", temporary / "sources.list")
@@ -698,11 +698,11 @@ def configure_caddy(domain):
     site = f"{MARKER}\nhttps://{domain} {{\n\tencode zstd gzip\n\theader Strict-Transport-Security max-age=31536000\n\treverse_proxy 127.0.0.1:4318\n}}\n"
     CADDY_SITE.write_text(site)
     CADDY_SITE.chmod(0o644)
-    include = "import /etc/caddy/pengmanager-sites/*.caddy"
-    candidate = CADDYFILE.with_name(f".Caddyfile-pengmanager-{stamp()}")
+    include = "import /etc/caddy/yaoayi-sites/*.caddy"
+    candidate = CADDYFILE.with_name(f".Caddyfile-yaoayi-{stamp()}")
     try:
         text = original.decode()
-        content = original if re.search(r"^\s*import\s+/etc/caddy/pengmanager-sites/\*\.caddy\s*$", text, re.M) else original + f"\n{include}\n".encode()
+        content = original if re.search(r"^\s*import\s+/etc/caddy/yaoayi-sites/\*\.caddy\s*$", text, re.M) else original + f"\n{include}\n".encode()
         candidate.write_bytes(content)
         candidate.chmod(stat.S_IMODE(CADDYFILE.stat().st_mode))
         run(["caddy", "validate", "--config", candidate, "--adapter", "caddyfile"], capture=False)
@@ -737,7 +737,7 @@ def restore_caddy(saved):
 def unit_text():
     return f"""{MARKER}
 [Unit]
-Description=PengManager System
+Description=Yao Ayi System
 After=network.target
 StartLimitIntervalSec=60
 StartLimitBurst=5
@@ -782,7 +782,7 @@ def check_health(domain, attempts=20):
             with urllib.request.urlopen(request, timeout=3) as response:
                 payload = json.load(response)
                 require(response.status == 200 and payload.get("ok") is True and
-                        payload.get("service") == "pengmanager-system", "Unexpected health response.")
+                        payload.get("service") == "yaoayi-system", "Unexpected health response.")
             request = urllib.request.Request("http://127.0.0.1:4318/api/bootstrap", headers={"Host": domain})
             try:
                 with urllib.request.urlopen(request, timeout=3):
@@ -811,7 +811,7 @@ def backup(destination, leave_stopped=False):
     active = service_active()
     if active:
         run(["systemctl", "stop", SERVICE], capture=False)
-    archive = destination / f"pengmanager-backup-{stamp()}.tar.gz"
+    archive = destination / f"yaoayi-backup-{stamp()}.tar.gz"
     try:
         assert_regular_tree(DATA)
         require(shutil.disk_usage(destination).free > sum(path.stat().st_size for path in DATA.rglob("*") if path.is_file()) + 64 * 1024 * 1024,
@@ -825,7 +825,7 @@ def backup(destination, leave_stopped=False):
                 proxy_settings(argparse.Namespace(command="backup"), read_env(ENV_FILE)[1])
                 shutil.copy2(proxy_file, temporary / "config/proxy.json")
             current = (BASE / "current").resolve() if (BASE / "current").is_symlink() else None
-            metadata = {"schema": "pengmanager-backup/v1", "createdAt": dt.datetime.now(dt.timezone.utc).isoformat(),
+            metadata = {"schema": "yaoayi-backup/v1", "createdAt": dt.datetime.now(dt.timezone.utc).isoformat(),
                         "release": current.name if current else None, "serviceWasActive": active}
             (temporary / "metadata.json").write_text(json.dumps(metadata))
             descriptor = os.open(archive, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -864,14 +864,14 @@ def verify_backup(archive, expected):
         require("backup/data" in seen and "backup/config/runtime.env" in seen and "backup/metadata.json" in seen,
                 "Backup is incomplete.")
         metadata = json.load(bundle.extractfile("backup/metadata.json"))
-        require(metadata.get("schema") == "pengmanager-backup/v1", "Backup schema is unsupported.")
+        require(metadata.get("schema") == "yaoayi-backup/v1", "Backup schema is unsupported.")
         return total
 
 
 def restore(archive, expected, target, restore_config=False, restart=True):
     total = verify_backup(archive, expected)
     require(target.is_absolute() and len(target.parts) >= 4 and not target.is_symlink(), "Restore requires an explicit safe absolute target.")
-    require(target.name.startswith("pengmanager-"), "Restore target must use the pengmanager- namespace.")
+    require(target.name.startswith("yaoayi-"), "Restore target must use the yaoayi- namespace.")
     for reserved in ("/etc", "/usr", "/bin", "/sbin", "/lib", "/lib64", "/boot", "/dev", "/proc", "/sys", "/run"):
         require(not target.is_relative_to(reserved), "Restore target cannot overwrite host system directories.")
     require(target != BASE and not target.is_relative_to(BASE) and not target.is_relative_to(CONFIG), "Restore target cannot overwrite code or configuration directories.")
@@ -884,7 +884,7 @@ def restore(archive, expected, target, restore_config=False, restart=True):
     if live:
         require(os.geteuid() == 0 and platform.system() == "Linux", "Live restore requires root on the installed Linux machine.")
     active = service_active() if live else False
-    temporary = Path(tempfile.mkdtemp(prefix=".pengmanager-restore-", dir=target.parent))
+    temporary = Path(tempfile.mkdtemp(prefix=".yaoayi-restore-", dir=target.parent))
     previous = target.with_name(f"{target.name}.before-restore-{stamp()}")
     previous_env = ENV_FILE.read_bytes() if restore_config else None
     switched = False
@@ -1060,7 +1060,7 @@ def parser():
         command.add_argument("--sha256", required=True)
         command.add_argument("--domain", required=name == "install")
         command.add_argument("--env-file")
-        command.add_argument("--backup-dir", default="/var/backups/pengmanager-system")
+        command.add_argument("--backup-dir", default="/var/backups/yaoayi-system")
         command.add_argument("--allow-dirty", action="store_true")
         command.add_argument("--dry-run", action="store_true")
         command.add_argument("--proxy", choices=("caddy", "nginx"))

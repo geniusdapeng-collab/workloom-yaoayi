@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { backupFinalRows, mountFinalBackup } from "../public/final-backup-browser.js";
 import { prepareFinalContentBackup } from "../public/final-backup-format.js";
 
-function memoryDirectory(name = "pengmanager 备份", state = { writes: [], fail: false }) {
+function memoryDirectory(name = "yaoayi 备份", state = { writes: [], fail: false }) {
   const entries = new Map();
   return {
     name, kind: "directory", entries, state,

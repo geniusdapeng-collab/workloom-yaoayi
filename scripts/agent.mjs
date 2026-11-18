@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { AgentError, createPengManagerAgent } from '../src/agent.mjs';
+import { AgentError, createYaoAyiAgent } from '../src/agent.mjs';
 
 export function parseAgentArgs(args) {
   const [command, ...rest] = args;
@@ -32,7 +32,7 @@ async function inputFrom(file) {
   try { return JSON.parse(bytes.toString('utf8')); } catch { throw new AgentError('INVALID_INPUT', 'Input is not valid JSON.'); }
 }
 export async function main(args = process.argv.slice(2)) {
-  const parsed = parseAgentArgs(args), agent = await createPengManagerAgent({ dataDir: parsed.dataDir });
+  const parsed = parseAgentArgs(args), agent = await createYaoAyiAgent({ dataDir: parsed.dataDir });
   const stop = () => { void agent.stop().catch(error => { process.stderr.write(JSON.stringify({ error: agent.error(error) }) + '\n'); process.exitCode = 1; }); };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   try {

@@ -44,8 +44,8 @@ test('config export produces canonical client settings and no state or credentia
   assert.equal(value.modelEnvFile, null);
   assert.equal(value.providerCallsPerformed, false);
   assert.equal(value.configurationWritten, false);
-  assert.equal(value.qoderConfig.mcpServers['pengmanager-video'].type, 'stdio');
-  assert.equal(value.genericConfig.mcpServers['pengmanager-video'].command, process.execPath);
+  assert.equal(value.qoderConfig.mcpServers['yaoayi-video'].type, 'stdio');
+  assert.equal(value.genericConfig.mcpServers['yaoayi-video'].command, process.execPath);
   assert.ok(value.codexToml.includes('PENGMANAGER_VIDEO_DATA_DIR = ' + JSON.stringify(dataDir)));
   assert.ok(!result.stdout.includes('synthetic-github-value-never-export'));
   assert.ok(!result.stdout.includes('synthetic-model-value-never-export'));
@@ -76,7 +76,7 @@ test('TOML escapes DEL in a legal path while JSON retains its exact value', asyn
   const config = buildAiWorkbenchConfig({ rootDir: root, dataDir });
   assert.equal(config.codexToml.includes(String.fromCharCode(127)), false);
   assert.ok(config.codexToml.includes('\\u007f'));
-  assert.equal(JSON.parse(JSON.stringify(config.qoderConfig)).mcpServers['pengmanager-video'].env.PENGMANAGER_VIDEO_DATA_DIR, dataDir);
+  assert.equal(JSON.parse(JSON.stringify(config.qoderConfig)).mcpServers['yaoayi-video'].env.PENGMANAGER_VIDEO_DATA_DIR, dataDir);
   const actual = await configCli(['config', '--client', 'codex', '--data-dir', dataDir], { cwd: directory });
   assert.equal(actual.code, 0, actual.stderr);
   assert.equal(actual.stdout, config.codexToml);
@@ -89,7 +89,7 @@ test('generated Qoder stdio settings launch actual MCP from an unrelated cwd and
   const generated = await configCli(['config', '--client', 'qoder', '--data-dir', dataDir, '--model-env-file', modelEnvFile],
     { cwd: directory, env: { PENGMANAGER_VIDEO_BACKEND_PORT: '28797' } });
   assert.equal(generated.code, 0, generated.stderr);
-  const config = JSON.parse(generated.stdout).mcpServers['pengmanager-video'];
+  const config = JSON.parse(generated.stdout).mcpServers['yaoayi-video'];
   const requests = [
     { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25' } },
     { jsonrpc: '2.0', method: 'notifications/initialized' },
@@ -99,7 +99,7 @@ test('generated Qoder stdio settings launch actual MCP from an unrelated cwd and
   const actual = await execute(config.command, config.args, { cwd: directory, env: config.env, input: requests.map(row => JSON.stringify(row)).join('\n') + '\n' });
   assert.equal(actual.code, 0, actual.stderr);
   const responses = actual.stdout.trim().split('\n').map(row => JSON.parse(row));
-  assert.equal(responses[0].result.serverInfo.name, 'pengmanager-system');
+  assert.equal(responses[0].result.serverInfo.name, 'yaoayi-system');
   assert.ok(responses[1].result.tools.some(tool => tool.name === 'pengmanager_agent_guide'));
   assert.equal(responses[2].result.isError, false);
   const guide = JSON.parse(responses[2].result.content[0].text);
@@ -139,7 +139,7 @@ test('an env-file port remains effective when no process override was exported',
   await writeFile(modelEnvFile, 'PENGMANAGER_VIDEO_BACKEND_PORT=28798\n', { mode: 0o600 });
   const generated = await configCli(['config', '--client', 'generic', '--data-dir', dataDir, '--model-env-file', modelEnvFile], { cwd: directory });
   assert.equal(generated.code, 0, generated.stderr);
-  const server = JSON.parse(generated.stdout).mcpServers['pengmanager-video'];
+  const server = JSON.parse(generated.stdout).mcpServers['yaoayi-video'];
   assert.equal(Object.hasOwn(server.env, 'PENGMANAGER_VIDEO_BACKEND_PORT'), false);
   const actual = await execute(server.command, server.args, { cwd: directory, env: server.env,
     input: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'pengmanager_agent_guide', arguments: {} } }) + '\n' });

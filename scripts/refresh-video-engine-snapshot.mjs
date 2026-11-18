@@ -12,7 +12,7 @@ const PIN_PATH = path.join(ROOT, "upstreams", "workloom-video-edit.pin.json");
 const CONFIG_PATH = path.join(ROOT, "src", "video-runtime", "config.mjs");
 const REPOSITORY = "https://github.com/geniusdapeng-collab/WorkLoom-video-edit";
 const DEFAULT_TARGET_REASON =
-  "PengManager host-owned runtime integration, capability, test, documentation, asset, or tool file retained across the full upstream rebind.";
+  "Yao Ayi System host-owned runtime integration, capability, test, documentation, asset, or tool file retained across the full upstream rebind.";
 const GENERATED_PREFIXES = [
   "outputs/",
   "packages/industry-contract/dist/",
@@ -187,7 +187,7 @@ for (const entry of sourceEntries) {
     ...(changed
       ? {
           adaptation:
-            `PengManager host integration preserved during the 2026-10-31 upgrade to WorkLoom-video-edit ${commit}; exact target bytes are listed here for runtime verification.`,
+            `Yao Ayi System host integration preserved during the 2026-10-31 upgrade to WorkLoom-video-edit ${commit}; exact target bytes are listed here for runtime verification.`,
         }
       : {}),
   });

@@ -41,7 +41,7 @@
 
 **受众与背景**
 
-B：平台官方定位是职业关系、行业洞察与有帮助的商业经验。D：鹏经理优先面向正在评估AI工作流的经营者、团队负责人、实施者；不能从平台名称推断其公司规模、预算或购买意愿。
+B：平台官方定位是职业关系、行业洞察与有帮助的商业经验。D：姚阿姨系统优先面向正在评估AI工作流的经营者、团队负责人、实施者；不能从平台名称推断其公司规模、预算或购买意愿。
 
 **三个具体用户意图/场景**
 
@@ -93,7 +93,7 @@ C（LI-SAMPLE）：实际短帖先给研究预览阶段，再给三个终端动�
 
 - **B · LI-AI**：[Best practices for content created with the help of AI](https://www.linkedin.com/help/linkedin/answer/a1123063)；取得于 2026-10-25；访问方式：`official_body`。支持：官方本次页面标明3周前更新。AI润色、校对可用，但要保留真实专业身份、本人观点与经验；应人工审阅修改；重度AI辅助建议透明披露。重复、空泛、无观点的内容可能较少向更广人群分发。 限制：不构成禁止一切AI；未核实个人账号权限、推荐表现。
 - **B · LI-REC**：[LinkedIn Content Recommendations: What to Avoid](https://www.linkedin.com/blog/content-recommendations-avoid)；取得于 2026-10-25；访问方式：`official_body`。支持：职业新闻、行业洞察、职业建议和有用商业经验符合专业语境。纯推销、无关推广评论、互赞群、索取互动和无新见解复制被列为不宜广泛推荐。 限制：不推导固定发帖时间、字数、外链位置或推荐权重。
-- **C · LI-SAMPLE**：[Anthropic public post: Introducing Claude Code research preview](https://www.linkedin.com/posts/anthropicresearch_write-beautiful-code-ship-powerful-products-activity-7298575727505915904-dvBL)；取得于 2026-10-25；访问方式：`public_post_text_and_some_comments`。支持：实际读到正文：宣布研究预览阶段，接着列出终端中的具体动作，再附产品链接；可见评论追问终端与IDE选择、类型安全。 限制：只观察这一历史品牌样本；未看图片/视频，不用点赞数证明写法有效，不把第三方功能当鹏经理事实。
+- **C · LI-SAMPLE**：[Anthropic public post: Introducing Claude Code research preview](https://www.linkedin.com/posts/anthropicresearch_write-beautiful-code-ship-powerful-products-activity-7298575727505915904-dvBL)；取得于 2026-10-25；访问方式：`public_post_text_and_some_comments`。支持：实际读到正文：宣布研究预览阶段，接着列出终端中的具体动作，再附产品链接；可见评论追问终端与IDE选择、类型安全。 限制：只观察这一历史品牌样本；未看图片/视频，不用点赞数证明写法有效，不把第三方功能当姚阿姨系统事实。
 
 ### X（x）
 
@@ -207,7 +207,7 @@ C（YT-SAMPLE）：只读到视频标题与检索公开描述，表明研究预�
 
 **本平台来源与实际读取范围**
 
-- **B · YT-TITLE**：[Thumbnail & title tips](https://support.google.com/youtube/answer/12340300?hl=en)；取得于 2026-10-25；访问方式：`official_body`。支持：标题应准确、简短、重要词靠前；缩略图清楚且与真实内容匹配。可按观众意图选择可搜索的明确标题或激发兴趣的标题，再用自己的来源别分析调整。 限制：不采用平台案例百分比作为鹏经理表现保证，不以单一CTR阈值判所有频道。
+- **B · YT-TITLE**：[Thumbnail & title tips](https://support.google.com/youtube/answer/12340300?hl=en)；取得于 2026-10-25；访问方式：`official_body`。支持：标题应准确、简短、重要词靠前；缩略图清楚且与真实内容匹配。可按观众意图选择可搜索的明确标题或激发兴趣的标题，再用自己的来源别分析调整。 限制：不采用平台案例百分比作为姚阿姨系统表现保证，不以单一CTR阈值判所有频道。
 - **B · YT-AI**：[Disclosing use of altered or synthetic content](https://support.google.com/youtube/answer/14328491?hl=en)；取得于 2026-10-25；访问方式：`official_body`。支持：逼真生成或实质改变人物行为/真实事件/场景等内容需要披露；普通提纲、标题或字幕辅助及小幅美化并不自动触发同一披露要求。 限制：必须按本条视频实际媒体性质判断；本次未登录上传页。
 - **B · YT-DISC**：[Search & discovery tips — Video](https://support.google.com/youtube/answer/11914225?co=YOUTUBE._YTVideoType%3Dvideo&hl=en)；取得于 2026-10-25；访问方式：`official_body`。支持：发现面向每个观众的兴趣与历史，结合是否选择观看、观看持续和满意度等；题材需求、竞争与季节也影响曝光。官方未宣称特定内容格式天然优先。 限制：这是机制方向，不是可计算的权重公式、必爆模板或固定发布频率。
 - **C · YT-SAMPLE**：[Introducing Claude Code — Anthropic](https://www.youtube.com/watch?v=AJpK3YTTKZ4)；取得于 2026-10-25；访问方式：`search_index_description_only`。支持：公开检索返回2025-02-24视频标题与描述：说明研究预览、终端场景、任务例子与尝试链接。直接页面仅可获取标题/页脚。 限制：没有播放、逐镜观看或转录；只分析包装与描述，不能推断镜头、留存、口播或艺术效果。
@@ -216,7 +216,7 @@ C（YT-SAMPLE）：只读到视频标题与检索公开描述，表明研究预�
 
 **受众与背景**
 
-D：目标是尚未认识鹏经理、会被具体视觉问题吸引的国际短视频用户，以及通过搜索找一个how-to答案的人；不能假定他们熟悉产品名、长篇背景或中文业务术语。
+D：目标是尚未认识姚阿姨系统、会被具体视觉问题吸引的国际短视频用户，以及通过搜索找一个how-to答案的人；不能假定他们熟悉产品名、长篇背景或中文业务术语。
 
 **三个具体用户意图/场景**
 
@@ -269,7 +269,7 @@ D：从官方Embed Videos得到@scout2015真实示例链接，但正常公开打
 - **B · TT-SEARCH**：[Get inspired with Creator Search Insights](https://newsroom.tiktok.com/creator-search-insights?lang=en)；取得于 2026-10-25；访问方式：`official_body`。支持：2024官方说明搜索用于发现与学习，Search Insights可查看搜索主题与内容缺口，且存在地区可用性条件。 限制：旧上线说明不等于当前具体账号可用；不把搜索主题热度当必然流量。
 - **B · TT-CODES**：[Creative Codes: 6 principles for creating effective ads](https://ads.tiktok.com/business/en-US/creative-codes)；取得于 2026-10-25；访问方式：`official_body_ad_guidance`。支持：官方广告创作指引强调平台原生表达、竖屏、画面避开UI、早交代价值、主体与收束、声音和动态编辑。 限制：证据范围是广告创作指导；迁移到自然内容是D设计，不能把广告统计或六秒等阈值当自然推荐硬规则。
 - **B · TT-LABEL**：[New labels for disclosing AI-generated content](https://newsroom.tiktok.com/new-labels-ai-generated-content?lang=en-150)；取得于 2026-10-25；访问方式：`official_body_historical_with_current_support_search`。支持：2023官方原文要求逼真AI图像/音频/视频披露，并说明完整生成/显著AI修改可用标签。当前帮助页检索正文也描述逼真AIGC披露，但直接帮助URL重定向为空壳。 限制：不声称贴标即可发布任何内容；当前帮助正文直接提取受限，发布前应复核当前社区/商业内容规则。
-- **B · TT-POST**：[Get Started — Direct Post](https://developers.tiktok.com/docs/en/content-posting-api-get-started)；取得于 2026-10-25；访问方式：`official_body_prior_review`。支持：官方Direct Post文档说明视频/照片发布需要应用配置、发布scope批准和用户授权；未审核客户端有可见性限制。 限制：本次没有注册应用、审核scope、连接账号或发布；不可用平台存在API推断鹏经理已经接通。
+- **B · TT-POST**：[Get Started — Direct Post](https://developers.tiktok.com/docs/en/content-posting-api-get-started)；取得于 2026-10-25；访问方式：`official_body_prior_review`。支持：官方Direct Post文档说明视频/照片发布需要应用配置、发布scope批准和用户授权；未审核客户端有可见性限制。 限制：本次没有注册应用、审核scope、连接账号或发布；不可用平台存在API推断姚阿姨系统已经接通。
 - **D · TT-SAMPLE-GAP**：[Official embed demo sample access attempt](https://www.tiktok.com/@scout2015/video/6718335390845095173)；取得于 2026-10-25；访问方式：`unavailable`。支持：从官方Embed Videos文档得到真实样本链接，正常公开打开被工具标记restricted；其他TikTok页面被robots拒绝。 限制：未观看原帖、未读完整caption/评论；不把官方示例代码当视频内容样本，不绕过访问限制。
 
 ### Instagram（instagram）
@@ -406,7 +406,7 @@ B：站点以社区和讨论为发帖上下文；具体格式/规则因社区而
 
 **原生形式选择**
 
-D：自包含技术讨论、项目展示、问题答复、受邀且规则允许的AMA；媒体/链接是否可用由目的地检查。B（RD-DEST）本次LocalLLaMA showcase有自己的开源/本地化范围；不能把鹏经理闭源商业宣传硬塞进去。
+D：自包含技术讨论、项目展示、问题答复、受邀且规则允许的AMA；媒体/链接是否可用由目的地检查。B（RD-DEST）本次LocalLLaMA showcase有自己的开源/本地化范围；不能把姚阿姨系统闭源商业宣传硬塞进去。
 
 **标题与开头**
 
@@ -444,7 +444,7 @@ C（RD-SAMPLE）：公开Codag帖由作者真实痛点引入，给出开源工�
 
 - **B · RD-SPAM**：[Spam](https://support.reddithelp.com/hc/en-us/articles/360043504051-Spam)；取得于 2026-10-25；访问方式：`official_body_updated_2026_10_22`。支持：官方禁止无请求的重复/批量互动与连续产品推广bot，要求在有真实兴趣的相关社区参与，具体社区版主可按本地规则判断。 限制：没有全Reddit通用自推广比例；不以刷karma或换号规避限制。
 - **B · RD-POST**：[How do I post and comment on Reddit?](https://support.reddithelp.com/hc/en-us/articles/360060422572-How-do-I-post-and-comment-on-Reddit)；取得于 2026-10-25；访问方式：`official_body_updated_2026_10_05`。支持：发帖前选相关社区并读规则，标题准确描述正文，媒体/AMA等可用形式因社区而异；发帖后可回复讨论。 限制：不能把站点支持的媒体选项当每个社区都允许；不固化实时长度、karma或年龄阈值。
-- **C · RD-SAMPLE**：[I built a tool to visualize LLM workflows as interactive and shareable graphs](https://www.reddit.com/r/LocalLLaMA/comments/1qw6rwc/i_built_a_tool_to_visualize_llm_workflows_as/)；取得于 2026-10-25；访问方式：`public_body_and_visible_comments`。支持：真实帖子从作者自己迷失代码流程的具体问题开始，说明开源VSCode工具和演示对象，邀请做agent/pipeline的人反馈；评论追问MCP、GGUF、兼容与设计选择，作者澄清当前缺口并后续贴issue。 限制：仅一个历史开发者样本；第三方兼容性/数字未验证，不移植成鹏经理承诺；未看demo视频本身。
+- **C · RD-SAMPLE**：[I built a tool to visualize LLM workflows as interactive and shareable graphs](https://www.reddit.com/r/LocalLLaMA/comments/1qw6rwc/i_built_a_tool_to_visualize_llm_workflows_as/)；取得于 2026-10-25；访问方式：`public_body_and_visible_comments`。支持：真实帖子从作者自己迷失代码流程的具体问题开始，说明开源VSCode工具和演示对象，邀请做agent/pipeline的人反馈；评论追问MCP、GGUF、兼容与设计选择，作者澄清当前缺口并后续贴issue。 限制：仅一个历史开发者样本；第三方兼容性/数字未验证，不移植成姚阿姨系统承诺；未看demo视频本身。
 - **C · RD-DEST**：[Bi-Weekly Megathread Project Showcase — LocalLLaMA](https://www.reddit.com/r/LocalLLaMA/comments/1x9yg86/biweekly_megathread_project_showcase/)；取得于 2026-10-25；访问方式：`public_post_body_destination_rule_sample`。支持：公开megathread实际要求用清楚英语说明做什么、替代方案差异、测试验证，并写明该展示面向开放权重/开源/可本地部署，closed-source商业项目会被移除。 限制：这是该目的地在本次可读页面的规则，不能推广到全站，也不能用历史帖子绕过当前规则。
 
 ### Discord（discord）
@@ -540,7 +540,7 @@ D：真实情境/问题→为何原办法不够→分阶段方法→关键证据
 
 **证据与视觉/演示**
 
-C（MD-SAMPLE）：Airbnb文章用阶段方法、代码、验证循环、长尾人工处理支撑叙事，可见读者追问测试意图与成本。D：鹏经理文章应拿自己的材料建立同样可核对的因果链，第三方数字只能带归属引用，不能当自己结果。
+C（MD-SAMPLE）：Airbnb文章用阶段方法、代码、验证循环、长尾人工处理支撑叙事，可见读者追问测试意图与成本。D：姚阿姨系统文章应拿自己的材料建立同样可核对的因果链，第三方数字只能带归属引用，不能当自己结果。
 
 **互动**
 
@@ -556,7 +556,7 @@ B（MD-AI）：多数AI生成且少修改/核实的写作不能Partner付费墙�
 
 **真实样本观察与访问限制**
 
-C（MD-SAMPLE）：已读可公开正文和少量响应，观察到背景→四阶段方法→验证/重试→长尾人工→结果/下一步；评论追问测试意图保持与LLM成本。只是一个工程案例，不能推出所有读者偏好或用其自报迁移效率担保鹏经理成效。
+C（MD-SAMPLE）：已读可公开正文和少量响应，观察到背景→四阶段方法→验证/重试→长尾人工→结果/下一步；评论追问测试意图保持与LLM成本。只是一个工程案例，不能推出所有读者偏好或用其自报迁移效率担保姚阿姨系统成效。
 
 **本平台来源与实际读取范围**
 
@@ -590,7 +590,7 @@ C（MD-SAMPLE）：已读可公开正文和少量响应，观察到背景→四�
 
 - **A** 现有入口：`growth.video.workbench.guide`、`growth.repo.readiness`。
 - 输入：`{"guide":{},"readiness":{}}`。
-- 前提：通过鹏经理CLI目录发现当前ID；guide检查固定文档及产品身份；readiness为声明的只读能力。
+- 前提：通过姚阿姨系统CLI目录发现当前ID；guide检查固定文档及产品身份；readiness为声明的只读能力。
 - 产物：完整指南、sha256、版本和限制；就绪资料不能代替本次生成。
 - 限制：没有新模型/渲染/发布。guide实际代码已读；readiness仅核目录合同，未在本研究重跑或全读它的环境探测实现。
 - 代码/合同：`src/agent.mjs:16`；`engines/video-edit/scripts/agent-capabilities.mjs:116`；`engines/video-edit/bundles/geo-growth/capabilities/workbench-guide.mjs:47`。本研究运行验证：未执行。
@@ -651,7 +651,7 @@ C（MD-SAMPLE）：已读可公开正文和少量响应，观察到背景→四�
 
 ### 目录名称与真实调用入口
 
-**A**：鹏经理入口是 `node scripts/agent.mjs list|describe|invoke`；`src/agent.mjs` 加载已审核原生能力并把MCP名称前缀改为 `pengmanager_`。可调用ID必须来自这个清单及其inputSchema，不能把员工/技能/页面目录中的名称当工具ID。当前视频生产工具是读取/预览/技术验收；真正生成仍由已有正式服务/CLI承担。
+**A**：姚阿姨系统入口是 `node scripts/agent.mjs list|describe|invoke`；`src/agent.mjs` 加载已审核原生能力并把MCP名称前缀改为 `pengmanager_`。可调用ID必须来自这个清单及其inputSchema，不能把员工/技能/页面目录中的名称当工具ID。当前视频生产工具是读取/预览/技术验收；真正生成仍由已有正式服务/CLI承担。
 
 **A**：当前编辑HTTP在 `context()` 拒绝 `principal.method=agent`，service的 `#write()` 再次只接受 `local/session`。因此现有限制Agent token不能导入策略、写edition/variant或媒体。未来要有范围受控writer/任务执行适配，不能擅自借用管理员身份，也不能把403吞成已保存。当前 `EDITORIAL_FORMATS` 只有 `article|image_text|video`，未知字段拒绝；thread/slides/chapters等原生字段是新设计，不能假称现有API直接支持。
 

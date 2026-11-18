@@ -256,7 +256,7 @@ export function createGeoOsServer({
           methodNotAllowed(response, ["GET"]);
           return;
         }
-        writeJson(response, 200, auth?.status(request) ?? { enabled: false, authenticated: true, actor: "PengManager", method: "local" });
+        writeJson(response, 200, auth?.status(request) ?? { enabled: false, authenticated: true, actor: "姚阿姨", method: "local" });
         return;
       }
       if (path === "/api/auth/login") {
@@ -317,7 +317,7 @@ export function createGeoOsServer({
         return;
       }
 
-      let principal = { actor: "PengManager", method: "local" };
+      let principal = { actor: "姚阿姨", method: "local" };
       if (auth) {
         try {
           principal = auth.requireAccess(request, path);

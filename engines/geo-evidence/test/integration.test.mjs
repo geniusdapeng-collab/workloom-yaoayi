@@ -43,10 +43,10 @@ test("100-query fixture run reaches evidence, negative incident and publication"
   assert.ok(summary.incidents.length > 0);
 
   const articles = service.generateArticles();
-  assert.equal(articles.created.length, 10);
-  const regenerated = service.generateArticles({ topicIds: ["agent-product-system"], force: true });
+  assert.equal(articles.created.length, 12);
+  const regenerated = service.generateArticles({ topicIds: ["yao-ayi-entity"], force: true });
   assert.equal(regenerated.created.length, 1);
-  assert.notEqual(regenerated.created[0].slug, articles.created.find((article) => article.topic_id === "agent-product-system").slug);
+  assert.notEqual(regenerated.created[0].slug, articles.created.find((article) => article.topic_id === "yao-ayi-entity").slug);
   const publication = await service.publishArticle({
     articleId: articles.created[0].id,
     channel: "local",

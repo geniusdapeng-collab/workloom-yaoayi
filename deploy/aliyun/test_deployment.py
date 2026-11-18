@@ -18,7 +18,7 @@ import unittest
 from unittest import mock
 
 HERE = Path(__file__).resolve().parent
-SPEC = importlib.util.spec_from_file_location("pengmanager_deployment", HERE / "deploy.py")
+SPEC = importlib.util.spec_from_file_location("yaoayi_deployment", HERE / "deploy.py")
 DEPLOY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(DEPLOY)
 import nginx_proxy as NGINX
@@ -69,7 +69,7 @@ def source_archive(destination, mutation=None):
                "deploy/aliyun/nginx_proxy.py": b"# fixture source\n", "deploy/aliyun/configure.mjs": b"export {};\n"}
     records = [{"path": name, "sha256": hashlib.sha256(value).hexdigest(), "size": len(value), "mode": 0o644}
                for name, value in sorted(sources.items())]
-    manifest = {"schema": "pengmanager-deployment/v1", "gitSha": "a" * 40, "dirty": False,
+    manifest = {"schema": "yaoayi-deployment/v1", "gitSha": "a" * 40, "dirty": False,
                 "contentSha256": hashlib.sha256(json.dumps(records, separators=(",", ":")).encode()).hexdigest(),
                 "packageManager": "pnpm@1.0.0", "files": records}
     with tarfile.open(destination, "w:gz") as bundle:
@@ -89,7 +89,7 @@ def backup_archive(destination, mutation=None):
         bundle.addfile(entry)
         add_file(bundle, "backup/data/state.json", b'{"restored":true}\n', 0o600)
         add_file(bundle, "backup/config/runtime.env", environment().encode(), 0o600)
-        add_file(bundle, "backup/metadata.json", b'{"schema":"pengmanager-backup/v1"}', 0o600)
+        add_file(bundle, "backup/metadata.json", b'{"schema":"yaoayi-backup/v1"}', 0o600)
         if mutation:
             mutation(bundle)
     return DEPLOY.sha256(destination)
@@ -358,7 +358,7 @@ class DeploymentTests(unittest.TestCase):
     def test_restore_preserves_previous_data_and_private_modes(self):
         archive = self.path / "backup.tar.gz"
         checksum = backup_archive(archive)
-        target = self.path / "pengmanager-restored-data"
+        target = self.path / "yaoayi-restored-data"
         target.mkdir()
         (target / "original.json").write_text('{"original":true}')
         previous = DEPLOY.restore(archive, checksum, target)
@@ -369,7 +369,7 @@ class DeploymentTests(unittest.TestCase):
     def test_restore_bad_archive_does_not_replace_target(self):
         archive = self.path / "backup.tar.gz"
         checksum = backup_archive(archive, lambda bundle: add_file(bundle, "backup/../../bad", b"bad"))
-        target = self.path / "pengmanager-restored-data"
+        target = self.path / "yaoayi-restored-data"
         target.mkdir()
         (target / "sentinel").write_text("keep")
         with self.assertRaises(DEPLOY.DeployError):
@@ -379,12 +379,12 @@ class DeploymentTests(unittest.TestCase):
     def test_restore_rejects_host_system_directories_and_wrong_namespace(self):
         archive = self.path / "backup.tar.gz"
         checksum = backup_archive(archive)
-        for target in (self.path / "unrelated-service", Path("/etc/nginx/pengmanager-config")):
+        for target in (self.path / "unrelated-service", Path("/etc/nginx/yaoayi-config")):
             with self.assertRaises(DEPLOY.DeployError):
                 DEPLOY.restore(archive, checksum, target)
 
     def test_real_backup_is_private_and_restores_prior_running_state(self):
-        data = self.path / "pengmanager-data"
+        data = self.path / "yaoayi-data"
         data.mkdir(mode=0o700)
         (data / "state.json").write_text('{"before":true}')
         config = self.path / "runtime.env"
@@ -408,7 +408,7 @@ class DeploymentTests(unittest.TestCase):
             self.assertTrue(active[0])
 
     def test_failed_backup_resumes_service_and_preserves_data(self):
-        data = self.path / "pengmanager-data"
+        data = self.path / "yaoayi-data"
         data.mkdir(mode=0o700)
         (data / "state.json").write_text("preserve")
         (data / "unsafe-link").symlink_to(self.path / "outside")
@@ -444,13 +444,13 @@ class DeploymentTests(unittest.TestCase):
         old_node.mkdir()
         new_node.mkdir()
         (base / "node-current").symlink_to(old_node)
-        data = self.path / "pengmanager-system"
+        data = self.path / "yaoayi-system"
         data.mkdir(mode=0o700)
         (data / "state.json").write_text('{"old":true}')
         config_dir = self.path / "etc"
         config_dir.mkdir(mode=0o700)
         config = config_dir / "runtime.env"
-        unit = config_dir / "pengmanager-system.service"
+        unit = config_dir / "yaoayi-system.service"
         old_unit = DEPLOY.MARKER + "\nold unit\n"
         unit.write_text(old_unit)
         active = [True]
@@ -487,7 +487,7 @@ class DeploymentTests(unittest.TestCase):
             self.assertEqual((base / "current").resolve(), old)
             self.assertEqual((base / "node-current").resolve(), old_node)
             self.assertEqual(json.loads((data / "state.json").read_text()), {"old": True})
-            self.assertTrue(list(self.path.glob("pengmanager-system.before-restore-*")))
+            self.assertTrue(list(self.path.glob("yaoayi-system.before-restore-*")))
             self.assertEqual(unit.read_text(), old_unit)
             self.assertTrue(active[0])
             self.assertEqual(checks[0], 2)
@@ -501,7 +501,7 @@ class DeploymentTests(unittest.TestCase):
         release.mkdir()
         (release / "deployment-manifest.json").write_text(json.dumps(manifest))
         (release / "node_modules").mkdir()
-        (release / "var").symlink_to(self.path / "pengmanager-data")
+        (release / "var").symlink_to(self.path / "yaoayi-data")
         old_node = base / "old-node"
         candidate_node = base / "candidate-node"
         old_node.mkdir()
@@ -814,13 +814,13 @@ class NginxTests(unittest.TestCase):
         self.default.write_text("server { listen 80 default_server; server_name netgen.cc; root /var/www/html; }\n")
         self.original = self.default.read_bytes()
         self.original_config = self.config.read_bytes()
-        self.site = available / "pengmanager-system.conf"
-        self.link = enabled / "pengmanager-system.conf"
+        self.site = available / "yaoayi-system.conf"
+        self.link = enabled / "yaoayi-system.conf"
         self.webroot = self.path / "acme"
-        self.hook = self.path / "renewal-hooks/deploy/pengmanager-system-nginx.sh"
+        self.hook = self.path / "renewal-hooks/deploy/yaoayi-system-nginx.sh"
         self.cert = self.path / "lineage/fullchain.pem"
         self.key = self.cert.parent / "privkey.pem"
-        self.domain = "pengmanager.netgen.cc"
+        self.domain = "yaoayi.netgen.cc"
         self.calls = []
         self.fail_certbot = False
         self.fail_test_once = False
@@ -839,9 +839,9 @@ class NginxTests(unittest.TestCase):
         self.temporary.cleanup()
 
     def settings(self, managed=False):
-        return {"schema": "pengmanager-proxy/v1", "proxy": "nginx", "domain": self.domain,
+        return {"schema": "yaoayi-proxy/v1", "proxy": "nginx", "domain": self.domain,
                 "certificate": str(self.cert), "privateKey": str(self.key),
-                "certName": f"pengmanager-system-{self.domain}", "managedCertificate": managed}
+                "certName": f"yaoayi-system-{self.domain}", "managedCertificate": managed}
 
     def args(self, **overrides):
         values = dict(accept_acme_terms=False, acme_email=None, acme_no_email=False, acme_account=None)
@@ -891,8 +891,8 @@ class NginxTests(unittest.TestCase):
         self.assertFalse(any("caddy" in value for call in self.calls for value in call))
 
     def test_existing_nginx_exact_wildcard_regex_and_included_names_refused(self):
-        for name in (self.domain, self.domain.upper(), "*.netgen.cc", ".netgen.cc", "pengmanager.*",
-                     r"~^pengmanager\.netgen\.cc$", r'"~^(?<name>.+)\.netgen\.cc$"', "$hostname"):
+        for name in (self.domain, self.domain.upper(), "*.netgen.cc", ".netgen.cc", "yaoayi.*",
+                     r"~^yaoayi\.netgen\.cc$", r'"~^(?<name>.+)\.netgen\.cc$"', "$hostname"):
             with self.subTest(name=name):
                 self.default.write_text(f"server {{ server_name {name}; }}\n")
                 with self.assertRaises(DEPLOY.DeployError):
@@ -1012,7 +1012,7 @@ class NginxTests(unittest.TestCase):
             self.skipTest("System binary is not OpenSSL 3; run this regression on Linux/CI or set OPENSSL_BINARY.")
         # Keys exist only in an OS temporary directory, never source/fixtures or
         # emitted output. TemporaryDirectory removes them after the assertion.
-        with tempfile.TemporaryDirectory(prefix="pengmanager-openssl-check-") as directory:
+        with tempfile.TemporaryDirectory(prefix="yaoayi-openssl-check-") as directory:
             certificate, key = Path(directory) / "certificate.pem", Path(directory) / "private.key"
             settings = {**self.settings(False), "certificate": str(certificate), "privateKey": str(key)}
             proxy = NGINX.NginxProxy(settings, DEPLOY.run, DEPLOY.require)

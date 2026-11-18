@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pengmanager.com/schemas/video-manual-bridge.schema.json",
-  "title": "PengManager video manual bridge receipt",
+  "title": "Yao Ayi video manual bridge receipt",
   "type": "object",
   "additionalProperties": false,
   "required": [

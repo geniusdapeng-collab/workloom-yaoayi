@@ -1,4 +1,4 @@
-# 鹏经理系统 · PengManager System — HTTP API
+# 姚阿姨系统 · Yao Ayi System — HTTP API
 
 The service listens on `http://127.0.0.1:4318` by default.
 
@@ -9,8 +9,8 @@ content approval, real browser execution, receipt recovery, GEO and local
 video/backup boundaries. A checkout's routes are not proof that the target
 running service has deployed the same version.
 
-The product name is `鹏经理系统` / `PengManager System`. The underlying GitHub
-repository URL remains `geniusdapeng-collab/geniusdapeng-geo-os`; changing the
+The product name is `姚阿姨系统` / `Yao Ayi System`. The underlying GitHub
+repository URL remains `geniusdapeng-collab/workloom-yaoayi`; changing the
 display brand does not redirect or rename external account URLs.
 
 Write endpoints accept JSON except the raw binary media and content-artifact uploads below. Errors are structured:
@@ -128,45 +128,46 @@ any private API namespace. Private previews remain authenticated and noindex.
 ## Identity payload
 
 `GET /api/bootstrap` includes the canonical bilingual entity profile for the
-dashboard and platform account records. The current main account is `李大鹏`
-in Chinese and `PengManager` in English. Its display names and bios are:
+dashboard and platform account records. The current main account is `姚阿姨`
+in Chinese and `Yao Ayi` in English. Its display names and bios are:
 
 ```text
-李大鹏｜用AI搞经营的产品经理
+姚阿姨｜沂蒙山咖啡小院主理人
 
-全栈 AI 产品专家，把模型能力做成专业领域 Agent 数字员工与自主经营系统。
+一位从杭州带着手冲手艺回到沂蒙山的沂蒙女儿，旗袍外面系围裙，白瓷杯旁边放鏊子，用咖啡、煎饼和山货讲述家乡的日子。
 ```
 
 ```text
-Dapeng Li · PengManager
+Yao Ayi · Yimeng Mountain Coffee Courtyard
 
-Turning model capabilities into domain-specific AI employees and autonomous business systems.
+A daughter of the Yimeng Mountains who returned home with pour-over skills from Hangzhou, telling the stories of coffee, pancakes, mountain produce and everyday life.
 ```
 
 | Field | Meaning |
 |---|---|
-| `system.id` | Stable current service identifier: `pengmanager-system` |
-| `system.nameZh` / `system.nameEn` | Product names: 鹏经理系统 / PengManager System |
+| `system.id` | Stable current service identifier: `yaoayi-system` |
+| `system.nameZh` / `system.nameEn` | Product names: 姚阿姨系统 / Yao Ayi System |
 | `entity.nameZh` / `entity.nameEn` | Chinese and English main-account names |
 | `entity.displayNameZh` / `entity.displayNameEn` | Exact bilingual display names |
 | `entity.bioZh` / `entity.bioEn` | Full bilingual bios, including the blank line |
-| `entity.profileVersion` | Identity migration version, currently `2` |
+| `entity.profileVersion` | Identity migration version, currently `3` |
 | `entity.aliases` | Current and historical recognition names |
 
 Compatibility fields such as `publicName`, `englishName`, `displayName`,
 `englishDisplayName`, `bio` and `englishBio` remain available. Each account also
 provides bilingual name/display-name/bio fields; its `language` selects the
-default `name`, `displayName` and `bio` for that platform. Real handles and URLs
-are preserved.
+default `name`, `displayName` and `bio` for that platform. Built-in accounts use
+`待核对` until a real owner handle is verified; custom handles and URLs are
+preserved by migration.
 
-`GET /api/health` returns `service: "pengmanager-system"` and the same `system`
+`GET /api/health` returns `service: "yaoayi-system"` and the same `system`
 identity object. Consumers matching the previous service label should update
 that comparison; endpoint paths are unchanged.
 
 `GET /api/exports/public-preview` exposes the current public identity alongside
 exportable claims. It does not approve a claim or publish an account profile.
-Recognized historical aliases support GEO matching; they are not the current
-display name. Existing data is upgraded at server startup as described in
+Retired persona names are removed from active aliases during migration. Existing
+data is upgraded at server startup as described in
 [OPERATIONS.md](OPERATIONS.md).
 
 ## Write
@@ -333,7 +334,7 @@ Create a reply draft with:
   "accountId": "github",
   "type": "reply",
   "executionMode": "browser",
-  "targetUrl": "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/1",
+  "targetUrl": "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/1",
   "replyText": "The exact complete reply authorized for this action.",
   "interactionId": "INT-0001"
 }
@@ -359,13 +360,13 @@ with:
 ```json
 {
   "receipt": {
-    "url": "https://github.com/geniusdapeng-collab/geniusdapeng-geo-os/issues/1#issuecomment-123",
+    "url": "https://github.com/geniusdapeng-collab/workloom-yaoayi/issues/1#issuecomment-123",
     "publishedAt": "2026-10-24T10:00:00.000Z",
-    "capturedBy": "PengManager",
+    "capturedBy": "Yao Ayi",
     "dataMode": "real",
     "verificationMethod": "browser_readback",
     "verifiedAt": "2026-10-24T10:01:00.000Z",
-    "verifiedBy": "PengManager"
+    "verifiedBy": "Yao Ayi"
   }
 }
 ```
@@ -507,7 +508,7 @@ curl -sS http://127.0.0.1:4318/api/content \
     "contentType": "article",
     "claimIds": ["C002"],
     "platforms": ["GitHub"],
-    "owner": "PengManager"
+    "owner": "Yao Ayi"
   }'
 ```
 

@@ -154,24 +154,24 @@ function renderStatusList(selector, counts, labels) {
 
 function primaryProfile() {
   const entity = state.data.entity ?? {};
-  const nameZh = entity.nameZh || entity.publicName || "李大鹏";
-  const nameEn = entity.nameEn || entity.englishName || "PengManager";
-  const displayNameZh = entity.displayNameZh || entity.displayName || `${nameZh}｜用AI搞经营的产品经理`;
-  const displayNameEn = entity.displayNameEn || entity.englishDisplayName || `Dapeng Li · ${nameEn}`;
+  const nameZh = entity.nameZh || entity.publicName || "姚阿姨";
+  const nameEn = entity.nameEn || entity.englishName || "Yao Ayi";
+  const displayNameZh = entity.displayNameZh || entity.displayName || `${nameZh}｜沂蒙山咖啡小院主理人`;
+  const displayNameEn = entity.displayNameEn || entity.englishDisplayName || `${nameEn} · Yimeng Mountain Coffee Courtyard`;
   return {
     nameZh,
     nameEn,
     displayNameZh,
     displayNameEn,
-    bioZh: entity.bioZh || entity.bio || `${displayNameZh}\n\n全栈 AI 产品专家，把模型能力做成专业领域 Agent 数字员工与自主经营系统。`,
-    bioEn: entity.bioEn || entity.englishBio || `${displayNameEn}\n\nTurning model capabilities into domain-specific AI employees and autonomous business systems.`,
+    bioZh: entity.bioZh || entity.bio || `${displayNameZh}\n\n一位从杭州带着手冲手艺回到沂蒙山的沂蒙女儿，用咖啡、煎饼和山货讲述家乡的日子。`,
+    bioEn: entity.bioEn || entity.englishBio || `${displayNameEn}\n\nA daughter of the Yimeng Mountains telling the stories of coffee, pancakes, local produce and everyday life.`,
   };
 }
 
 function renderIdentity() {
   const system = state.data.system ?? {};
-  const nameZh = system.nameZh || "鹏经理系统";
-  const nameEn = system.nameEn || "PengManager System";
+  const nameZh = system.nameZh || "姚阿姨系统";
+  const nameEn = system.nameEn || "Yao Ayi System";
   const profile = primaryProfile();
   for (const selector of ["#brand-name", "#system-name"]) {
     document.querySelector(selector).textContent = nameZh;
@@ -351,7 +351,7 @@ function renderGeo() {
       : "—";
   const cards = [
     ["实体提及率", formatRate(metrics.mentionRate), "合格样本"],
-    ["自有来源引用率", formatRate(metrics.ownedCitationRate), "GitHub / CNB / 官网"],
+    ["自有来源引用率", formatRate(metrics.ownedCitationRate), "经审阅的官网 / 公开账号"],
     [
       "负面提及率",
       formatRate(metrics.negativeMentionRate ?? metrics.brandNegativeMentionRate),

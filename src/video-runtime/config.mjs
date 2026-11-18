@@ -8,15 +8,15 @@ import { DEEPSEEK_FLASH_MODEL_ID, normalizeTextModelId } from '../model-routing/
 
 export const SOURCE_MAIN = 'a544ab8b068790bfb14b7977efc81b33897fc9de';
 export const SOURCE_FILE_COUNT = 3650;
-export const SCOPE = Object.freeze({ tenantId: 'tenant-pengmanager-video', workspaceId: 'ws-pengmanager-video', slug: 'pengmanager-video', memberNo: 'MEM-001', memberId: 'mem-pengmanager-video-owner' });
+export const SCOPE = Object.freeze({ tenantId: 'tenant-yaoayi-video', workspaceId: 'ws-yaoayi-video', slug: 'yaoayi-video', memberNo: 'MEM-001', memberId: 'mem-yaoayi-video-owner' });
 export class VideoRuntimeError extends Error {
   constructor(code, message, options) { super(message, options); this.name = 'VideoRuntimeError'; this.code = code; }
 }
 export function inside(root, value) { const rel = path.relative(root, value); return !rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel); }
 export function defaultDataRoot(env = process.env, platform = process.platform) {
-  if (platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'PengManager', 'video-runtime');
-  if (platform === 'win32') return path.join(env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'PengManager', 'video-runtime');
-  return path.join(env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'PengManager', 'video-runtime');
+  if (platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'YaoAyi', 'video-runtime');
+  if (platform === 'win32') return path.join(env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'YaoAyi', 'video-runtime');
+  return path.join(env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'YaoAyi', 'video-runtime');
 }
 function port(value, fallback) {
   const raw = String(value ?? fallback);
@@ -68,10 +68,10 @@ export function verifiedPortraitReuseManifest(config) {
   return current.path;
 }
 export function runtimeConfig(options = {}) {
-  if (!options.rootDir) throw new VideoRuntimeError('ROOT_REQUIRED', 'PengManager rootDir is required.');
+  if (!options.rootDir) throw new VideoRuntimeError('ROOT_REQUIRED', 'Yao Ayi System rootDir is required.');
   const rootDir = fs.realpathSync(path.resolve(options.rootDir));
   const engineRoot = fs.realpathSync(path.resolve(options.engineRoot || path.join(rootDir, 'engines', 'video-edit')));
-  if (!inside(rootDir, engineRoot) || engineRoot === rootDir) throw new VideoRuntimeError('ENGINE_OUTSIDE_PRODUCT', 'The complete video engine must be inside this PengManager installation.');
+  if (!inside(rootDir, engineRoot) || engineRoot === rootDir) throw new VideoRuntimeError('ENGINE_OUTSIDE_PRODUCT', 'The complete video engine must be inside this Yao Ayi System installation.');
   const env = { ...process.env, ...(options.env || {}) };
   const requestedData = path.resolve(options.dataDir || env.PENGMANAGER_VIDEO_DATA_DIR || defaultDataRoot(env));
   if (requestedData === path.parse(requestedData).root || inside(rootDir, requestedData) || inside(requestedData, rootDir)) {
@@ -158,7 +158,7 @@ export function acquireLock(config) {
     try {
       const owner = JSON.parse(fs.readFileSync(path.join(directory, 'owner.json'), 'utf8'));
       if (!Number.isSafeInteger(owner.pid) || owner.pid <= 0 || !/^[a-f0-9]{48}$/.test(owner.token || '')) throw new VideoRuntimeError('LOCK_INVALID', 'Runtime lock is malformed; refusing to steal it.');
-      if (alive(owner.pid)) throw new VideoRuntimeError('RUNTIME_BUSY', 'Another PengManager video supervisor is already running.');
+      if (alive(owner.pid)) throw new VideoRuntimeError('RUNTIME_BUSY', 'Another Yao Ayi System video supervisor is already running.');
       fs.rmSync(directory, { recursive: true }); claim();
     } finally { fs.rmdirSync(recovery); }
   }

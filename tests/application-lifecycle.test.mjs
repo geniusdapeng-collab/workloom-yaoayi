@@ -6,12 +6,12 @@ import { connect } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createPengManagerApplication } from "../src/application.mjs";
+import { createYaoAyiApplication } from "../src/application.mjs";
 import { hashAdminPassword, hashAgentToken } from "../src/security/admin-auth.mjs";
 import { JsonStore } from "../src/storage/json-store.mjs";
 
 async function applicationFixture(t, options = {}) {
-  const directory = await mkdtemp(join(await realpath(tmpdir()), "pengmanager-application-"));
+  const directory = await mkdtemp(join(await realpath(tmpdir()), "yaoayi-application-"));
   const calls = { start: 0, stop: 0, geoClose: 0, errors: [] };
   const runtime = {
     async status() { return { state: "error", ready: false }; },
@@ -20,7 +20,7 @@ async function applicationFixture(t, options = {}) {
     async stop() { calls.stop += 1; },
     ...options.runtime,
   };
-  const app = await createPengManagerApplication({
+  const app = await createYaoAyiApplication({
     rootDir: resolve(import.meta.dirname, ".."), env: { PORT: "4318", DATA_FILE: join(directory, "state.json"), ...options.env },
     videoRuntime: options.runtimeFactory ? undefined : runtime, runtimeFactory: options.runtimeFactory,
     geoEngine: { close() { calls.geoClose += 1; }, summary() { return { preserved: true }; } },
@@ -39,9 +39,9 @@ test("one root lifecycle keeps original identity, JSON ledger and GEO available 
   await app.videoStart;
   const base = `http://127.0.0.1:${address.port}`;
   const health = await (await fetch(`${base}/api/health`)).json();
-  assert.equal(health.service, "pengmanager-system");
+  assert.equal(health.service, "yaoayi-system");
   const bootstrap = await (await fetch(`${base}/api/bootstrap`)).json();
-  assert.equal(bootstrap.entity.nameEn, "PengManager");
+  assert.equal(bootstrap.entity.nameEn, "Yao Ayi");
   assert.deepEqual(app.store.snapshot(), before);
   assert.equal((await fetch(`${base}/api/geo/engine/summary`)).status, 200);
   assert.equal((await (await fetch(`${base}/api/video-runtime/status`)).json()).ready, false);
@@ -127,7 +127,7 @@ test("production authentication rejection precedes opening state or constructing
   const stateFile = join(directory, "state.json");
   let runtimeConstructions = 0;
   t.after(() => rm(directory, { recursive: true, force: true }));
-  await assert.rejects(createPengManagerApplication({
+  await assert.rejects(createYaoAyiApplication({
     rootDir: directory,
     env: { NODE_ENV: "production", DATA_FILE: stateFile },
     runtimeFactory() { runtimeConstructions += 1; throw new Error("should-not-construct"); },

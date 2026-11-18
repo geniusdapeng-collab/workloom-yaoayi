@@ -41,12 +41,12 @@ export async function initializeWorkspace({ engineRoot, dataRoot, sourceMain, en
     const db = (await owner.query('SELECT current_database() AS name')).rows[0]?.name;
     if (db !== 'workloom') throw new VideoRuntimeError('DATABASE_IDENTITY_MISMATCH', 'The dedicated video database has the wrong database name.');
     const before = (await owner.query('SELECT id,tenant_id FROM workspaces WHERE slug=$1', [SCOPE.slug])).rows[0];
-    if (before && (before.id !== SCOPE.workspaceId || before.tenant_id !== SCOPE.tenantId)) throw new VideoRuntimeError('WORKSPACE_SCOPE_CONFLICT', 'PengManager video workspace slug already belongs to another scope.');
+    if (before && (before.id !== SCOPE.workspaceId || before.tenant_id !== SCOPE.tenantId)) throw new VideoRuntimeError('WORKSPACE_SCOPE_CONFLICT', 'Yao Ayi System video workspace slug already belongs to another scope.');
     if (fs.existsSync(marker)) {
       const prior = JSON.parse(fs.readFileSync(marker, 'utf8'));
       if (prior.sourceMain === sourceMain && prior.workspaceId === SCOPE.workspaceId && prior.bootstrapFingerprint === bootstrapFingerprint) {
         const current = await resolveWorkspaceActiveBundle(SCOPE.workspaceId);
-        if (current.state !== 'ready') throw new VideoRuntimeError('ACTIVE_BUNDLE_UNVERIFIED', 'Existing PengManager video bundle no longer verifies; preserve its state for repair.');
+        if (current.state !== 'ready') throw new VideoRuntimeError('ACTIVE_BUNDLE_UNVERIFIED', 'Existing Yao Ayi System video bundle no longer verifies; preserve its state for repair.');
         return { ...prior, reused: true };
       }
     }
@@ -56,7 +56,7 @@ export async function initializeWorkspace({ engineRoot, dataRoot, sourceMain, en
       '付费生成、外发和声音克隆须按任务授权、预算与原生围栏执行；成功源片不得因美学评分自动重生成。',
       '客户数据与凭据不得外泄；覆盖层只能收紧既有权限和围栏。',
     ];
-    const archive = { brand: 'PengManager', enterprise: { name: '鹏经理系统', profile: '李大鹏的个人GEO、内容与视频生产系统。' }, property: { applicable: false, note: '保留完整组合档案契约；未经营酒店，不含酒店样本数据。' }, forbidden, fact_red_lines: forbidden, accounts: [], platforms: [], charter: { version: 2, mode: 'disabled' }, dataMode: 'real', dataBoundary: '真实本地系统元数据；尚无生产项目、外部发布或经营指标。' };
+    const archive = { brand: 'Yao Ayi', enterprise: { name: '姚阿姨系统', profile: '姚阿姨与沂蒙山咖啡小院的故事、内容和视频生产系统。' }, property: { applicable: false, note: '保留完整组合档案契约；未经营酒店，不含酒店样本数据。' }, forbidden, fact_red_lines: forbidden, accounts: [], platforms: [], charter: { version: 2, mode: 'disabled' }, dataMode: 'real', dataBoundary: '真实本地系统元数据；尚无生产项目、外部发布或经营指标。' };
     const client = await owner.connect();
     let installedSkills = 0;
     const compositions = [];
@@ -64,9 +64,9 @@ export async function initializeWorkspace({ engineRoot, dataRoot, sourceMain, en
       await client.query('BEGIN');
       await client.query("SELECT set_config('app.tenant_id',$1,true)", [SCOPE.tenantId]);
       await client.query("SELECT set_config('app.workspace_id',$1,true)", [SCOPE.workspaceId]);
-      await client.query("INSERT INTO tenants(id,name,plan,status) VALUES($1,'鹏经理本地视频租户','pro','active') ON CONFLICT(id) DO NOTHING", [SCOPE.tenantId]);
-      await client.query("INSERT INTO workspaces(id,tenant_id,name,slug,industry,stage,night_config,is_example) VALUES($1,$2,'鹏经理完整视频工作台',$3,$4,NULL,$5,false) ON CONFLICT(id) DO NOTHING", [SCOPE.workspaceId,SCOPE.tenantId,SCOPE.slug,primary,JSON.stringify({enabled:false})]);
-      await client.query("INSERT INTO members(id,workspace_id,member_no,name,role,status) VALUES($1,$2,$3,'李大鹏','owner','active') ON CONFLICT(id) DO NOTHING", [SCOPE.memberId,SCOPE.workspaceId,SCOPE.memberNo]);
+      await client.query("INSERT INTO tenants(id,name,plan,status) VALUES($1,'姚阿姨系统本地视频租户','pro','active') ON CONFLICT(id) DO NOTHING", [SCOPE.tenantId]);
+      await client.query("INSERT INTO workspaces(id,tenant_id,name,slug,industry,stage,night_config,is_example) VALUES($1,$2,'姚阿姨系统完整视频工作台',$3,$4,NULL,$5,false) ON CONFLICT(id) DO NOTHING", [SCOPE.workspaceId,SCOPE.tenantId,SCOPE.slug,primary,JSON.stringify({enabled:false})]);
+      await client.query("INSERT INTO members(id,workspace_id,member_no,name,role,status) VALUES($1,$2,$3,'姚阿姨','owner','active') ON CONFLICT(id) DO NOTHING", [SCOPE.memberId,SCOPE.workspaceId,SCOPE.memberNo]);
       await client.query('INSERT INTO profiles(workspace_id,tenant_id,industry,archive,forbidden) VALUES($1,$2,$3,$4,$5) ON CONFLICT(workspace_id) DO NOTHING', [SCOPE.workspaceId,SCOPE.tenantId,primary,JSON.stringify(archive),JSON.stringify(forbidden)]);
       for (const bundleId of [primary, 'video-edit']) compositions.push(await assembly.provisionComposedWorkforce({ query: (sql, params) => client.query(sql, params) }, SCOPE, bundleId, SCOPE.memberNo, root, { manageTransaction: false }));
       const bundledNames=new Set();
@@ -105,7 +105,7 @@ export async function initializeWorkspace({ engineRoot, dataRoot, sourceMain, en
     const check = await assembly.computeAssembly(owner,SCOPE,primary,root);
     if (!check.canActivate) throw new VideoRuntimeError('ASSEMBLY_FAILED', `Native complete-bundle checks failed: ${check.checks.filter(item=>!item.ok).map(item=>item.key).join(', ')}.`);
     const active = (await owner.query("SELECT id,bundle_id FROM bundle_installs WHERE workspace_id=$1 AND status='active'",[SCOPE.workspaceId])).rows;
-    const installId = 'bi-pengmanager-video-complete';
+    const installId = 'bi-yaoayi-video-complete';
     if (active.some(row=>row.id !== installId || row.bundle_id !== primary)) throw new VideoRuntimeError('ACTIVE_INSTALL_CONFLICT','An unexpected active bundle installation already exists.');
     const activation = await assembly.activateBundle(owner,gateway,SCOPE,primary,SCOPE.memberNo,root);
     const c = await owner.connect();

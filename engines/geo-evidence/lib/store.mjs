@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
@@ -7,10 +7,6 @@ import {
   PERSONAL_GEO_CASE,
   buildPersonalQueries,
 } from "../personal-case.mjs";
-
-const PERSONAL_QUERY_V1 = JSON.parse(readFileSync(
-  new URL("../personal-case-v1-queries.json", import.meta.url), "utf8",
-));
 
 const QUERY_FIELDS = [
   "text", "category", "category_label", "priority", "risk", "product", "status", "source",
@@ -56,7 +52,7 @@ export class GeoStore {
     {
       caseConfig = PERSONAL_GEO_CASE,
       queries = buildPersonalQueries(caseConfig),
-      queryBaseline = PERSONAL_QUERY_V1,
+      queryBaseline = [],
     } = {},
   ) {
     this.path = resolve(databasePath);

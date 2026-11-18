@@ -15,7 +15,7 @@ const fail = (code, message) => { throw new VideoRuntimeError(code, message); };
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 
 export const standardWorkflowDescriptor = {
-  id: WORKFLOW_ID, title: '把一句话交给鹏经理的标准视频管线',
+  id: WORKFLOW_ID, title: '把一句话交给姚阿姨系统的标准视频管线',
   description: '制作、生成、营销或叙事视频时先调用：冻结原话与明确秒数，返回正式 Studio 输入和后续证据要求。只读，不启动、渲染、付费或批准。',
   operation: 'read', risk: 'low', dataMode: 'unverified',
   inputSchema: { type: 'object', required: ['intent'], additionalProperties: false, properties: {
@@ -49,7 +49,7 @@ export function standardVideoIntent(value) {
   }
   const input = { intent: value.intent, route: 'auto', metadata: { brief: { duration } } };
   return {
-    schemaVersion: PLAN_SCHEMA, productId: 'pengmanager-system', intentSha256: sha256(value.intent),
+    schemaVersion: PLAN_SCHEMA, productId: 'yaoayi-system', intentSha256: sha256(value.intent),
     requestedDurationSec: duration, startProcedure: 'video.studio.start', input,
     launched: false, productionAuthorized: false, complete: false,
     gates: ['native-route', 'current-preproduction', 'native-qualification-and-render', 'official-post-and-media-verification'],
@@ -95,7 +95,7 @@ export function standardVideoExecutor(config) {
   const token = () => {
     const value = config.env.WORKLOOM_ACCESS_TOKEN;
     if (typeof value !== 'string' || !/^[A-Za-z0-9._~-]{8,8192}$/u.test(value)) {
-      fail('STANDARD_VIDEO_NATIVE_SESSION_REQUIRED', '需要已启动的同一鹏经理本机实例和实际原生会话；云端 Agent bearer 不可替代。');
+      fail('STANDARD_VIDEO_NATIVE_SESSION_REQUIRED', '需要已启动的同一姚阿姨系统本机实例和实际原生会话；云端 Agent bearer 不可替代。');
     }
     return value;
   };
@@ -133,7 +133,7 @@ export function standardVideoExecutor(config) {
   async function verifySession() {
     const me = await rpc('members.me');
     if (me?.identity?.tenantId !== SCOPE.tenantId || me?.identity?.workspaceId !== SCOPE.workspaceId) {
-      fail('STANDARD_VIDEO_SCOPE_MISMATCH', '原生会话没有绑定鹏经理本机视频工作区。');
+      fail('STANDARD_VIDEO_SCOPE_MISMATCH', '原生会话没有绑定姚阿姨系统本机视频工作区。');
     }
   }
   return {

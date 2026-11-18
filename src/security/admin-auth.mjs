@@ -135,7 +135,7 @@ export function createAdminAuth({
   const failureLimit = boundedInteger(env.ADMIN_LOGIN_ATTEMPTS, 5, 1, 20, "ADMIN_LOGIN_ATTEMPTS");
   const windowSeconds = boundedInteger(env.ADMIN_LOGIN_WINDOW_SECONDS, 900, 1, 3600, "ADMIN_LOGIN_WINDOW_SECONDS");
   const secure = publicOrigin?.protocol === "https:";
-  const cookieName = secure ? "__Host-pengmanager_session" : "pengmanager_session";
+  const cookieName = secure ? "__Host-yaoayi_session" : "yaoayi_session";
   const sessions = new Map();
   const attempts = new Map();
   let globalAttempts = { count: 0, expiresAt: 0 };
@@ -199,7 +199,7 @@ export function createAdminAuth({
     const token = readCookie(request, cookieName);
     if (!token) return null;
     const session = sessions.get(hashToken(token).toString("hex"));
-    return session ? { actor: "PengManager", method: "session", expiresAt: new Date(session.expiresAt).toISOString() } : null;
+    return session ? { actor: "姚阿姨", method: "session", expiresAt: new Date(session.expiresAt).toISOString() } : null;
   }
 
   function agentPrincipal(request, pathname) {
@@ -215,7 +215,7 @@ export function createAdminAuth({
     if (!agentMayAccess(request.method, pathname)) {
       throw new ApiError(403, "AGENT_SCOPE_DENIED", "Agent token 无权操作此接口。");
     }
-    return { actor: "PengManager Agent", method: "agent" };
+    return { actor: "姚阿姨 Agent", method: "agent" };
   }
 
   return Object.freeze({
@@ -224,12 +224,12 @@ export function createAdminAuth({
     validateRequestSource,
     status(request) {
       validateRequestSource(request);
-      const principal = passwordHash ? sessionPrincipal(request) : { actor: "PengManager", method: "local" };
+      const principal = passwordHash ? sessionPrincipal(request) : { actor: "姚阿姨", method: "local" };
       return { enabled: Boolean(passwordHash), authenticated: Boolean(principal), ...principal };
     },
     requireAccess(request, pathname = new URL(request.url || "/", "http://localhost").pathname) {
       validateRequestSource(request);
-      if (!passwordHash) return { actor: "PengManager", method: "local" };
+      if (!passwordHash) return { actor: "姚阿姨", method: "local" };
       // An explicit bearer credential never silently escalates through a browser cookie.
       const principal = request.headers?.authorization ? agentPrincipal(request, pathname) : sessionPrincipal(request);
       if (!principal) throw new ApiError(401, "AUTH_REQUIRED", "请先登录。");

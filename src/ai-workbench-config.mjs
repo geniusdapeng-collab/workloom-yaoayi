@@ -3,7 +3,7 @@ import path from 'node:path';
 import { runtimeConfig } from './video-runtime/config.mjs';
 import { clientRuntimeEnvironment, validatedModelEnvFile } from './ai-workbench-paths.mjs';
 
-export const AI_WORKBENCH_SERVER = 'pengmanager-video';
+export const AI_WORKBENCH_SERVER = 'yaoayi-video';
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
 
 function executable(file) {
@@ -18,7 +18,7 @@ function executable(file) {
 
 /** Config export is read-only; only an explicit private env-file path is carried. */
 export function buildAiWorkbenchConfig({ rootDir, dataDir, nodePath = process.execPath, modelEnvFile } = {}) {
-  if (Number(process.versions.node.split('.')[0]) < 24) fail('NODE_VERSION_UNSUPPORTED', 'PengManager requires Node.js 24 or higher.');
+  if (Number(process.versions.node.split('.')[0]) < 24) fail('NODE_VERSION_UNSUPPORTED', 'Yao Ayi System requires Node.js 24 or higher.');
   if (dataDir !== undefined && (typeof dataDir !== 'string' || !dataDir.isWellFormed() || dataDir.includes('\0') || !path.isAbsolute(dataDir))) {
     fail('PRIVATE_DATA_REQUIRED', 'Use an absolute private runtime directory outside this checkout.');
   }
@@ -26,14 +26,14 @@ export function buildAiWorkbenchConfig({ rootDir, dataDir, nodePath = process.ex
   try {
     config = runtimeConfig({ rootDir, dataDir, serveWorkbench: false });
     const metadata = JSON.parse(fs.readFileSync(path.join(config.rootDir, 'package.json'), 'utf8'));
-    if (metadata.name !== 'pengmanager-system') throw new Error('Wrong product.');
+    if (metadata.name !== 'yaoayi-system') throw new Error('Wrong product.');
     for (const relative of ['scripts/agent-mcp.mjs', 'scripts/video-standard.mjs']) {
       const file = path.join(config.rootDir, relative);
       if (!fs.statSync(file).isFile() || fs.realpathSync(file) !== file) throw new Error('Invalid entry.');
     }
   } catch (error) {
     if (error?.code === 'PRIVATE_DATA_REQUIRED' || error?.code === 'PORT_INVALID' || error?.code === 'PORT_CONFLICT') throw error;
-    fail('AI_WORKBENCH_CHECKOUT_INVALID', 'Use this PengManager checkout with its registered MCP and standard CLI entrypoints.');
+    fail('AI_WORKBENCH_CHECKOUT_INVALID', 'Use this Yao Ayi System checkout with its registered MCP and standard CLI entrypoints.');
   }
   const command = executable(nodePath);
   if (fs.existsSync(config.dataRoot)) {
@@ -63,7 +63,7 @@ export function buildAiWorkbenchConfig({ rootDir, dataDir, nodePath = process.ex
   const qoderConfig = { mcpServers: { [AI_WORKBENCH_SERVER]: { type: 'stdio', ...server } } };
   const genericConfig = { mcpServers: { [AI_WORKBENCH_SERVER]: server } };
   return {
-    schemaVersion: 'pengmanager.ai-workbench-config/v1', productId: 'pengmanager-system', serverName: AI_WORKBENCH_SERVER,
+    schemaVersion: 'pengmanager.ai-workbench-config/v1', productId: 'yaoayi-system', serverName: AI_WORKBENCH_SERVER,
     rootDir: config.rootDir, dataDir: config.dataRoot, command, args, cwd: server.cwd, env,
     modelEnvFile: modelFile, codexToml, qoderConfig, genericConfig,
     providerCallsPerformed: false, configurationWritten: false,

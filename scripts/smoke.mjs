@@ -60,10 +60,10 @@ try {
   if (!healthResponse.ok || health.summary.accounts !== 16) {
     throw new Error("Health smoke check failed.");
   }
-  if (!pageResponse.ok || !page.includes("鹏经理系统") || !page.includes("PengManager System")) {
+  if (!pageResponse.ok || !page.includes("姚阿姨系统") || !page.includes("Yao Ayi System")) {
     throw new Error("Dashboard smoke check failed.");
   }
-  if (!geoResponse.ok || geo.case?.id !== "pengstack-personal-geo") {
+  if (!geoResponse.ok || geo.case?.id !== "yaoayi-yimeng-coffee-courtyard") {
     throw new Error("Integrated GEO engine smoke check failed.");
   }
   if (!mediaResponse.ok || !Array.isArray(media)) {
