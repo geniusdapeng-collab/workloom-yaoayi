@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-18 — Open-source and cross-workbench delivery
+
+- License the original repository source under Apache-2.0 and document that the
+  software license does not grant persona, likeness, voice, brand, customer,
+  third-party media or external-platform rights.
+- Add the read-only `yaoayi_workbench_intent` MCP tool, CLI `plan` command,
+  `GET /api/workbench/manifest` and `POST /api/workbench/plan`. They reuse the
+  existing deterministic Content Director route and return a task DAG,
+  required inputs, approval gates, handoff and delivery evidence.
+- Add safe project bootstrap for Codex and Qoder plus generated WorkBuddy MCP +
+  Skill Connector, generic MCP/prompt and 千问办公 fallback bundles. Generated
+  machine-specific configuration stays Git-ignored and never copies secrets.
+- Distinguish routing, job creation, production, independent review, human
+  approval, materialization, publication and platform readback as separate
+  states. A plan or HTTP success is not a completion receipt.
+
 ## 2026-11-17 — Content Director unified content system
 
 - Add one admin entry for seven content routes: article, article-plus-visual,

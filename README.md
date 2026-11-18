@@ -4,11 +4,28 @@
 
 系统内置个人 GEO 证据引擎与完整视频生产引擎，覆盖 AI 视频生成、AI 剪辑、AI 口播、Compositor 作图，以及对应的数字员工、技能、工具和素材库。视频引擎保留原生 PostgreSQL 事务、身份、预算、授权、审批和生产档案；根服务统一管理独立数据库、视频后端与工作台，无需运行另一个 Edit 项目。
 
-私有仓库为 [`geniusdapeng-collab/workloom-yaoayi`](https://github.com/geniusdapeng-collab/workloom-yaoayi)。完整系统能力保留，`pengmanager.*` schema、MCP 工具名和部分环境变量是继承的兼容协议，不是当前人物或品牌。
+开源仓库为 [`geniusdapeng-collab/workloom-yaoayi`](https://github.com/geniusdapeng-collab/workloom-yaoayi)，源代码按 [Apache-2.0](LICENSE) 发布。完整系统能力保留，`pengmanager.*` schema、MCP 工具名和部分环境变量是继承的兼容协议，不是当前人物或品牌。软件许可不授予姚阿姨姓名、肖像、声音、品牌、第三方平台账号、客户素材或外部服务授权；第三方组件继续遵循各自许可证。
+
+## 快速开始
+
+```bash
+git clone https://github.com/geniusdapeng-collab/workloom-yaoayi.git
+cd workloom-yaoayi
+pnpm install --frozen-lockfile --ignore-scripts
+node scripts/ai-workbench.mjs bootstrap --client all
+node src/server.mjs
+```
+
+`bootstrap --client all` 会在 Git 忽略的项目配置和 `var/workbench/` 下生成 Codex、Qoder、WorkBuddy、通用 MCP 以及千问办公降级提示词。它不调用模型或外部平台，也不复制秘密。WorkBuddy Connector 的平台导入、审核和发布仍需在 WorkBuddy 正式流程完成；千问办公当前没有检索到公开原生 MCP/Connector 导入协议，因此只提供有本地文件/终端能力时可用的通用指令。完整说明见[AI 工作台接入与任务交付](docs/AGENT-WORKBENCH-INTEGRATION.md)。
 
 姚阿姨的完整长期约束见[姚阿姨人设系统 v1.0.1](docs/personas/yao-ayi-yimeng-coffee-courtyard.md)，首批 GEO 图文目标和 32 物产品类地图见[沂蒙山首批宣传方案](docs/GEO-YAO-AYI-FIRST-CAMPAIGN.md)及其[机器可读计划](data/campaigns/yao-ayi-first-geo-campaign.json)。
 
 **AI Agent 接手必读：** 克隆、拉取更新或开始任务后，先完整阅读根目录 [AGENTS.md](AGENTS.md) 和[AI Agent 接入与操作指南](docs/AI-AGENT-GUIDE.md)，再执行操作。指南包含其他平台接入、管理员与受限令牌的权限、GEO 内容生产与最终审批、单账号发布／回复、真实回执与幂等恢复、本机视频 CLI/MCP 和 Mac 定稿备份的使用条件。仓库访问权不等于网站管理权；拉到新代码也不表示云端已经部署同一版本。
+
+用户只需用自然语言说明目标。对文章、图文、纯视觉或视频请求，Agent 先调用 MCP
+`yaoayi_workbench_intent` 或运行 `node scripts/agent.mjs plan --input-file -`，
+保留原话并复用现有意图路由、任务拆解、审批和交付合同。HTTP 工作台可调用
+`POST /api/workbench/plan`。规划成功不是 Job、成片、审批或发布成功。
 
 ## 主账号资料
 
@@ -84,6 +101,10 @@ English bio:
 ## 本地启动
 
 通过 Codex、Qoder 对话操作时，先按 [AI 办公平台接入](docs/AI-WORKBENCH-SETUP.md) 设置当前项目。`node scripts/ai-workbench.mjs config --client codex` 或 `--client qoder` 输出真实本机绝对路径的配置；`node scripts/agent.mjs guide` 与 MCP `pengmanager_agent_guide` 返回完整现行指南、字节摘要和入口。用户只需在对话中提出任务，由 Agent 调用工具并核对结果。完整视频制作由有 shell 的 Agent 执行既有标准 CLI，MCP 负责指南、发现、计划、预检及已登记能力；无 shell 的纯 MCP 客户端尚不支持完整生产。
+
+克隆后的项目级自动配置使用 `node scripts/ai-workbench.mjs bootstrap --client codex`
+（或 `all`）。配置写入后新建 Codex 会话，并以实际 `tools/list` 中是否存在
+`yaoayi_workbench_intent` 与 `pengmanager_video_preflight` 为准。
 
 Codex 和其他本机 Agent 从[视频接入与真实交付快速指南](docs/CODEX-VIDEO-QUICKSTART.md)开始。该路径可先完成私有视频运行时的核心安装与只读预检，再按项目补齐媒体工位、模型和授权。
 
@@ -188,13 +209,15 @@ GitHub 适配器从当前进程的 `GITHUB_TOKEN` 读取令牌；模型适配器
 
 只有 `real` 和 `imported` 观察记录进入运营指标。运营动作完成还必须记录公开 HTTPS 结果、发布时间、采集人、回读方式、回读时间与核验人；URL 本身不能证明动作成功，后台保存的是执行者的实际回读记录。重复提交相同回执会返回原记录，不重复入账。动作绑定创建时的账号 handle／主页与正文哈希，审批后换账号或换文需要重新建立动作。
 
-公开导出仅允许经过审核、未过期且不敏感的 `approved_public` 事实，并要求公开来源及低敏感度；只输出经过筛选的来源标签与 URL，不公开私有来源备注。私有仓库本身不是公开 GEO 信源。
+公开导出仅允许经过审核、未过期且不敏感的 `approved_public` 事实，并要求公开来源及低敏感度；只输出经过筛选的来源标签与 URL，不公开私有来源备注。开源代码或私有运行数据本身都不是自动可引用的公开 GEO 信源。
 
 本地服务实施 Host 白名单、跨站请求检查与 CSP。令牌、密码、Cookie、验证码和个人敏感信息不得写入仓库或事件账本。招聘、客户、法律、金融、隐私与负面互动保留人工处理。没有审核过的官方接口与明确授权时，不启用无人值守的平台发布或互动。
 
 ## 文档与历史验证
 
 - [AI Agent 接入与操作指南（接手任务前完整阅读）](docs/AI-AGENT-GUIDE.md)
+- [AI 工作台接入与任务交付](docs/AGENT-WORKBENCH-INTEGRATION.md)
+- [开源发布审计与许可边界](docs/OPEN-SOURCE-RELEASE.md)
 - [架构与边界](docs/ARCHITECTURE.md)
 - [HTTP API 与确认参数](docs/API.md)
 - [双语内容站、独立渠道稿、真实媒体与恢复](docs/CONTENT-PUBLISHING.md)
@@ -205,6 +228,8 @@ GitHub 适配器从当前进程的 `GITHUB_TOKEN` 读取令牌；模型适配器
 - [更新记录](CHANGELOG.md)
 - [2026-10-18 / 19 历史真实运行记录](docs/LIVE-VERIFICATION.md)
 - [2026-10-19 审计与验收记录](docs/AUDIT-2026-10-19.md)
+
+贡献前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [SECURITY.md](SECURITY.md)。
 
 历史真实运行记录描述相应日期的环境和结果，不代表本次修改已经重新执行所有外部调用，也不代表全平台已经发布。
 

@@ -1,3 +1,12 @@
+Yao Ayi System
+Copyright 2026 Dapeng Li and Yao Ayi System contributors
+
+The original source in this repository is licensed under the Apache License,
+Version 2.0. The license grants copyright and patent rights to the software; it
+does not grant rights to use the Yao Ayi / 姚阿姨 name, likeness, voice, personal
+biography, brand identity, social-platform accounts, customer data, third-party
+media, model output rights or external services.
+
 This project contains adapted source from:
 
 - GeoEvidence Studio, licensed under Apache-2.0
@@ -6,6 +15,11 @@ This project contains adapted source from:
 The imported source and license files are kept under `engines/geo-evidence`
 and `engines/video-edit`. The integrated system uses those engines in-process
 and does not require the external repositories at runtime.
+
+Offline evaluation or installation of a video component does not grant a
+commercial license for that component, a voice, a likeness, music, fonts,
+stock footage or a third-party platform. Runtime gates and sidecar licenses
+still apply.
 
 Runtime dependencies:
 

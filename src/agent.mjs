@@ -7,6 +7,7 @@ import { publicVideoCapabilities, publicVideoStatus } from './http/video-runtime
 import { standardVideoIntent, standardWorkflowDescriptor } from './video-runtime/standard-workflow.mjs';
 import { AGENT_GUIDE_ID, agentGuideDescriptor, readAiAgentGuide } from './ai-agent-guide.mjs';
 import { clientRuntimeEnvironment } from './ai-workbench-paths.mjs';
+import { WORKBENCH_INTENT_DESCRIPTOR, planWorkbenchIntent } from './workbench-intent.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const PRODUCTION_PLAN = 'growth.video.production.plan';
@@ -71,6 +72,7 @@ export async function createYaoAyiAgent({ rootDir = ROOT, dataDir, env = process
   });
   specials.push(standardWorkflowDescriptor);
   specials.push(agentGuideDescriptor);
+  specials.push(WORKBENCH_INTENT_DESCRIPTOR);
   const entries = new Map([...catalog.entries, ...specials.map(item => [item.id, item])]);
   async function stopManaged() {
     if (!owned) return false;
@@ -131,7 +133,8 @@ export async function createYaoAyiAgent({ rootDir = ROOT, dataDir, env = process
         inputSchema: item.inputSchema, annotations: { readOnlyHint: item.operation === 'read', destructiveHint: false, idempotentHint: true, openWorldHint: false },
       }))];
     },
-    toolId(name) { return [...entries.values()].find(item => (item.id.startsWith('pengmanager.') ? item.id.replaceAll('.', '_') : 'pengmanager_' + item.id.replace(/[^A-Za-z0-9]/g, '_')) === name)?.id; },
+    toolId(name) { return [...entries.values()].find(item => item.id.replaceAll('.', '_') === name
+      || (item.id.startsWith('pengmanager.') ? item.id.replaceAll('.', '_') : 'pengmanager_' + item.id.replace(/[^A-Za-z0-9]/g, '_')) === name)?.id; },
     async invoke(id, input = {}) {
       const descriptor = entries.get(id);
       if (!descriptor) throw new AgentError('NOT_FOUND', 'The capability is not registered.');
@@ -139,6 +142,7 @@ export async function createYaoAyiAgent({ rootDir = ROOT, dataDir, env = process
       if (id === 'pengmanager.video.capabilities') { emptyInput(input); return publicVideoCapabilities(await runtime.capabilities()); }
       if (id === VIDEO_PREFLIGHT) return preflight(input, descriptor);
       if (id === standardWorkflowDescriptor.id) return standardVideoIntent(input);
+      if (id === WORKBENCH_INTENT_DESCRIPTOR.id) return planWorkbenchIntent(input);
       if (id === AGENT_GUIDE_ID) { emptyInput(input); return readAiAgentGuide({ rootDir: config.rootDir, dataDir: config.dataRoot,
         nodePath: config.node, runtimeEnvironment: clientRuntimeEnvironment(config) }); }
       if (id === VIDEO_STOP) {

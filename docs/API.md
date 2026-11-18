@@ -38,12 +38,23 @@ development listener keeps the dashboard at `/` as well.
 | Method | Path | Access and response |
 |---|---|---|
 | GET / HEAD | `/healthz` | Public minimal liveness: `ok`, `service`; no operational counts |
+| GET | `/api/workbench/manifest` | Public read-only client/protocol matrix; no private data |
+| POST | `/api/workbench/plan` | Public read-only intent route and task graph; creates no job and calls no provider |
 | GET | `/public-api/profile` | Public bilingual identity and filtered public claims |
 | GET | `/login` | Public login page; does not grant access to private state |
 | GET | `/api/auth/status` | `enabled`, `authenticated`; an authenticated session also identifies its server-derived actor and expiry |
 | POST | `/api/auth/login` | JSON `{ "password": "…" }`; returns authentication status and sets an HttpOnly, SameSite=Strict session cookie |
 | POST | `/api/auth/logout` | Revokes the current browser session and expires its cookie |
 | POST | `/api/workloom/launch` | Administrator session only; returns a 60-second one-time Ed25519 launch URL for the WorkLoom PM assistant |
+
+`POST /api/workbench/plan` accepts the bounded schema documented in
+[AGENT-WORKBENCH-INTEGRATION.md](AGENT-WORKBENCH-INTEGRATION.md). It reuses the
+same deterministic `resolveContentIntent` rules as Content Director, then adds
+task stages, required inputs, approval gates and delivery evidence. Its
+`planned` or `needs_input` status is not a business completion receipt: it
+never creates a Content Director job, spends model budget, renders media,
+approves content or publishes. Unknown fields fail closed. Both workbench routes
+reject query parameters and accept only their documented methods.
 
 Public/production configurations require a valid `ADMIN_PASSWORD_HASH`, an HTTPS
 `PUBLIC_ORIGIN`, and its matching allowed Host. Startup fails closed if the

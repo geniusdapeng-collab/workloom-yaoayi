@@ -9,6 +9,7 @@ import { routeEditorialApi, routePublicContentApi, routePublicMedia } from "./ed
 import { createPublicWebsite } from "./public-website.mjs";
 import { routeContentOpsAdmin, routeContentOpsWorker } from "./content-ops-routes.mjs";
 import { routeContentDirector } from "./content-director-routes.mjs";
+import { planWorkbenchIntent, workbenchManifest } from "../workbench-intent.mjs";
 
 const MIME_TYPES = Object.freeze({
   ".css": "text/css; charset=utf-8",
@@ -237,6 +238,29 @@ export function createGeoOsServer({
           return;
         }
         writeJson(response, 200, { ok: true, service: SYSTEM_IDENTITY.id });
+        return;
+      }
+
+      if (path === "/api/workbench/manifest") {
+        if (request.method !== "GET") {
+          methodNotAllowed(response, ["GET"]);
+          return;
+        }
+        if ([...url.searchParams].length) {
+          throw new ApiError(400, "WORKBENCH_QUERY_INVALID", "工作台清单接口不接受查询参数。");
+        }
+        writeJson(response, 200, workbenchManifest());
+        return;
+      }
+      if (path === "/api/workbench/plan") {
+        if (request.method !== "POST") {
+          methodNotAllowed(response, ["POST"]);
+          return;
+        }
+        if ([...url.searchParams].length) {
+          throw new ApiError(400, "WORKBENCH_QUERY_INVALID", "工作台规划接口不接受查询参数。");
+        }
+        writeJson(response, 200, planWorkbenchIntent(await readJsonBody(request)));
         return;
       }
 

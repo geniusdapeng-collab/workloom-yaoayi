@@ -41,7 +41,7 @@ test('guide contains complete current documents and exact byte hashes without ru
   assert.equal(guide.support.pureMcpProductionSupported, false);
   assert.equal(guide.providerCallsPerformed, false);
   assert.equal(guide.productionVerified, false);
-  assert.equal(guide.documents.length, 5);
+  assert.equal(guide.documents.length, 7);
   for (const doc of guide.documents) {
     const bytes = await readFile(path.join(root, doc.path));
     assert.equal(doc.markdown, new TextDecoder('utf-8', { fatal: true }).decode(bytes));

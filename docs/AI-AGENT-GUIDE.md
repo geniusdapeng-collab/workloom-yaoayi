@@ -1,6 +1,6 @@
 # 姚阿姨系统：AI Agent 接入与操作指南
 
-**读者：接手本仓库的 Codex、其他编程 Agent、通过 HTTP 接入的运营 Agent，以及它们的管理员。** 克隆或更新代码后，先完整阅读根目录 [AGENTS.md](../AGENTS.md) 和本指南，再执行任务。API 字段参考 [API.md](API.md)，部署与恢复参考 [ALIYUN-DEPLOYMENT.md](ALIYUN-DEPLOYMENT.md)，完整本机视频运行时参考 [VIDEO-RUNTIME.md](VIDEO-RUNTIME.md)。
+**读者：接手本仓库的 Codex、其他编程 Agent、通过 HTTP 接入的运营 Agent，以及它们的管理员。** 克隆或更新代码后，先完整阅读根目录 [AGENTS.md](../AGENTS.md) 和本指南，再执行任务。API 字段参考 [API.md](API.md)，跨客户端接入参考 [AI 工作台接入与任务交付](AGENT-WORKBENCH-INTEGRATION.md)，部署与恢复参考 [ALIYUN-DEPLOYMENT.md](ALIYUN-DEPLOYMENT.md)，完整本机视频运行时参考 [VIDEO-RUNTIME.md](VIDEO-RUNTIME.md)。
 
 本指南依据仓库实现编写。`https://yaoayi.example` 是保留给配置示例的占位域名，不是已上线地址；实际生产入口和私有后台域名必须由主人在部署时确认。**拉到的代码、当前运行进程、云端部署版本可能不同。** 先检查目标服务和授权范围；接口不存在时核对版本，不要通过改数据库、借用管理员会话或伪造结果绕过。仓库包含完整本机视频能力，不表示小型云服务器已经安装这些依赖。
 
@@ -40,7 +40,9 @@ cat docs/AI-AGENT-GUIDE.md
 
 已有 checkout 则先检查当前分支和未提交改动，再按任务约定更新；不要为了拉取强制重置他人的改动。每次切分支／更新后，如指南或 `AGENTS.md` 有变化，重新完整阅读。`AGENTS.md` 是供遵循该约定的 Agent 自动读取的仓库入口；不能保证忽略仓库说明的平台自动执行这些规则。其他平台应把“先读这两个文件”同时写入它的项目启动说明。
 
-Codex、Qoder 等平台的接入配置可用 `node scripts/ai-workbench.mjs config --client codex` 或 `--client qoder` 生成，详见 [AI 办公平台接入](AI-WORKBENCH-SETUP.md)。MCP 新会话先调用 `pengmanager_agent_guide {}`，CLI 对应用 `node scripts/agent.mjs guide`；返回当前 checkout 的完整必读文档、SHA-256、绝对入口与同一私有目录。Agent 须读完整正文，再执行用户在对话中交代的任务。指南返回不代表已获得权限或完成生产。
+Codex、Qoder、WorkBuddy 等平台的接入可用 `node scripts/ai-workbench.mjs bootstrap --client all`：Codex/Qoder 写入项目本地 MCP 配置，WorkBuddy 生成 MCP + Skill Connector 包，其他客户端生成通用提示词。详见 [AI 办公平台接入](AI-WORKBENCH-SETUP.md) 和[工作台接入合同](AGENT-WORKBENCH-INTEGRATION.md)。MCP 新会话先调用 `pengmanager_agent_guide {}`，CLI 对应用 `node scripts/agent.mjs guide`；返回当前 checkout 的完整必读文档、SHA-256、绝对入口与同一私有目录。Agent 须读完整正文，再执行用户在对话中交代的任务。指南返回不代表已获得权限或完成生产。
+
+收到文章、图文、纯视觉或视频请求时，先调用 MCP `yaoayi_workbench_intent`，或运行 `node scripts/agent.mjs plan --input-file -`。它复用现有创作总控路由并返回任务 DAG；HTTP 客户端可用 `GET /api/workbench/manifest` 和 `POST /api/workbench/plan`。规划只读，不建立 Job、不花模型费、不渲染、不审批、不发布。
 
 先做无需秘密的公网检查：
 
@@ -550,6 +552,8 @@ GET  /api/content-director/jobs/:id/publication-status
 
 | 主题 | 实现 |
 | --- | --- |
+| 跨工作台只读意图规划、任务 DAG 与客户端能力矩阵 | [workbench-intent.mjs](../src/workbench-intent.mjs)、[HTTP 路由](../src/http/server.mjs) |
+| Codex/Qoder 项目配置与 WorkBuddy/通用 Connector 生成 | [ai-workbench-bootstrap.mjs](../src/ai-workbench-bootstrap.mjs)、[CLI](../scripts/ai-workbench.mjs) |
 | HTTP 路由、确认参数、Agent 动作约束 | [src/http/server.mjs](../src/http/server.mjs) |
 | 管理员会话、bearer 格式、路由白名单、哈希 CLI | [src/security/admin-auth.mjs](../src/security/admin-auth.mjs) |
 | Claim、内容、手工发布、观察与指标 | [src/services/geo-os-service.mjs](../src/services/geo-os-service.mjs) |
