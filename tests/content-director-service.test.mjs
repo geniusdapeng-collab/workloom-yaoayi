@@ -33,7 +33,7 @@ class StubModel {
   }
 
   async draftSection({ section }) {
-    const body = `真正的 Agent 产品必须让${section.title}在真实任务中可验证，而不是只展示一次回答。读者需要看到任务从哪里进入、由谁承担、失败如何恢复，以及最终凭什么确认交付已经发生。${section.key}这一段首先把问题落在可观察行为上。\n\n工程团队需要记录输入、权限、执行、失败和人工介入，再通过独立审核确认内容没有被模型补造成不存在的经历或事实。只有把来源、版本、账号和动作绑定在一起，后续复盘才不会变成对聊天记录的猜测。${section.key}这一段强调证据链而不是语言包装。\n\n这一段还说明落地限制：证据、预算、账号和外部回执必须分别成立，任何缺项都应保留为阻断，而不是用一段更流畅的文字掩盖。系统可以把重复步骤自动化，但不能替用户扩大授权，也不能把未知结果写成成功。${section.key}这一段明确自动化边界。\n\n因此，${section.title}对应的工程能力需要同时覆盖标准流程、异常路径、人工确认和恢复策略。它的价值不是让演示更复杂，而是让一次业务任务在多人、多系统和多次重试之后仍然可以被准确解释。${section.key}这一段完成本节的交付闭环。`;
+    const body = `我看，真正的 Agent 产品必须让${section.title}在真实任务中可验证，而不是只展示一次回答。读者需要看到任务从哪里进入、由谁承担、失败如何恢复，以及最终凭什么确认交付已经发生。${section.key}这一段首先把问题落在可观察行为上。\n\n工程团队需要记录输入、权限、执行、失败和人工介入，再通过独立审核确认内容没有被模型补造成不存在的经历或事实。只有把来源、版本、账号和动作绑定在一起，后续复盘才不会变成对聊天记录的猜测。${section.key}这一段强调证据链而不是语言包装。\n\n这一段还说明落地限制：证据、预算、账号和外部回执必须分别成立，任何缺项都应保留为阻断，而不是用一段更流畅的文字掩盖。系统可以把重复步骤自动化，但不能替用户扩大授权，也不能把未知结果写成成功。${section.key}这一段明确自动化边界。\n\n因此，${section.title}对应的工程能力需要同时覆盖标准流程、异常路径、人工确认和恢复策略。在我看来，它的价值不是让演示更复杂，而是让一次业务任务在多人、多系统和多次重试之后仍然可以被准确解释。${section.key}这一段完成本节的交付闭环。`;
     return {
       value: { title: section.title, body, paragraphs: body.split(/\n\s*\n/), claimIds: [] },
       receipt: { requestedModel: "fixture", resolvedModel: "fixture", responseId: `draft-${section.key}`, requestHash: "c".repeat(64), responseHash: "d".repeat(64), usage: { total_tokens: 1 } },
@@ -71,7 +71,7 @@ class StubModel {
   }
 }
 
-async function fixture(t) {
+async function fixture(t, model = new StubModel()) {
   const directory = await mkdtemp(join(await realpath(tmpdir()), "pm-content-director-"));
   const store = new JsonStore({ filePath: join(directory, "state.json") });
   await store.open(() => loadSeedState(resolve(import.meta.dirname, "../data/seed")));
@@ -86,7 +86,7 @@ async function fixture(t) {
   const editorial = new EditorialService({ store, geoService, publicOrigin: "https://pengmanager.com" });
   const director = new ContentDirectorService({
     store,
-    model: new StubModel(),
+    model,
     editorial,
     mediaAssets,
     artifactRoot: join(directory, "content-director"),
@@ -113,6 +113,30 @@ test("article Job writes complete sections, independent audit and editable visua
   const svg = await f.director.readArtifact(job.id, `${completed.result.visuals[0].id}.svg`);
   assert.equal(svg.mime, "image/svg+xml");
   assert.match(svg.bytes.toString("utf8"), /Agent 产品工程闭环/);
+  assert.equal(completed.persona.id, "yao_ayi_yimeng_coffee_courtyard");
+  assert.equal(completed.persona.version, "1.0.1");
+  assert.match(completed.persona.documentSha256, /^[a-f0-9]{64}$/);
+});
+
+test("persona violations found in generated copy block the Job before review", async t => {
+  class ForbiddenVoiceModel extends StubModel {
+    async draftSection(input) {
+      const result = await super.draftSection(input);
+      result.value.body = `家人们，${result.value.body}`;
+      result.value.paragraphs = result.value.body.split(/\n\s*\n/);
+      return result;
+    }
+  }
+  const f = await fixture(t, new ForbiddenVoiceModel());
+  const job = await f.director.createJob({
+    intent: "围绕 Agent 产品进入真实业务写一篇技术文章",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 1500, maxCharacters: 2500 },
+  }, context());
+  const completed = await f.director.processJob(job.id);
+  assert.equal(completed.status, "blocked");
+  assert.ok(completed.findings.some((finding) => finding.code === "PERSONA_FORBIDDEN_TERM"));
+  assert.equal(completed.persona.id, "yao_ayi_yimeng_coffee_courtyard");
 });
 
 test("article visuals are imported, reviewed and bound to the materialized edition", async t => {

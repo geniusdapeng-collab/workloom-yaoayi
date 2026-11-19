@@ -170,6 +170,7 @@ test('actual MCP stdio initialize, list and call use valid JSON-RPC and preserve
   assert.equal(messages[0].result.serverInfo.name, 'yaoayi-system');
   assert.match(messages[0].result.instructions, /pengmanager_video_preflight/);
   assert.match(messages[0].result.instructions, /yaoayi_workbench_intent/);
+  assert.match(messages[0].result.instructions, /姚阿姨人设 v1\.0\.1/);
   assert.ok(messages[1].result.tools.some(item => item.name === 'pengmanager_core_workspace_profile'));
   assert.ok(messages[1].result.tools.some(item => item.name === 'yaoayi_workbench_intent'));
   assert.equal(messages[2].result.isError, false); assert.equal(JSON.parse(messages[2].result.content[0].text).ready, false);

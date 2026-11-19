@@ -4,7 +4,7 @@ import { buildAiWorkbenchConfig } from '../src/ai-workbench-config.mjs';
 import { bootstrapAiWorkbench, parseBootstrapClient } from '../src/ai-workbench-bootstrap.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const USAGE = 'node scripts/ai-workbench.mjs config|bootstrap [--client all|codex|qoder|workbuddy|generic|qianwen] [--data-dir ABSOLUTE_PRIVATE_DIR] [--model-env-file ABSOLUTE_PRIVATE_ENV_FILE] [--output-dir ABSOLUTE_OUTPUT_DIR]';
+const USAGE = 'node scripts/ai-workbench.mjs config|bootstrap [--client all|codex|qoder|qoderwork|workbuddy|generic|qianwen] [--data-dir ABSOLUTE_PRIVATE_DIR] [--model-env-file ABSOLUTE_PRIVATE_ENV_FILE] [--output-dir ABSOLUTE_OUTPUT_DIR]';
 function usage() { const error = new Error(USAGE); error.code = 'USAGE'; throw error; }
 export function parseAiWorkbenchArgs(args) {
   const [command, ...rest] = args;

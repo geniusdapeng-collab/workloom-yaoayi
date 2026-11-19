@@ -92,18 +92,29 @@ test("bootstrap writes project-local Codex and Qoder config without secrets or t
   assert.equal(qoder.mcpServers.other.command, "/other");
   assert.equal(qoder.mcpServers["yaoayi-video"].type, "stdio");
   assert.ok(result.results.find((row) => row.client === "workbuddy").zipCreated);
+  assert.ok(result.results.find((row) => row.client === "qoderwork"));
   const workbuddyMcp = JSON.parse(await readFile(path.join(outputRoot, "workbuddy", "mcp.json"), "utf8"));
   assert.equal(workbuddyMcp.mcpServers["yaoayi-video"].cwd, root);
   assert.equal(workbuddyMcp.mcpServers["yaoayi-video"].type, "stdio");
   const skill = await readFile(path.join(outputRoot, "workbuddy", "skills", "yaoayi-workbench", "SKILL.md"), "utf8");
   assert.match(skill, /yaoayi_workbench_intent/);
+  assert.match(skill, /references\/PERSONA\.md/);
+  const persona = await readFile(path.join(outputRoot, "workbuddy", "skills", "yaoayi-workbench", "references", "PERSONA.md"));
+  const expectedPersona = await readFile(path.join(root, "docs", "personas", "yao-ayi-yimeng-coffee-courtyard.md"));
+  assert.deepEqual(persona, expectedPersona);
+  const qoderWorkMcp = JSON.parse(await readFile(path.join(outputRoot, "qoderwork", "mcp.json"), "utf8"));
+  assert.equal(qoderWorkMcp.mcpServers["yaoayi-video"].type, "stdio");
+  assert.ok((await readFile(path.join(outputRoot, "qoderwork", "skills", "yaoayi-workbench", "references", "PERSONA.md"))).length > 10_000);
   assert.ok((await readFile(path.join(outputRoot, "generic", "AGENT-PROMPT.md"), "utf8")).includes("scripts/agent.mjs plan"));
+  assert.ok((await readFile(path.join(outputRoot, "generic", "PERSONA.md"))).equals(expectedPersona));
+  assert.ok((await readFile(path.join(outputRoot, "qianwen", "PERSONA.md"))).equals(expectedPersona));
   assert.ok((await readFile(path.join(outputRoot, "qianwen", "STATUS.md"), "utf8")).includes("No public native MCP"));
   for (const file of [
     path.join(projectDir, ".codex", "config.toml"),
     path.join(projectDir, ".qoder", "settings.local.json"),
     path.join(outputRoot, "workbuddy", "connector-meta.json"),
     path.join(outputRoot, "workbuddy", "mcp.json"),
+    path.join(outputRoot, "qoderwork", "mcp.json"),
     path.join(outputRoot, "generic", "mcp.json"),
   ]) {
     const text = await readFile(file, "utf8");
@@ -136,6 +147,8 @@ test("bootstrap rejects symlinked client configuration and validates CLI options
     { code: "WORKBENCH_TARGET_INVALID" },
   );
   assert.equal(parseBootstrapClient("workbuddy"), "workbuddy");
+  assert.equal(parseBootstrapClient("qoderwork"), "qoderwork");
+  assert.equal(parseBootstrapClient("qorderwork"), "qoderwork");
   assert.throws(() => parseBootstrapClient("unknown"), { code: "WORKBENCH_CLIENT_INVALID" });
   assert.equal(parseAiWorkbenchArgs(["bootstrap", "--client", "all"]).command, "bootstrap");
   assert.throws(() => parseAiWorkbenchArgs(["bootstrap", "--client", "workbuddy", "--unknown", "x"]), { code: "USAGE" });

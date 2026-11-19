@@ -41,7 +41,7 @@ test("current-model content can pass the evidence state machine and receive a pl
       async generateContent() {
         return {
           title: "为什么 GEO 需要证据控制面",
-          body: "GEO 不是让模型说好话，而是让正确事实可验证、可引用、可复测。",
+          body: "我看，GEO 不是让模型说好话，而是让正确事实可验证、可引用、可复测。",
           hook: "证据先于内容",
           cta: "查看项目",
           hashtags: ["#GEO"],

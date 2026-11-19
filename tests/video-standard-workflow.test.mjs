@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { standardVideoExecutor, standardVideoIntent } from '../src/video-runtime/standard-workflow.mjs';
+import { legacyStandardVideoJobId, standardVideoExecutor, standardVideoIntent } from '../src/video-runtime/standard-workflow.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const token = 'synthetic-pengmanager-member';
@@ -81,6 +81,12 @@ test('the one-sentence plan is read-only, exact, and does not default an explici
   assert.equal(out.result.input.intent, raw);
   assert.equal(out.result.input.metadata.brief.duration, 17);
   assert.equal(out.result.input.route, 'auto');
+  assert.equal(out.result.persona.version, '1.0.1');
+  assert.match(out.result.input.metadata.brief.description, /默认使用姚阿姨第一人称/u);
+  assert.equal(out.result.input.metadata.persona.documentSha256, 'a81ff53526b57d759ca5ae8465db8a6056a7fd82b68bb60625efa8ff55d46e7c');
+  assert.equal(legacyStandardVideoJobId(out.result), createHash('sha256').update(JSON.stringify({
+    intent: raw, route: 'auto', metadata: { brief: { duration: 17 } },
+  })).digest('hex'));
   assert.equal(out.result.productionAuthorized, false);
   assert.equal(out.result.complete, false);
   for (const intent of ['做一个视频', '做 30 秒，每镜 10 秒', '做 2.5 秒', '做 -30 秒', '做 181 秒']) {

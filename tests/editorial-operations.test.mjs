@@ -198,7 +198,7 @@ test("a result URL already in a different manual ledger cannot be used for compl
 test("legacy text-only actions also reconcile exact old approval without manufacturing v2 metadata or changing hashes", async t => {
   const f = await editorialFixture(t);
   await f.geoService.approveClaim("C003", { approvedBy: "isolated reviewer", publicLevel: "private" });
-  const content = await f.geoService.createContent({ title: "Legacy isolated article", body: "Complete legacy isolated body.", claimIds: ["C003"], platforms: ["GitHub"], owner: "isolated reviewer" });
+  const content = await f.geoService.createContent({ title: "Legacy isolated article", body: "我看，This is a complete legacy isolated body.", claimIds: ["C003"], platforms: ["GitHub"], owner: "isolated reviewer" });
   for (const target of ["fact_check", "approved", "scheduled"]) await f.geoService.transitionContent(content.id, { target, actor: "isolated reviewer" });
   let operation = await f.operations.create({ accountId: "github", contentId: content.id, type: "publish", actor: "isolated operator" });
   operation = await f.operations.approve(operation.id, { approvedBy: "isolated reviewer", authorizationNote: "Synthetic legacy authorization." });
@@ -221,7 +221,7 @@ test("new completion receipts cannot predate original authorization for v2, lega
       f = await editorialFixture(child);
       if (kind === "legacy") {
         await f.geoService.approveClaim("C003", { approvedBy: "isolated reviewer", publicLevel: "private" });
-        const content = await f.geoService.createContent({ title: "Chronology legacy unit", body: "Complete isolated chronology unit body.", claimIds: ["C003"], platforms: ["GitHub"] });
+        const content = await f.geoService.createContent({ title: "Chronology legacy unit", body: "我看，This is a complete isolated chronology unit body.", claimIds: ["C003"], platforms: ["GitHub"] });
         for (const target of ["fact_check", "approved", "scheduled"]) await f.geoService.transitionContent(content.id, { target, actor: "isolated reviewer" });
         operation = await f.operations.create({ accountId: "github", contentId: content.id, type: "publish", actor: "isolated operator" });
       } else operation = await f.operations.create({ accountId: "github", type: "reply", replyText: "A complete isolated unit reply.",

@@ -25,7 +25,7 @@ distribution. It is an engineering release check, not a legal opinion.
 
 ## Secret and private-data checks
 
-- Current tracked tree: `node scripts/security-scan.mjs` scanned 4,345 files and
+- Current tracked tree: `node scripts/security-scan.mjs` scanned 4,346 files and
   reported zero matches for GitHub PATs, private-key headers, AWS access keys
   and OpenAI-style keys.
 - Full reachable Git history: patches from every reachable commit were scanned
@@ -43,13 +43,14 @@ distribution. It is an engineering release check, not a legal opinion.
 
 | Check | Result |
 | --- | --- |
-| Root Node tests | 577 passed |
+| Root Node tests | 582 passed |
 | GEO engine tests | 11 passed |
 | Video post-bridge Node tests | 76 passed |
 | Video post-bridge Vitest tests | 74 passed |
 | Smoke | health, dashboard, GEO and media routes 200 |
 | Codex/Qoder bootstrap | idempotent merge, private backup and no secret copy verified |
-| WorkBuddy package | MCP + Skill directory and zip generated; official platform review remains external |
+| WorkBuddy/QoderWork packages | MCP + Skill + canonical persona reference generated; platform import/review remains external |
+| Persona contract | canonical document SHA-256 and generated prompt SHA-256 bound into plans, Jobs, results and delivery evidence |
 | Full Git-history secret scan | 0 findings |
 
 ## Evidence grades

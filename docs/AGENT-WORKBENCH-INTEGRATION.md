@@ -19,7 +19,26 @@
 
 只读规划不会创建 Job、不调用模型、不渲染、不发布。规划成功只表示“意图已路由且任务已拆解”，不表示业务任务完成。
 
-## 2. 统一入口
+## 2. 姚阿姨人设是跨客户端硬约束
+
+人设原文：[姚阿姨人设系统 v1.0.1](personas/yao-ayi-yimeng-coffee-courtyard.md)。
+
+| 字段 | 当前值 |
+| --- | --- |
+| `persona.id` | `yao_ayi_yimeng_coffee_courtyard` |
+| `persona.version` | `1.0.1` |
+| `persona.documentSha256` | `a81ff53526b57d759ca5ae8465db8a6056a7fd82b68bb60625efa8ff55d46e7c` |
+| 提示词哈希 | 由服务端在 `promptSha256` 返回 |
+
+强制层有三道：
+
+1. `pengmanager_agent_guide` 返回完整人设文档、绝对路径和 SHA-256。
+2. `yaoayi_workbench_intent` 在计划中返回 `persona` 和 `persona-bind` 步骤；所有客户端读取同一合同。
+3. 创作总控的大纲、分节、修复、正文审核、最终审核和视觉规划统一前置同一人设提示词；正文确定性检查会拦截“家人们”“逆袭”“纯天然”“零添加”等禁区，并把缺少“我/咱”的第一人称内容标为 major finding。
+
+因此，不同客户端可以改变接入方式和展示界面，不能改变姚阿姨的身份事实、说话方式、价值观和事实红线。客户端在系统外自行代写的文字不能冒充姚阿姨系统产物。
+
+## 3. 统一入口
 
 ### MCP
 
@@ -37,7 +56,7 @@ yaoayi_workbench_intent
 }
 ```
 
-返回包含 `route`、`stages`、`requiredInputs`、`authorizationGates`、`handoff`、`delivery`、`planHash`。`stages[].status` 与顶层 `status` 是计划状态，不是业务完成回执。
+返回包含 `persona`、`route`、`stages`、`requiredInputs`、`authorizationGates`、`handoff`、`delivery`、`planHash`。`stages[].status` 与顶层 `status` 是计划状态，不是业务完成回执。
 
 ### CLI
 
@@ -68,7 +87,7 @@ curl -sS http://127.0.0.1:4318/api/workbench/plan \
   --data '{"intent":"做一张姚阿姨咖啡小院的信息图"}'
 ```
 
-## 3. 意图字段
+## 4. 意图字段
 
 | 字段 | 用途 |
 | --- | --- |
@@ -86,7 +105,7 @@ curl -sS http://127.0.0.1:4318/api/workbench/plan \
 
 未知字段会失败关闭。不要用额外字段塞入命令、Token、Cookie、任意文件路径或审批结论。
 
-## 4. 内容任务
+## 5. 内容任务
 
 文章、文章配图、纯视觉和带真实附件的视频任务复用 [创作总控](CONTENT-DIRECTOR.md)：
 
@@ -99,7 +118,7 @@ curl -sS http://127.0.0.1:4318/api/workbench/plan \
 
 受限 HTTP Agent bearer 不能创建 Job、批准内容或动作。它不是“换一个密码就可以自动化”的入口。
 
-## 5. 视频任务
+## 6. 视频任务
 
 视频统一使用同一 checkout 的标准视频入口。`yaoayi_workbench_intent` 只负责保留原话并给出任务图；生产继续走：
 
@@ -113,7 +132,7 @@ pengmanager_video_workflow
 
 计划、预检、项目预览、前期完成和可读本地文件都不算成片。供应商结果未知时沿原 Job/项目对账，不重复派发。完整操作见 [视频快速指南](CODEX-VIDEO-QUICKSTART.md)。
 
-## 6. 自动配置与客户端矩阵
+## 7. 自动配置与客户端矩阵
 
 首次克隆后运行一次：
 
@@ -125,9 +144,10 @@ node scripts/ai-workbench.mjs bootstrap --client all
 
 - 在项目 `.codex/config.toml` 合并 `yaoayi-video` stdio MCP；
 - 在 `.qoder/settings.local.json` 合并同一 MCP；
-- 在 `var/workbench/workbuddy/` 生成 WorkBuddy MCP + Skill Connector 包及 zip；
-- 在 `var/workbench/generic/` 生成通用 `mcp.json` 和项目提示词；
-- 在 `var/workbench/qianwen/` 生成只使用已验证能力的通用提示词；
+- 在 `var/workbench/workbuddy/` 生成 WorkBuddy MCP + Skill Connector 包及 zip，包内包含完整人设参考；
+- 在 `var/workbench/qoderwork/` 生成 QoderWork 可导入的 MCP JSON、技能、完整人设参考和提示词；
+- 在 `var/workbench/generic/` 生成通用 `mcp.json`、人设参考和项目提示词；
+- 在 `var/workbench/qianwen/` 生成人设参考和只使用已验证能力的通用提示词；
 - 把被替换配置的私有备份写到 `var/workbench/backups/`。
 
 这些生成文件都在 Git 忽略范围内，不含 Token、Cookie、密码或模型密钥。生成后重开 Codex 会话或重新加载客户端 MCP。
@@ -137,22 +157,26 @@ node scripts/ai-workbench.mjs bootstrap --client all
 | Codex | `AGENTS.md` 自动发现、项目 `.codex/config.toml`、stdio MCP | 自动读取规则、生成项目配置、规划并在有 shell 时调用标准 CLI | 信任项目；原生视频权限、预算、审批；发布授权 |
 | WorkBuddy | 官方 MCP + Skill Connector 规范 | 生成符合目录结构的本地 Connector 包和 MCP 配置 | WorkBuddy 入驻认证、导入/审核/发布；本机 checkout 与依赖 |
 | Qoder | 项目 JSON MCP 配置 | 合并 `settings.local.json`、发现工具、规划 | 客户端信任、shell、原生生产权限 |
+| QoderWork | 官方支持粘贴 JSON 或手动添加 STDIO MCP | 生成 `mcp.json`、技能与人设参考 | 需在桌面端“扩展 → 连接器”手动导入；官方公告列出 2027-09-05 下线 |
 | 千问办公 | 未检索到公开原生 MCP/Connector 导入协议 | 若有本地文件/终端能力，可复制通用提示词调用 CLI/HTTP 规划 | 不能声称自动写入未知客户端；生产仍需本机 owner |
 | 通用客户端 | stdio MCP、CLI、HTTP | 只读指南、规划、发现；有 shell 时运行现有 CLI | 管理员会话、原生审批、费用和平台外发 |
 
-公开资料核对日期为 2026-11-18：
+公开资料核对日期为 2026-11-19：
 
 - Codex 官方：<https://learn.chatgpt.com/docs/agent-configuration/agents-md>、<https://learn.chatgpt.com/docs/extend/mcp>
 - WorkBuddy 官方：<https://open.workbuddy.cn/docs/connector>、<https://open.workbuddy.cn/docs/skill>
+- QoderWork 官方：<https://docs.qoder.com/zh/qoderwork/introduction>、<https://docs.qoder.com/zh/qoderwork/connectors>
+- QoderWork 产品变更：<https://www.alibabacloud.com/zh/notice/product_change_feature_discontinuation_announcement_for_qoderwork_86e>
 - 千问官网：<https://www.qianwen.com/>。检索到公开产品入口，但未找到“千问办公”公开的本地 MCP/Connector 导入规范，因此保留通用降级路径。
 
 WorkBuddy 自动准备不等于平台自动上架。生成包之后仍需使用 WorkBuddy 正式 Connector 提交流程；平台审核、OAuth、发布和用户安装不由本仓库伪造。
 
-## 7. 交付判定
+## 8. 交付判定
 
 | 证据 | 能证明 | 不能证明 |
 | --- | --- | --- |
 | 路由 `routeHash` | 当前原话按确定性规则分到某生产线 | Job 已建立、已生成、已审批 |
+| `persona` 合同 | 本次产物绑定哪一版身份、声线和事实红线 | 某个客户端自行代写的文字等于系统产物 |
 | Job `CDJ-*` | 系统已有可恢复任务记录 | 产物已通过审核 |
 | 运行中/HTTP 202 | 任务已被接收或开始 | 已生成成功 |
 | 预览/草稿 | 可查看的中间态 | 可外发的最终版本 |
@@ -161,11 +185,13 @@ WorkBuddy 自动准备不等于平台自动上架。生成包之后仍需使用 
 
 完整交付必须同时具备当前文件/正文、SHA-256、审批、预算与运行回执，以及（若已发布）平台实际 URL 和回读证据。
 
-## 8. 常见失败
+## 9. 常见失败
 
 | 错误 | 处理 |
 | --- | --- |
 | `WORKBENCH_INTENT_INVALID` | 只发送文档列出的字段；保留原话，删除未知字段 |
+| `PERSONA_CONTRACT_CHANGED` | 规范人设文件与合同哈希不一致；恢复准确 v1.0.1 文件后重新生成客户端包 |
+| `PERSONA_APPROVAL_BLOCKED` | 正文命中主播腔、虚假助农、绝对化宣传或缺少默认第一人称；按 findings 修复后重新审核 |
 | `CONTENT_INTENT_CLARIFICATION_REQUIRED` | 明确要文章、视觉、AI 视频、实拍、口播还是混合视频 |
 | `STANDARD_VIDEO_DURATION_REQUIRED` | 从用户原话确认 5–180 秒总时长 |
 | `CONTENT_DIRECTOR_DISABLED` | 不绕过服务；等待管理员恢复功能或使用仍获准的其他入口 |
@@ -173,10 +199,11 @@ WorkBuddy 自动准备不等于平台自动上架。生成包之后仍需使用 
 | `NATIVE_MUTATION_OUTCOME_UNKNOWN` | 保留原 Job/项目先对账，不重派、不换项目掩盖未知费用 |
 | `RECEIPT_CONFLICT` | 读取原回执并人工核对，不能覆盖成新成功 |
 
-## 9. 边界
+## 10. 边界
 
 - 仓库开源不授予姚阿姨姓名、肖像、声音、品牌、客户素材、社媒账号或第三方平台授权。
 - MCP 目录发现不等于所有供应商都已配置，也不等于付费能力已获准。
 - 计划、审批、生产、交付和发布是不同状态。
 - 高风险互动、验证码、新协议、额外付费和平台管理员动作仍由本人处理。
 - 千问办公或其他客户端若没有公开协议，先使用通用 HTTP/CLI 路径；不要编造菜单、配置字段或自动完成结果。
+- QoderWork 官方公告已列出 2027-09-05 下线；在此之前仍可使用其文档支持的 MCP JSON/STDIO 接入，下线后改用 Qoder、Codex、WorkBuddy 或通用 CLI/HTTP。

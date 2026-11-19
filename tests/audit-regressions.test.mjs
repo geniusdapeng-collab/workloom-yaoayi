@@ -46,7 +46,7 @@ async function createScheduledContent(service, store, platform = "GitHub") {
   });
   const content = await service.createContent({
     title: "审计回归：证据事实",
-    body: "这段内容只用于验证发布前的证据和平台闸门。",
+    body: "我看这段内容只用于验证发布前的证据和平台闸门。",
     contentType: "article",
     claimIds: ["C003"],
     platforms: [platform],

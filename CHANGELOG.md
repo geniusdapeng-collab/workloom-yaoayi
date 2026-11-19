@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-11-19 — Cross-client persona enforcement and QoderWork
+
+- Make Yao Ayi persona v1.0.1 a server-enforced content contract shared by
+  Codex, Qoder, QoderWork, WorkBuddy, generic MCP/CLI and 千问办公 fallback.
+- Inject the same persona prompt into outline, section drafting, repair,
+  independent audit, final audit and visual planning.
+- Freeze persona ID, version, canonical-document SHA-256 and prompt SHA-256 into
+  Content Director Jobs, result hashes and delivery results.
+- Add deterministic persona checks for forbidden host voice, unsupported
+  absolute product claims, false rural narratives and missing first person.
+- Include the complete canonical persona reference in WorkBuddy, QoderWork,
+  generic and 千问办公 generated bundles; add the persona to MCP agent guides.
+- Add QoderWork JSON/STDIO MCP, skill and prompt generation based on its public
+  connector documentation, with the published 2027-09-05 discontinuation date.
+
 ## 2026-11-18 — Open-source and cross-workbench delivery
 
 - License the original repository source under Apache-2.0 and document that the

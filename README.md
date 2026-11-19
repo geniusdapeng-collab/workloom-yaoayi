@@ -16,13 +16,15 @@ node scripts/ai-workbench.mjs bootstrap --client all
 node src/server.mjs
 ```
 
-`bootstrap --client all` 会在 Git 忽略的项目配置和 `var/workbench/` 下生成 Codex、Qoder、WorkBuddy、通用 MCP 以及千问办公降级提示词。它不调用模型或外部平台，也不复制秘密。WorkBuddy Connector 的平台导入、审核和发布仍需在 WorkBuddy 正式流程完成；千问办公当前没有检索到公开原生 MCP/Connector 导入协议，因此只提供有本地文件/终端能力时可用的通用指令。完整说明见[AI 工作台接入与任务交付](docs/AGENT-WORKBENCH-INTEGRATION.md)。
+`bootstrap --client all` 会在 Git 忽略的项目配置和 `var/workbench/` 下生成 Codex、Qoder、QoderWork、WorkBuddy、通用 MCP 以及千问办公降级提示词。它不调用模型或外部平台，也不复制秘密。每个内容类客户端包都包含姚阿姨人设 v1.0.1 的完整参考、文档 SHA-256 和提示词哈希。WorkBuddy 的平台导入、审核和发布仍走正式流程；QoderWork 按官方 JSON/STDIO MCP 文档在桌面端手动导入，官方公告列出其 2027-09-05 下线计划；千问办公当前没有检索到公开原生 MCP/Connector 导入协议，因此只提供有本地文件/终端能力时可用的通用指令。完整说明见[AI 工作台接入与任务交付](docs/AGENT-WORKBENCH-INTEGRATION.md)。
 
 姚阿姨的完整长期约束见[姚阿姨人设系统 v1.0.1](docs/personas/yao-ayi-yimeng-coffee-courtyard.md)，首批 GEO 图文目标和 32 物产品类地图见[沂蒙山首批宣传方案](docs/GEO-YAO-AYI-FIRST-CAMPAIGN.md)及其[机器可读计划](data/campaigns/yao-ayi-first-geo-campaign.json)。
 
 **AI Agent 接手必读：** 克隆、拉取更新或开始任务后，先完整阅读根目录 [AGENTS.md](AGENTS.md) 和[AI Agent 接入与操作指南](docs/AI-AGENT-GUIDE.md)，再执行操作。指南包含其他平台接入、管理员与受限令牌的权限、GEO 内容生产与最终审批、单账号发布／回复、真实回执与幂等恢复、本机视频 CLI/MCP 和 Mac 定稿备份的使用条件。仓库访问权不等于网站管理权；拉到新代码也不表示云端已经部署同一版本。
 
-用户只需用自然语言说明目标。对文章、图文、纯视觉或视频请求，Agent 先调用 MCP
+用户只需用自然语言说明目标。所有客户端共同遵守[姚阿姨人设系统 v1.0.1](docs/personas/yao-ayi-yimeng-coffee-courtyard.md)；人设同时进入 MCP 指南、意图计划、创作总控模型提示词、独立审核和确定性检查，不是某一客户端的可选提示词。
+
+对文章、图文、纯视觉或视频请求，Agent 先调用 MCP
 `yaoayi_workbench_intent` 或运行 `node scripts/agent.mjs plan --input-file -`，
 保留原话并复用现有意图路由、任务拆解、审批和交付合同。HTTP 工作台可调用
 `POST /api/workbench/plan`。规划成功不是 Job、成片、审批或发布成功。
@@ -100,7 +102,7 @@ English bio:
 
 ## 本地启动
 
-通过 Codex、Qoder 对话操作时，先按 [AI 办公平台接入](docs/AI-WORKBENCH-SETUP.md) 设置当前项目。`node scripts/ai-workbench.mjs config --client codex` 或 `--client qoder` 输出真实本机绝对路径的配置；`node scripts/agent.mjs guide` 与 MCP `pengmanager_agent_guide` 返回完整现行指南、字节摘要和入口。用户只需在对话中提出任务，由 Agent 调用工具并核对结果。完整视频制作由有 shell 的 Agent 执行既有标准 CLI，MCP 负责指南、发现、计划、预检及已登记能力；无 shell 的纯 MCP 客户端尚不支持完整生产。
+通过 Codex、Qoder、QoderWork、WorkBuddy 或其他工作台操作时，先按 [AI 办公平台接入](docs/AI-WORKBENCH-SETUP.md) 设置当前项目。`node scripts/ai-workbench.mjs config --client codex` 或 `--client qoder` 输出真实本机绝对路径的配置；`node scripts/agent.mjs guide` 与 MCP `pengmanager_agent_guide` 返回完整现行指南、人设合同、字节摘要和入口。用户只需在对话中提出任务，由 Agent 调用工具并核对结果。完整视频制作由有 shell 的 Agent 执行既有标准 CLI，MCP 负责指南、发现、计划、预检及已登记能力；无 shell 的纯 MCP 客户端尚不支持完整生产。
 
 克隆后的项目级自动配置使用 `node scripts/ai-workbench.mjs bootstrap --client codex`
 （或 `all`）。配置写入后新建 Codex 会话，并以实际 `tools/list` 中是否存在

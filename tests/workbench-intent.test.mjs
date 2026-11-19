@@ -24,7 +24,10 @@ test("article intent reuses the existing route and exposes approval and delivery
     claimIds: ["C001"],
   });
   assert.equal(planned.status, "planned");
+  assert.equal(planned.persona.id, "yao_ayi_yimeng_coffee_courtyard");
+  assert.equal(planned.persona.version, "1.0.1");
   assert.deepEqual(planned.requiredInputs, []);
+  assert.ok(planned.stages.some((stage) => stage.id === "persona-bind" && stage.status === "completed"));
   assert.ok(planned.stages.some((stage) => stage.id === "create-content-job" && stage.executor === "administrator-session"));
   assert.ok(planned.stages.some((stage) => stage.id === "visual-package"));
   const review = planned.stages.find((stage) => stage.id === "human-review");
@@ -32,6 +35,7 @@ test("article intent reuses the existing route and exposes approval and delivery
   assert.ok(planned.stages.some((stage) => stage.id === "materialize"));
   assert.equal(planned.stages.some((stage) => stage.id === "publication"), false);
   assert.ok(planned.authorizationGates.some((gate) => gate.id === "no-self-approval"));
+  assert.ok(planned.authorizationGates.some((gate) => gate.id === "persona-contract"));
   assert.equal(planned.delivery.status, "not_started");
   assert.match(planned.planHash, /^[a-f0-9]{64}$/);
 });
@@ -43,6 +47,7 @@ test("video intent preserves the original sentence and enters the existing nativ
   assert.equal(plan.route.intent, raw);
   assert.equal(plan.route.artifactKind, "video_ai");
   assert.equal(plan.route.durationSec, 30);
+  assert.equal(plan.persona.documentSha256, "a81ff53526b57d759ca5ae8465db8a6056a7fd82b68bb60625efa8ff55d46e7c");
   assert.ok(plan.stages.some((stage) => stage.id === "preflight" && stage.entry.tool === "pengmanager_video_preflight"));
   const start = plan.stages.find((stage) => stage.id === "start");
   assert.equal(start.entry.input.intent, raw);
@@ -90,7 +95,10 @@ test("manifest declares verified clients and the unverified Qianwen fallback", (
   assert.equal(manifest.license, "Apache-2.0");
   assert.equal(manifest.clients.find((row) => row.id === "codex").status, "supported");
   assert.equal(manifest.clients.find((row) => row.id === "workbuddy").status, "connector-package-supported");
+  assert.equal(manifest.clients.find((row) => row.id === "qoderwork").status, "mcp-json-supported");
+  assert.equal(manifest.clients.find((row) => row.id === "qoderwork").discontinuationDate, "2027-09-05");
   assert.equal(manifest.clients.find((row) => row.id === "qianwen-office").status, "generic-fallback");
+  assert.equal(manifest.persona.requireFirstPerson, true);
   assert.equal(manifest.guarantees.productionVerified, false);
 });
 
@@ -105,6 +113,7 @@ test("public HTTP manifest and plan routes are read-only and reject unsupported 
   assert.equal(manifestResponse.status, 200);
   const manifest = await manifestResponse.json();
   assert.equal(manifest.schemaVersion, "yaoayi.workbench-manifest/v1");
+  assert.equal(manifest.persona.version, "1.0.1");
 
   const planResponse = await fetch(`${base}/api/workbench/plan`, {
     method: "POST",

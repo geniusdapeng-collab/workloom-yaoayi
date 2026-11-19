@@ -15,14 +15,20 @@ This writes only the Git-ignored project `.codex/config.toml`; it does not call 
 model, provider or external platform. Open a new Codex session after the write
 so the MCP server is discovered. If the bootstrap cannot run, continue through
 the CLI and report the missing client setup instead of pretending MCP is active.
-Use `--client all` to also generate Qoder, WorkBuddy, generic and 千问办公
+Use `--client all` to also generate Qoder, QoderWork, WorkBuddy, generic and 千问办公
 fallback bundles under `var/workbench/`.
 
 ## Codex, Qoder and other AI workbenches
 
 The user can stay in the conversation. The Agent performs CLI/MCP operations and reports actual receipts. On first connection or after an update, call MCP `pengmanager_agent_guide` with `{}`, or run `node scripts/agent.mjs guide`, and completely read its current documents. They include this file and the mandatory guide below. Client setup and lifecycle rules are in [AI workbench setup](docs/AI-WORKBENCH-SETUP.md); the cross-client contract is in [AI workbench integration](docs/AGENT-WORKBENCH-INTEGRATION.md). Generate absolute-path Codex/Qoder settings with `node scripts/ai-workbench.mjs config --client codex` or `--client qoder`; use `bootstrap` to merge project-local settings safely.
 
-For any article, visual, mixed-media or video request, call
+For any article, visual, mixed-media or video request, first read the canonical
+[Yao Ayi persona](docs/personas/yao-ayi-yimeng-coffee-courtyard.md). Its ID,
+version, document SHA-256 and prompt SHA-256 in the workbench plan are hard
+constraints shared by every client. A client must not draft content outside the
+governed production path and then claim it came from Yao Ayi System.
+
+Then call
 `yaoayi_workbench_intent` (MCP) or `node scripts/agent.mjs plan --input-file -`
 (CLI) before choosing a production path. Preserve the user's complete wording.
 Follow its route, task graph, required inputs, approval gates and delivery
