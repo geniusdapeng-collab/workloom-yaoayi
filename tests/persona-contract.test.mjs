@@ -54,7 +54,16 @@ test("Content Director model injects the exact persona into every content and au
   const deepSeek = {
     async completeTask(options) {
       calls.push(options);
-      return { value: {}, receipt: { requestedModel: "fixture", resolvedModel: "fixture" } };
+      const isAudit = ["content.audit", "quality.final"].includes(options.scene);
+      return {
+        value: isAudit ? {
+          assessment: "fixture",
+          findings: [],
+          coverage: { facts: "checked", structure: "checked", expression: "checked", policy: "checked", technical: "checked", visual: "checked" },
+        } : {},
+        requestedModel: "fixture",
+        resolvedModel: "fixture",
+      };
     },
   };
   const model = new ContentDirectorModel({ deepSeek });

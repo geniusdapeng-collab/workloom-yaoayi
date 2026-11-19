@@ -4,6 +4,43 @@ import {
   withYaoAyiPersonaPrompt,
 } from "../domain/persona.mjs";
 
+const AUDIT_SEVERITIES = ["blocker", "major", "minor", "suggestion"];
+const AUDIT_DIMENSIONS = ["facts", "structure", "expression", "policy", "technical", "disclosure"];
+const AUDIT_CONTRACT = [
+  "severity must be exactly one of: blocker|major|minor|suggestion.",
+  "dimension must be exactly one of: facts|structure|expression|policy|technical|disclosure.",
+  "Use lowercase English enum values, never Chinese labels, high/medium/low, numeric levels, null or empty strings.",
+  "allowedChanges must always be an array. For every actionable blocker/major in preflight review, include a section key, section:N or paragraph:N scope.",
+].join(" ");
+
+function assertAuditPayload(value, { final = false } = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || !Array.isArray(value.findings)) {
+    throw new Error("Audit response must be an object with a findings array.");
+  }
+  for (const [index, row] of value.findings.entries()) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      throw new Error(`findings[${index}] must be an object.`);
+    }
+    if (!AUDIT_SEVERITIES.includes(row.severity)) {
+      throw new Error(`findings[${index}].severity is invalid.`);
+    }
+    if (!AUDIT_DIMENSIONS.includes(row.dimension)) {
+      throw new Error(`findings[${index}].dimension is invalid.`);
+    }
+    if (!Array.isArray(row.allowedChanges)) {
+      throw new Error(`findings[${index}].allowedChanges must be an array.`);
+    }
+  }
+  if (final) {
+    const required = ["facts", "structure", "expression", "policy", "technical", "visual"];
+    if (!value.coverage || typeof value.coverage !== "object" || Array.isArray(value.coverage)
+        || required.some(key => !Object.hasOwn(value.coverage, key))) {
+      throw new Error("Final audit coverage is incomplete.");
+    }
+  }
+  return value;
+}
+
 export const PERSONA_ENFORCED_SCENES = Object.freeze(new Set([
   "content.outline",
   "content.section",
@@ -54,6 +91,48 @@ export class ContentDirectorModel {
     return { value: result.value, receipt: receipt(result) };
   }
 
+  async #auditJson(scene, system, input, { final = false } = {}) {
+    const baseMessages = messages(system, input, { persona: PERSONA_ENFORCED_SCENES.has(scene) });
+    let result = await this.deepSeek.completeTask({ scene, messages: baseMessages });
+    try {
+      assertAuditPayload(result.value, { final });
+      return { value: result.value, receipt: receipt(result) };
+    } catch (firstError) {
+      const rejectedReceipt = receipt(result);
+      result = await this.deepSeek.completeTask({
+        scene,
+        messages: [
+          ...baseMessages,
+          { role: "assistant", content: JSON.stringify(result.value ?? null) },
+          {
+            role: "user",
+            content: [
+              "Correct only the JSON schema and enum formatting of the previous audit response.",
+              "Preserve the editorial judgments, finding meanings, coverage and evidence.",
+              "Do not add, remove, upgrade or downgrade findings.",
+              `Validation error: ${String(firstError.message).slice(0, 500)}`,
+              AUDIT_CONTRACT,
+              "Return the complete corrected JSON object only.",
+            ].join(" "),
+          },
+        ],
+      });
+      assertAuditPayload(result.value, { final });
+      const acceptedReceipt = receipt(result);
+      acceptedReceipt.attempts = [
+        ...(rejectedReceipt.attempts ?? []),
+        {
+          type: "audit_schema_rejected",
+          responseId: rejectedReceipt.responseId,
+          responseHash: rejectedReceipt.responseHash,
+          usage: rejectedReceipt.usage,
+        },
+        ...(acceptedReceipt.attempts ?? []),
+      ];
+      return { value: result.value, receipt: acceptedReceipt };
+    }
+  }
+
   async classifyAmbiguous(input) {
     return this.#json(
       "content.route.classify",
@@ -95,18 +174,30 @@ export class ContentDirectorModel {
   }
 
   async auditArticle(input) {
-    return this.#json(
+    return this.#auditJson(
       "content.audit",
-      "Act as an independent professional editor. Read the complete article, brief, claims and research. Return {assessment,findings:[{severity,dimension,code,location,message,allowedChanges}],coverage:{facts,structure,expression,policy}}. severity is blocker|major|minor|suggestion; dimension is facts|structure|expression|policy|technical|disclosure. Do not rewrite the article. Every numeric claim, current version, API or capability must be supported by supplied evidence. A heading without substantive body is a blocker.",
+      [
+        "Act as an independent professional editor. Read the complete article, brief, claims and research.",
+        "Return {assessment,findings:[{severity,dimension,code,location,message,allowedChanges}],coverage:{facts,structure,expression,policy}}.",
+        AUDIT_CONTRACT,
+        "This is a text-only preflight before visual planning. Do not report missing visualSpecRefs, missing images or pending visual disclosure as findings; those are evaluated only in final audit.",
+        "Do not rewrite the article. Every numeric claim, current version, API or capability must be supported by supplied evidence. A heading without substantive body is a blocker.",
+      ].join(" "),
       input,
     );
   }
 
   async finalAuditArticle(input) {
-    return this.#json(
+    return this.#auditJson(
       "quality.final",
-      "Act as the final independent editor for the complete article and rendered visual package. Return {assessment,findings:[{severity,dimension,code,location,message,allowedChanges}],coverage:{facts,structure,expression,policy,technical,visual}}. Evaluate every caption and visual against the article and supplied data; never approve an unsupported number, changed claim, empty section or unreadable visual. Do not rewrite the package.",
+      [
+        "Act as the final independent editor for the complete article and rendered visual package.",
+        "Return {assessment,findings:[{severity,dimension,code,location,message,allowedChanges}],coverage:{facts,structure,expression,policy,technical,visual}}.",
+        AUDIT_CONTRACT,
+        "Evaluate every caption and visual against the article and supplied data; never approve an unsupported number, changed claim, empty section or unreadable visual. Do not rewrite the package.",
+      ].join(" "),
       input,
+      { final: true },
     );
   }
 
