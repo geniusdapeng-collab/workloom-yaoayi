@@ -96,12 +96,22 @@ function claimRows(state, ids) {
 function normalizeFindings(value) {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 200).map((row, index) => {
-    if (!row || typeof row !== "object" || Array.isArray(row)) fail(502, "AUDIT_FINDING_INVALID", "审核 finding 无效。");
-    const severity = row.severity;
-    if (!["blocker", "major", "minor", "suggestion"].includes(severity)) fail(502, "AUDIT_FINDING_INVALID", "审核 finding 级别无效。");
-    const dimension = row.dimension;
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      fail(502, "AUDIT_FINDING_INVALID", "审核 finding 无效。", { index });
+    }
+    const severity = String(row.severity ?? "").trim().toLowerCase();
+    if (!["blocker", "major", "minor", "suggestion"].includes(severity)) {
+      fail(502, "AUDIT_FINDING_INVALID", "审核 finding 级别无效。", {
+        index,
+        receivedSeverity: severity.slice(0, 80),
+      });
+    }
+    const dimension = String(row.dimension ?? "").trim().toLowerCase();
     if (!["facts", "structure", "expression", "policy", "technical", "disclosure"].includes(dimension)) {
-      fail(502, "AUDIT_FINDING_INVALID", "审核 finding 维度无效。");
+      fail(502, "AUDIT_FINDING_INVALID", "审核 finding 维度无效。", {
+        index,
+        receivedDimension: dimension.slice(0, 80),
+      });
     }
     return {
       id: `F-${String(index + 1).padStart(3, "0")}`,
@@ -114,6 +124,13 @@ function normalizeFindings(value) {
       status: "open",
     };
   });
+}
+
+function isPrematureVisualFinding(row) {
+  const target = `${row.code} ${row.location}`.toUpperCase();
+  const concernsVisual = /VISUAL|VISUALSPEC|IMAGE|CAPTION/.test(target);
+  const onlyMissingOrPending = /MISSING|ABSENT|EMPTY|PENDING|REQUIRED|NOT_GENERATED/.test(target);
+  return concernsVisual && onlyMissingOrPending;
 }
 
 function articleHash(article, persona = YAO_AYI_PERSONA_CONTRACT) {
@@ -1961,16 +1978,46 @@ export class ContentDirectorService {
       deterministicFindings,
     });
     let blocking = report.findings.filter(row => ["blocker", "major"].includes(row.severity));
-    for (let round = 1; round <= 2 && blocking.some(row => ["blocker", "major"].includes(row.severity)); round += 1) {
-      const indexes = [...new Set(blocking
-        .map(row => /section[-:](\d+)/i.exec(row.location ?? "")?.[1])
-        .filter(value => value !== undefined)
-        .map(Number))]
-        .filter(index => Number.isSafeInteger(index) && outline.sections[index]);
+    for (let round = 1; round <= 2 && blocking.length; round += 1) {
+      const locateSection = finding => {
+        const explicit = /section[-:](\d+)/i.exec(finding.location ?? "")?.[1];
+        if (explicit !== undefined) {
+          const index = Number(explicit);
+          return Number.isSafeInteger(index) && outline.sections[index] ? index : -1;
+        }
+        const text = `${finding.location ?? ""} ${finding.message ?? ""}`;
+        return outline.sections.findIndex(section =>
+          (section.title && text.includes(section.title)) || (section.key && text.includes(section.key)));
+      };
+
+      const assignments = new Map();
+      for (const finding of blocking) {
+        let index = locateSection(finding);
+        const globalLocation = /^(全文|body|document)$/i.test(String(finding.location ?? "").trim());
+        const isGlobalLength = /TARGET_LENGTH|ARTICLE_TOO_SHORT|ARTICLE_TOO_LONG/i.test(finding.code)
+          || (globalLocation && finding.dimension === "structure" && /字数|篇幅|字符|length/i.test(finding.message));
+        if (index < 0 && isGlobalLength) {
+          index = sections
+            .map((section, sectionIndex) => ({
+              sectionIndex,
+              ratio: section.body.replace(/\s+/g, "").length
+                / Math.max(1, Number(outline.sections[sectionIndex].targetCharacters) || 1),
+            }))
+            .sort((a, b) => a.ratio - b.ratio)[0]?.sectionIndex ?? -1;
+        }
+        if (index < 0 || !outline.sections[index]) continue;
+        if (!assignments.has(index)) assignments.set(index, []);
+        assignments.get(index).push(finding);
+      }
+
+      const indexes = [...assignments.keys()];
       if (!indexes.length) break;
       for (const index of indexes) {
         await this.#assertLive(id);
-        const sectionFindings = blocking.filter(row => new RegExp(`section[-:]${index}(?:\\D|$)`, "i").test(row.location ?? ""));
+        const sectionFindings = assignments.get(index).map(finding => ({
+          ...finding,
+          allowedChanges: finding.allowedChanges?.length ? finding.allowedChanges : [`section:${index}`],
+        }));
         sections[index] = await this.#repairSection(id, {
           brief,
           research: { sources: research.sources, claims: brief.claims },
@@ -2146,7 +2193,8 @@ export class ContentDirectorService {
       fail(502, "CONTENT_FINAL_COVERAGE_INVALID", "最终审核报告缺少事实、结构、表达、政策、技术或视觉覆盖。");
     }
     const deterministic = deterministicFindings.map((row, index) => ({ id: `D-${String(index + 1).padStart(3, "0")}`, ...row, status: "open" }));
-    const modelFindings = normalizeFindings(result.value.findings);
+    const modelFindings = normalizeFindings(result.value.findings)
+      .filter(row => final || !isPrematureVisualFinding(row));
     const report = {
       id: `CAR-${randomBytes(10).toString("hex")}`,
       schema: "pengmanager.content-audit-report/v1",

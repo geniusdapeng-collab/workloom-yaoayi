@@ -12,6 +12,7 @@ import { createEditorialBackup } from "../src/services/editorial-backup.mjs";
 import { GeoOsService } from "../src/services/geo-os-service.mjs";
 import { EditorialService } from "../src/services/editorial-service.mjs";
 import { ContentDirectorService } from "../src/services/content-director-service.mjs";
+import { ContentDirectorModel } from "../src/services/content-director-model.mjs";
 import { MediaAssets } from "../src/services/media-assets.mjs";
 
 const context = () => ({ method: "local", actor: "isolated content director reviewer", idempotencyKey: randomUUID() });
@@ -173,4 +174,159 @@ test("approved article materializes as an immutable editorial edition", async t 
   assert.equal(materialized.edition.format, "article");
   assert.equal(materialized.edition.body, completed.result.article.body);
   assert.equal(f.editorial.getEdition(materialized.edition.id).snapshotHash, materialized.edition.snapshotHash);
+});
+
+test("audit model retries invalid finding enums once and preserves rejected response evidence", async () => {
+  const calls = [];
+  const deepSeek = {
+    async completeTask(options) {
+      calls.push(options);
+      const accepted = calls.length === 2;
+      return {
+        value: {
+          assessment: "needs revision",
+          findings: [{
+            severity: accepted ? "major" : "high",
+            dimension: "facts",
+            code: "UNSUPPORTED_FACT",
+            location: "section:0",
+            message: "Unsupported fact.",
+            allowedChanges: ["section:0"],
+          }],
+          coverage: { facts: "checked", structure: "checked", expression: "checked", policy: "checked", technical: "checked", visual: "checked" },
+        },
+        requestedModel: "fixture",
+        resolvedModel: "fixture",
+        responseId: accepted ? "accepted" : "rejected",
+        responseHash: accepted ? "a".repeat(64) : "b".repeat(64),
+        usage: { totalTokens: 1 },
+        attempts: [],
+      };
+    },
+  };
+  const model = new ContentDirectorModel({ deepSeek });
+  const result = await model.finalAuditArticle({});
+  assert.equal(calls.length, 2);
+  assert.equal(result.value.findings[0].severity, "major");
+  assert.match(calls[1].messages.at(-1).content, /Correct only the JSON schema and enum formatting/);
+  assert.ok(result.receipt.attempts.some(attempt => attempt.type === "audit_schema_rejected" && attempt.responseId === "rejected"));
+});
+
+test("audit model fails closed when the schema correction remains invalid", async () => {
+  let calls = 0;
+  const deepSeek = {
+    async completeTask() {
+      calls += 1;
+      return {
+        value: {
+          assessment: "invalid",
+          findings: [{ severity: "high", dimension: "facts", allowedChanges: [] }],
+          coverage: {},
+        },
+        requestedModel: "fixture",
+        resolvedModel: "fixture",
+      };
+    },
+  };
+  const model = new ContentDirectorModel({ deepSeek });
+  await assert.rejects(model.auditArticle({}), /severity is invalid/);
+  assert.equal(calls, 2);
+});
+
+test("preflight ignores only not-yet-generated visual findings and proceeds to rendering", async t => {
+  class PreflightVisualModel extends StubModel {
+    reviewCalls = 0;
+    async auditArticle() {
+      this.reviewCalls += 1;
+      const result = await super.auditArticle();
+      if (this.reviewCalls === 1) {
+        result.value.findings = [{
+          severity: "major",
+          dimension: "disclosure",
+          code: "MISSING_VISUAL_SPEC_AND_DISCLOSURE",
+          location: "visualSpecRefs",
+          message: "Visuals have not been generated yet.",
+          allowedChanges: [],
+        }];
+      }
+      return result;
+    }
+  }
+  const f = await fixture(t, new PreflightVisualModel());
+  const job = await f.director.createJob({
+    intent: "围绕 Agent 产品进入真实业务写一篇文章，并配一张系统架构图",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 500, maxCharacters: 2500 },
+  }, context());
+  const completed = await f.director.processJob(job.id);
+  assert.equal(completed.status, "needs_review");
+  assert.equal(completed.result.visuals.length, 1);
+  assert.equal(completed.result.article.visualSpecRefs.length, 1);
+});
+
+test("final audit keeps visual absence findings after rendering", async t => {
+  class FinalVisualModel extends StubModel {
+    async finalAuditArticle() {
+      const result = await super.auditArticle();
+      result.value.findings = [{
+        severity: "major",
+        dimension: "disclosure",
+        code: "MISSING_VISUAL_SPEC_AND_DISCLOSURE",
+        location: "visualSpecRefs",
+        message: "The final package has no valid visual disclosure.",
+        allowedChanges: [],
+      }];
+      return result;
+    }
+  }
+  const f = await fixture(t, new FinalVisualModel());
+  const job = await f.director.createJob({
+    intent: "围绕 Agent 产品进入真实业务写一篇文章，并配一张系统架构图",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 500, maxCharacters: 2500 },
+  }, context());
+  const completed = await f.director.processJob(job.id);
+  assert.equal(completed.status, "blocked");
+  assert.equal(completed.result.visuals.length, 1);
+  assert.ok(completed.findings.some(finding => finding.code === "MISSING_VISUAL_SPEC_AND_DISCLOSURE"));
+});
+
+test("global length findings receive a bounded section repair scope", async t => {
+  class GlobalLengthModel extends StubModel {
+    reviewCalls = 0;
+    repairInputs = [];
+    async auditArticle() {
+      this.reviewCalls += 1;
+      const result = await super.auditArticle();
+      if (this.reviewCalls === 1) {
+        result.value.findings = [{
+          severity: "major",
+          dimension: "structure",
+          code: "BELOW_TARGET_LENGTH",
+          location: "全文",
+          message: "全文字符篇幅低于目标。",
+          allowedChanges: [],
+        }];
+      }
+      return result;
+    }
+    async repairSection(input) {
+      this.repairInputs.push(input);
+      return {
+        value: input.currentSection,
+        receipt: { requestedModel: "fixture", resolvedModel: "fixture", responseId: "repair", requestHash: "3".repeat(64), responseHash: "4".repeat(64), usage: { total_tokens: 1 } },
+      };
+    }
+  }
+  const model = new GlobalLengthModel();
+  const f = await fixture(t, model);
+  const job = await f.director.createJob({
+    intent: "围绕 Agent 产品进入真实业务写一篇技术文章",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 500, maxCharacters: 2500 },
+  }, context());
+  const completed = await f.director.processJob(job.id);
+  assert.equal(completed.status, "needs_review");
+  assert.equal(model.repairInputs.length, 1);
+  assert.deepEqual(model.repairInputs[0].findings[0].allowedChanges, ["section:1"]);
 });
