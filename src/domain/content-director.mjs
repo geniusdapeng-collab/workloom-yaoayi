@@ -1,5 +1,6 @@
 import { ApiError } from "./errors.mjs";
 import { hashObject } from "./hash.mjs";
+import { isYaoAyiPersonaContract, personaFindings } from "./persona.mjs";
 import { scanSensitiveText } from "./policy.mjs";
 
 export const CONTENT_DIRECTOR_COLLECTIONS = Object.freeze([
@@ -89,6 +90,7 @@ export function assertContentDirectorStateIntegrity(state) {
         !job.route || typeof job.route !== "object" || !Array.isArray(job.stepRefs) ||
         job.stepRefs.some(id => !stepIds.has(id))) invalid();
     if (job.batchId && !state.contentBatches.some(row => row.id === job.batchId)) invalid();
+    if (job.persona && !isYaoAyiPersonaContract(job.persona)) invalid();
     if (!Array.isArray(job.artifacts) || new Set(job.artifacts.map(row => row.name)).size !== job.artifacts.length) invalid();
     if (job.visualSpecIds?.some(id => !state.visualSpecs.some(row => row.id === id))) invalid();
   }
@@ -169,7 +171,14 @@ export function splitSectionsFromMarkdown(body) {
   });
 }
 
-export function deterministicArticleFindings(article, { minCharacters, maxCharacters, allowedUrls = [], mustKeep = [], mustAvoid = [] } = {}) {
+export function deterministicArticleFindings(article, {
+  minCharacters,
+  maxCharacters,
+  allowedUrls = [],
+  mustKeep = [],
+  mustAvoid = [],
+  persona = null,
+} = {}) {
   const findings = [];
   const body = String(article?.body ?? "");
   const sections = splitSectionsFromMarkdown(body);
@@ -240,6 +249,7 @@ export function deterministicArticleFindings(article, { minCharacters, maxCharac
         message: `正文出现了用户明确要求避免的内容：「${String(value).slice(0, 200)}」。` });
     }
   }
+  if (persona) findings.push(...personaFindings(`${article?.title ?? ""}\n${body}`, persona));
   return findings;
 }
 

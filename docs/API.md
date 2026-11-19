@@ -50,11 +50,17 @@ development listener keeps the dashboard at `/` as well.
 `POST /api/workbench/plan` accepts the bounded schema documented in
 [AGENT-WORKBENCH-INTEGRATION.md](AGENT-WORKBENCH-INTEGRATION.md). It reuses the
 same deterministic `resolveContentIntent` rules as Content Director, then adds
-task stages, required inputs, approval gates and delivery evidence. Its
+the exact Yao Ayi persona contract, task stages, required inputs, approval gates
+and delivery evidence. Its
 `planned` or `needs_input` status is not a business completion receipt: it
 never creates a Content Director job, spends model budget, renders media,
 approves content or publishes. Unknown fields fail closed. Both workbench routes
 reject query parameters and accept only their documented methods.
+
+Content Director Jobs freeze `persona.id`, version, canonical-document SHA-256
+and prompt SHA-256. Those fields enter the content hash, model prompts,
+deterministic voice checks and final delivery result. A client cannot substitute
+another persona by changing local instructions.
 
 Public/production configurations require a valid `ADMIN_PASSWORD_HASH`, an HTTPS
 `PUBLIC_ORIGIN`, and its matching allowed Host. Startup fails closed if the

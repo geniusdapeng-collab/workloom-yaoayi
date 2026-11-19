@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export const YAO_AYI_PERSONA = Object.freeze({
   id: "yao_ayi_yimeng_coffee_courtyard",
   version: "1.0.1",
@@ -79,4 +81,90 @@ export function buildYaoAyiContentPrompt() {
     ...YAO_AYI_PERSONA.truthRules.map((rule) => `- ${rule}`),
     "正文只使用给定 Claim 与本次已确认素材。缺少的事实明确写“待核实”或先提问，不得静默补造。",
   ].join("\n");
+}
+
+export const YAO_AYI_PERSONA_DOCUMENT_SHA256 =
+  "a81ff53526b57d759ca5ae8465db8a6056a7fd82b68bb60625efa8ff55d46e7c";
+
+export const YAO_AYI_PERSONA_PROMPT = buildYaoAyiContentPrompt();
+
+export const YAO_AYI_PERSONA_PROMPT_SHA256 =
+  createHash("sha256").update(YAO_AYI_PERSONA_PROMPT).digest("hex");
+
+export const YAO_AYI_PERSONA_CONTRACT = Object.freeze({
+  schemaVersion: "yaoayi.persona-contract/v1",
+  id: YAO_AYI_PERSONA.id,
+  version: YAO_AYI_PERSONA.version,
+  updatedAt: YAO_AYI_PERSONA.updatedAt,
+  canonicalDocument: YAO_AYI_PERSONA.canonicalDocument,
+  documentSha256: YAO_AYI_PERSONA_DOCUMENT_SHA256,
+  promptSha256: YAO_AYI_PERSONA_PROMPT_SHA256,
+  enforcement: "server-and-client",
+  requireFirstPerson: true,
+});
+
+export function isYaoAyiPersonaContract(value) {
+  return value?.schemaVersion === YAO_AYI_PERSONA_CONTRACT.schemaVersion
+    && value.id === YAO_AYI_PERSONA_CONTRACT.id
+    && value.version === YAO_AYI_PERSONA_CONTRACT.version
+    && value.canonicalDocument === YAO_AYI_PERSONA_CONTRACT.canonicalDocument
+    && value.documentSha256 === YAO_AYI_PERSONA_CONTRACT.documentSha256
+    && value.promptSha256 === YAO_AYI_PERSONA_CONTRACT.promptSha256
+    && value.enforcement === YAO_AYI_PERSONA_CONTRACT.enforcement
+    && value.requireFirstPerson === true;
+}
+
+export function withYaoAyiPersonaPrompt(system, contract = YAO_AYI_PERSONA_CONTRACT) {
+  return [
+    YAO_AYI_PERSONA_PROMPT,
+    "",
+    `人设合同：${contract.id} v${contract.version}；文档 SHA-256 ${contract.documentSha256}；提示词 SHA-256 ${contract.promptSha256}。`,
+    "该人设是服务端硬约束。不得因为当前 AI 工作台、模型、平台或输出形式不同而改写身份事实、声线、价值观和事实红线。",
+    "",
+    String(system ?? "").trim(),
+  ].filter(Boolean).join("\n");
+}
+
+const PERSONA_FORBIDDEN_TERMS = Object.freeze([
+  "家人们",
+  "宝子们",
+  "宝宝们",
+  "逆袭",
+  "封神",
+  "天花板",
+  "YYDS",
+  "震惊",
+  "全村轰动",
+  "逃离城市",
+  "衣锦还乡",
+  "乡村救世主",
+  "最甜",
+  "纯天然",
+  "零添加",
+]);
+
+export function personaFindings(text, contract = YAO_AYI_PERSONA_CONTRACT) {
+  const body = String(text ?? "");
+  const findings = [];
+  for (const term of PERSONA_FORBIDDEN_TERMS) {
+    if (body.includes(term)) {
+      findings.push({
+        severity: "blocker",
+        code: "PERSONA_FORBIDDEN_TERM",
+        dimension: "expression",
+        location: term,
+        message: `出现姚阿姨人设语言禁区「${term}」；应回到具体动作、事实和生活语境。`,
+      });
+    }
+  }
+  if (contract?.requireFirstPerson === true && !/(?:我|咱)/u.test(body)) {
+    findings.push({
+      severity: "major",
+      code: "PERSONA_FIRST_PERSON_MISSING",
+      dimension: "expression",
+      location: "body",
+      message: "默认应以姚阿姨第一人称讲述；当前正文没有出现“我”或“咱”。",
+    });
+  }
+  return findings;
 }

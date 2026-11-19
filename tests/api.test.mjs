@@ -59,7 +59,7 @@ test("HTTP API completes a manual publish flow and keeps fixture receipts blocke
       method: "POST",
       body: JSON.stringify({
         title: "API flow test",
-        body: "A content draft backed by an approved public project claim.",
+        body: "我看，这是一份由已批准项目事实支持的完整内容草稿。",
         contentType: "article",
         claimIds: ["C003"],
         platforms: ["GitHub"],
@@ -132,6 +132,33 @@ test("HTTP API completes a manual publish flow and keeps fixture receipts blocke
     assert.equal(events.payload.verification.valid, true);
   } finally {
     await new Promise((resolveClose) => server.close(resolveClose));
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("legacy content approval is blocked when the exact Yao Ayi persona contract fails", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pengstack-persona-"));
+  const store = new JsonStore({ filePath: join(directory, "state.json"), clock: now });
+  await store.open(() => loadSeedState(dataDir));
+  try {
+    const service = new GeoOsService({ store, clock: now });
+    await service.approveClaim("C003", { approvedBy: "姚阿姨", publicLevel: "private" });
+    const content = await service.createContent({
+      title: "人设阻断测试",
+      body: "家人们，这是一个纯天然、零添加的绝对化宣传草稿。",
+      claimIds: ["C003"],
+      platforms: ["GitHub"],
+      owner: "姚阿姨",
+    });
+    assert.equal(content.persona.version, "1.0.1");
+    await service.transitionContent(content.id, { target: "fact_check", actor: "姚阿姨" });
+    await assert.rejects(
+      service.transitionContent(content.id, { target: "approved", actor: "姚阿姨", approvedBy: "姚阿姨" }),
+      (error) => error.code === "PERSONA_APPROVAL_BLOCKED" &&
+        error.details.findings.some((finding) => finding.code === "PERSONA_FORBIDDEN_TERM"),
+    );
+  } finally {
+    await store.close();
     await rm(directory, { recursive: true, force: true });
   }
 });

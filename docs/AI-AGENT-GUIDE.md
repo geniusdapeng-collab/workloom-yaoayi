@@ -1,6 +1,6 @@
 # 姚阿姨系统：AI Agent 接入与操作指南
 
-**读者：接手本仓库的 Codex、其他编程 Agent、通过 HTTP 接入的运营 Agent，以及它们的管理员。** 克隆或更新代码后，先完整阅读根目录 [AGENTS.md](../AGENTS.md) 和本指南，再执行任务。API 字段参考 [API.md](API.md)，跨客户端接入参考 [AI 工作台接入与任务交付](AGENT-WORKBENCH-INTEGRATION.md)，部署与恢复参考 [ALIYUN-DEPLOYMENT.md](ALIYUN-DEPLOYMENT.md)，完整本机视频运行时参考 [VIDEO-RUNTIME.md](VIDEO-RUNTIME.md)。
+**读者：接手本仓库的 Codex、其他编程 Agent、通过 HTTP 接入的运营 Agent，以及它们的管理员。** 克隆或更新代码后，先完整阅读根目录 [AGENTS.md](../AGENTS.md)、本指南和 [姚阿姨人设系统 v1.0.1](personas/yao-ayi-yimeng-coffee-courtyard.md)，再执行任务。API 字段参考 [API.md](API.md)，跨客户端接入参考 [AI 工作台接入与任务交付](AGENT-WORKBENCH-INTEGRATION.md)，部署与恢复参考 [ALIYUN-DEPLOYMENT.md](ALIYUN-DEPLOYMENT.md)，完整本机视频运行时参考 [VIDEO-RUNTIME.md](VIDEO-RUNTIME.md)。
 
 本指南依据仓库实现编写。`https://yaoayi.example` 是保留给配置示例的占位域名，不是已上线地址；实际生产入口和私有后台域名必须由主人在部署时确认。**拉到的代码、当前运行进程、云端部署版本可能不同。** 先检查目标服务和授权范围；接口不存在时核对版本，不要通过改数据库、借用管理员会话或伪造结果绕过。仓库包含完整本机视频能力，不表示小型云服务器已经安装这些依赖。
 
@@ -40,9 +40,11 @@ cat docs/AI-AGENT-GUIDE.md
 
 已有 checkout 则先检查当前分支和未提交改动，再按任务约定更新；不要为了拉取强制重置他人的改动。每次切分支／更新后，如指南或 `AGENTS.md` 有变化，重新完整阅读。`AGENTS.md` 是供遵循该约定的 Agent 自动读取的仓库入口；不能保证忽略仓库说明的平台自动执行这些规则。其他平台应把“先读这两个文件”同时写入它的项目启动说明。
 
-Codex、Qoder、WorkBuddy 等平台的接入可用 `node scripts/ai-workbench.mjs bootstrap --client all`：Codex/Qoder 写入项目本地 MCP 配置，WorkBuddy 生成 MCP + Skill Connector 包，其他客户端生成通用提示词。详见 [AI 办公平台接入](AI-WORKBENCH-SETUP.md) 和[工作台接入合同](AGENT-WORKBENCH-INTEGRATION.md)。MCP 新会话先调用 `pengmanager_agent_guide {}`，CLI 对应用 `node scripts/agent.mjs guide`；返回当前 checkout 的完整必读文档、SHA-256、绝对入口与同一私有目录。Agent 须读完整正文，再执行用户在对话中交代的任务。指南返回不代表已获得权限或完成生产。
+Codex、Qoder、QoderWork、WorkBuddy 等平台的接入可用 `node scripts/ai-workbench.mjs bootstrap --client all`：Codex/Qoder 写入项目本地 MCP 配置，QoderWork 生成可导入 MCP JSON/技能/人设包，WorkBuddy 生成 MCP + Skill Connector 包，其他客户端生成通用提示词与人设参考。详见 [AI 办公平台接入](AI-WORKBENCH-SETUP.md) 和[工作台接入合同](AGENT-WORKBENCH-INTEGRATION.md)。MCP 新会话先调用 `pengmanager_agent_guide {}`，CLI 对应用 `node scripts/agent.mjs guide`；返回当前 checkout 的完整必读文档、人设合同、SHA-256、绝对入口与同一私有目录。Agent 须读完整正文，再执行用户在对话中交代的任务。指南返回不代表已获得权限或完成生产。
 
-收到文章、图文、纯视觉或视频请求时，先调用 MCP `yaoayi_workbench_intent`，或运行 `node scripts/agent.mjs plan --input-file -`。它复用现有创作总控路由并返回任务 DAG；HTTP 客户端可用 `GET /api/workbench/manifest` 和 `POST /api/workbench/plan`。规划只读，不建立 Job、不花模型费、不渲染、不审批、不发布。
+收到文章、图文、纯视觉或视频请求时，先调用 MCP `yaoayi_workbench_intent`，或运行 `node scripts/agent.mjs plan --input-file -`。它复用现有创作总控路由并返回人设合同与任务 DAG；HTTP 客户端可用 `GET /api/workbench/manifest` 和 `POST /api/workbench/plan`。规划只读，不建立 Job、不花模型费、不渲染、不审批、不发布。
+
+人设不是客户端可覆盖的“写作风格”。创作总控的大纲、分节、修复、审核和视觉规划统一前置人设提示词；确定性检查会拦截主播腔、虚假助农、绝对化产品宣传等禁区，并检查默认第一人称。工作台在系统外自行代写的文字不能被登记为姚阿姨系统产物。
 
 先做无需秘密的公网检查：
 
@@ -465,6 +467,8 @@ CLI 输出状态和非正文元数据，逐项检查 `saved`、`already_saved`�
 | `413 BODY_TOO_LARGE` | 请求体超限；缩减真实请求，不通过分拆凭据或绕过代理来继续 |
 | `400 CREDENTIALS_NOT_ALLOWED`／`INVALID_PUBLIC_URL` | 去掉凭据与不安全 URL，不改编码绕过检查 |
 | `401 AUTH_REQUIRED` | 未登录／会话过期／令牌无效；经安全渠道检查授权，不打印秘密 |
+| `403 PERSONA_APPROVAL_BLOCKED` | 正文没有通过姚阿姨人设与事实红线检查；读取 `details.findings` 修复语言禁区、第一人称或未经证实的表述 |
+| `409 PERSONA_CONTRACT_CHANGED`／`PERSONA_CONTRACT_UNAVAILABLE` | 人设文档字节与冻结合同不一致或不可读；恢复当前受控人设版本，不能绕过哈希继续生产 |
 | `403 AGENT_SCOPE_DENIED`／`AGENT_OPERATION_SCOPE_DENIED` | 路由不属于 Agent，或动作不是允许接手的已批准普通浏览器任务；交还管理员准备，不提升自己权限 |
 | Host／Origin 检查 `403` | 使用目标 HTTPS origin；不要伪造 forwarded headers、关闭来源检查或在异站网页中硬调私有 API |
 | `404` | 检查 ID、路径和目标实际部署版本；不要猜新 ID／制造本地替代成功 |
@@ -544,6 +548,8 @@ GET  /api/content-director/jobs/:id/publication-status
 
 真实附件先上传并取得 `CDU-…` 与实际 SHA-256，不能在 JSON 里伪造媒体 ID。所有写入要求幂等键；修改冻结快照还要求准确 ETag。受限 Agent bearer 不能调用创作总控。
 
+每个 Job 和冻结结果都记录 `persona` 合同：ID、版本、人设文档 SHA-256 与提示词 SHA-256。persona 版本变化会进入内容哈希，旧审批不能覆盖新的人设快照。
+
 `article.v1` 逐节 checkpoint，最多定点修复两轮；结构、量化事实、URL、敏感资料和最终独立审核分别留证。视觉包同时保留 JSON、SVG、PNG、alt、caption 和哈希。视频统一入口只输出到现有原生 Studio/剪辑执行器的 handoff，不自动付费或批准，也不把计划称为成片。最终 Edition 的物化、内容运营计划、官网发布和外部平台发布是不同状态。
 
 ## 源码导航与证据边界
@@ -552,6 +558,7 @@ GET  /api/content-director/jobs/:id/publication-status
 
 | 主题 | 实现 |
 | --- | --- |
+| 姚阿姨人设合同、提示词哈希、语言禁区和第一人称检查 | [persona.mjs](../src/domain/persona.mjs)、[persona 原文](personas/yao-ayi-yimeng-coffee-courtyard.md) |
 | 跨工作台只读意图规划、任务 DAG 与客户端能力矩阵 | [workbench-intent.mjs](../src/workbench-intent.mjs)、[HTTP 路由](../src/http/server.mjs) |
 | Codex/Qoder 项目配置与 WorkBuddy/通用 Connector 生成 | [ai-workbench-bootstrap.mjs](../src/ai-workbench-bootstrap.mjs)、[CLI](../scripts/ai-workbench.mjs) |
 | HTTP 路由、确认参数、Agent 动作约束 | [src/http/server.mjs](../src/http/server.mjs) |

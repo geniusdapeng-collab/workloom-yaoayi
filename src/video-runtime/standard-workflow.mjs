@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { request } from 'node:http';
 import path from 'node:path';
 import { SCOPE, VideoRuntimeError } from './config.mjs';
+import { YAO_AYI_PERSONA_CONTRACT, YAO_AYI_PERSONA_PROMPT } from '../domain/persona.mjs';
 
 const PLAN_SCHEMA = 'workloom.standard-video-intent/v1';
 const RECEIPT_SCHEMA = 'pengmanager.standard-video-start/v1';
@@ -47,18 +48,35 @@ export function standardVideoIntent(value) {
   if (!Number.isInteger(duration) || duration < 5 || duration > 180 || distinct.length > 0 && !distinct.includes(duration)) {
     fail('STANDARD_VIDEO_DURATION_REQUIRED', '需要用户明确的全片整数秒数（5–180）；有多个秒数时，显式提供原话中的目标全片时长。');
   }
-  const input = { intent: value.intent, route: 'auto', metadata: { brief: { duration } } };
+  const input = {
+    intent: value.intent,
+    route: 'auto',
+    metadata: {
+      brief: {
+        duration,
+        description: YAO_AYI_PERSONA_PROMPT,
+        persona: YAO_AYI_PERSONA_CONTRACT,
+      },
+      persona: YAO_AYI_PERSONA_CONTRACT,
+    },
+  };
   return {
     schemaVersion: PLAN_SCHEMA, productId: 'yaoayi-system', intentSha256: sha256(value.intent),
+    persona: YAO_AYI_PERSONA_CONTRACT,
     requestedDurationSec: duration, startProcedure: 'video.studio.start', input,
     launched: false, productionAuthorized: false, complete: false,
-    gates: ['native-route', 'current-preproduction', 'native-qualification-and-render', 'official-post-and-media-verification'],
+    gates: ['persona-contract', 'native-route', 'current-preproduction', 'native-qualification-and-render', 'official-post-and-media-verification'],
   };
 }
 
 /** Match the already-published receipt key before starting any new owner work. */
 export function legacyStandardVideoJobId(plan) {
-  return sha256(JSON.stringify(plan.input));
+  const legacyInput = {
+    intent: plan.input.intent,
+    route: 'auto',
+    metadata: { brief: { duration: plan.requestedDurationSec } },
+  };
+  return sha256(JSON.stringify(legacyInput));
 }
 
 function receiptPath(config, id) {

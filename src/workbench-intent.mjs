@@ -1,6 +1,7 @@
 import { ApiError } from "./domain/errors.mjs";
 import { hashObject } from "./domain/hash.mjs";
 import { CONTENT_ARTIFACT_KINDS, resolveContentIntent } from "./domain/content-intent.mjs";
+import { YAO_AYI_PERSONA_CONTRACT } from "./domain/persona.mjs";
 
 const ALLOWED_INPUT_KEYS = new Set([
   "intent",
@@ -106,7 +107,7 @@ export const WORKBENCH_INTENT_SCHEMA = Object.freeze({
 export const WORKBENCH_INTENT_DESCRIPTOR = Object.freeze({
   id: "yaoayi.workbench.intent",
   title: "规划姚阿姨系统任务",
-  description: "把 WorkBuddy、Codex、Qoder、千问办公或其他工作台收到的自然语言意图交给现有创作总控路由，返回生产线、任务 DAG、所需输入、审批门和下游入口。只读；不创建 Job、不调用模型、不渲染、不审批、不发布。",
+  description: "把 WorkBuddy、Codex、Qoder、QoderWork、千问办公或其他工作台收到的自然语言意图交给现有创作总控路由，返回姚阿姨人设合同、生产线、任务 DAG、所需输入、审批门和下游入口。只读；不创建 Job、不调用模型、不渲染、不审批、不发布。",
   operation: "read",
   risk: "low",
   dataMode: "unverified",
@@ -137,6 +138,21 @@ function task({ id, title, executor, dependsOn = [], status = "pending", entry =
     requirements,
     completionEvidence,
   };
+}
+
+function personaStage() {
+  return task({
+    id: "persona-bind",
+    title: "绑定姚阿姨人设合同",
+    executor: "yaoayi-persona-guard",
+    dependsOn: ["route"],
+    status: "completed",
+    requirements: [
+      `人设 ${YAO_AYI_PERSONA_CONTRACT.id} v${YAO_AYI_PERSONA_CONTRACT.version}`,
+      "正文、标题、审核与视觉提示词必须使用同一人设快照",
+    ],
+    completionEvidence: `documentSha256=${YAO_AYI_PERSONA_CONTRACT.documentSha256}; promptSha256=${YAO_AYI_PERSONA_CONTRACT.promptSha256}`,
+  });
 }
 
 function publicationRequested(input, intent) {
@@ -177,11 +193,12 @@ function contentDirectorStages(route, claimIds) {
       status: "completed",
       completionEvidence: "routeHash 与当前确定性路由结果一致",
     }),
+    personaStage(),
     task({
       id: "prepare-evidence",
       title: "准备已批准事实、真实素材与任务边界",
       executor: "human-owner",
-      dependsOn: ["route"],
+      dependsOn: ["persona-bind"],
       status: route.missing.length || (route.needs.claims && claimIds.length === 0) ? "needs_input" : "pending",
       requirements: [
         ...route.missing,
@@ -261,7 +278,7 @@ function contentDirectorStages(route, claimIds) {
       requirements: ["规范视觉 JSON、SVG、PNG、alt、caption 与哈希"],
       completionEvidence: "视觉包全部文件、实际渲染结果与可编辑源",
     });
-    stages.splice(3, 0, visual);
+    stages.splice(stages.findIndex((stage) => stage.id === "create-content-job") + 1, 0, visual);
     const review = stages.find((stage) => stage.id === "human-review");
     review.dependsOn = ["produce", "visual-package"];
   }
@@ -277,11 +294,12 @@ function videoStages(route) {
       status: "completed",
       completionEvidence: "routeHash 与当前确定性路由结果一致",
     }),
+    personaStage(),
     task({
       id: "prepare-rights",
       title: "冻结原话、时长、素材权利与费用边界",
       executor: "human-owner",
-      dependsOn: ["route"],
+      dependsOn: ["persona-bind"],
       status: route.missing.length ? "needs_input" : "pending",
       requirements: route.missing,
       completionEvidence: "同一原话、总时长、真实附件、授权、预算和交付规格",
@@ -370,6 +388,11 @@ function publicationStage(dependsOn) {
 function authorizationGates(route, wantsPublication) {
   const gates = [
     {
+      id: "persona-contract",
+      required: true,
+      reason: `所有内容生成、修复和独立审核必须绑定姚阿姨人设 v${YAO_AYI_PERSONA_CONTRACT.version} 与准确提示词哈希。`,
+    },
+    {
       id: "human-content-review",
       required: true,
       reason: "生产者不能给自己的内容盖章；完整快照必须由有权审核者核对。",
@@ -406,6 +429,7 @@ function authorizationGates(route, wantsPublication) {
 
 function clientHandoff(route, claimIds) {
   const common = {
+    persona: YAO_AYI_PERSONA_CONTRACT,
     mcp: {
       tool: "yaoayi_workbench_intent",
       arguments: {
@@ -449,8 +473,20 @@ function clientHandoff(route, claimIds) {
 
 function deliveryContract(route, wantsDelivery, wantsPublication) {
   const expected = VIDEO_KINDS.has(route.artifactKind)
-    ? ["真实成片或当前阶段文件", "项目/任务/预算/模型回执", "交付清单与技术质检", "文件 SHA-256 与实际播放"]
-    : ["完整正文或视觉/媒体包", "已批准快照与审批回执", "不可变 Edition/产物文件", "每个文件的 SHA-256"];
+    ? [
+      "真实成片或当前阶段文件",
+      "人设 ID、版本、文档与提示词 SHA-256",
+      "项目/任务/预算/模型回执",
+      "交付清单与技术质检",
+      "文件 SHA-256 与实际播放",
+    ]
+    : [
+      "完整正文或视觉/媒体包",
+      "人设 ID、版本、文档与提示词 SHA-256",
+      "已批准快照与审批回执",
+      "不可变 Edition/产物文件",
+      "每个文件的 SHA-256",
+    ];
   if (wantsPublication) expected.push("单账号外发授权、平台 URL 与实际回读回执");
   return {
     requested: wantsDelivery || wantsPublication,
@@ -487,6 +523,7 @@ export function planWorkbenchIntent(input = {}) {
       productId: "yaoayi-system",
       status: "needs_input",
       intent,
+      persona: YAO_AYI_PERSONA_CONTRACT,
       route,
       stages: [],
       requiredInputs: uniqueMissing,
@@ -497,7 +534,7 @@ export function planWorkbenchIntent(input = {}) {
       writesPerformed: false,
       providerCallsPerformed: false,
       productionVerified: false,
-      planHash: hashObject({ intent, route, missing: uniqueMissing }),
+      planHash: hashObject({ intent, persona: YAO_AYI_PERSONA_CONTRACT, route, missing: uniqueMissing }),
     };
   }
 
@@ -512,6 +549,7 @@ export function planWorkbenchIntent(input = {}) {
     productId: "yaoayi-system",
     status,
     intent,
+    persona: YAO_AYI_PERSONA_CONTRACT,
     route: { ...route, missing: uniqueMissing },
     claimIds,
     publicationRequested: wantsPublication,
@@ -539,6 +577,7 @@ export function workbenchManifest() {
     schemaVersion: "yaoayi.workbench-manifest/v1",
     productId: "yaoayi-system",
     license: "Apache-2.0",
+    persona: YAO_AYI_PERSONA_CONTRACT,
     protocols: {
       mcp: {
         transports: ["stdio"],
@@ -564,7 +603,7 @@ export function workbenchManifest() {
         automaticBootstrap: true,
         integration: "AGENTS.md + project .codex/config.toml + stdio MCP",
         evidence: "https://learn.chatgpt.com/docs/agent-configuration/agents-md",
-        checkedAt: "2026-11-18",
+        checkedAt: "2026-11-19",
       },
       {
         id: "qoder",
@@ -573,19 +612,29 @@ export function workbenchManifest() {
         integration: "project .qoder/settings.local.json + stdio MCP",
       },
       {
+        id: "qoderwork",
+        status: "mcp-json-supported",
+        automaticBootstrap: "generates a QoderWork JSON/STDIO MCP and skill bundle; import into the desktop client remains a QoderWork action",
+        integration: "custom MCP + Skill + project prompt",
+        evidence: "https://docs.qoder.com/zh/qoderwork/connectors",
+        checkedAt: "2026-11-19",
+        discontinuationDate: "2027-09-05",
+        discontinuationEvidence: "https://www.alibabacloud.com/zh/notice/product_change_feature_discontinuation_announcement_for_qoderwork_86e",
+      },
+      {
         id: "workbuddy",
         status: "connector-package-supported",
         automaticBootstrap: "generated local connector package; platform import/review remains a WorkBuddy gate",
         integration: "MCP + Skill connector",
         evidence: "https://open.workbuddy.cn/docs/connector",
-        checkedAt: "2026-11-18",
+        checkedAt: "2026-11-19",
       },
       {
         id: "qianwen-office",
         status: "generic-fallback",
         automaticBootstrap: false,
-        integration: "copy the generated project instructions if the workbench has local shell/file access; no public native MCP import protocol was verified",
-        checkedAt: "2026-11-18",
+        integration: "copy the generated project instructions and persona reference if the workbench has local shell/file access; no public native MCP import protocol was verified",
+        checkedAt: "2026-11-19",
       },
       {
         id: "generic",

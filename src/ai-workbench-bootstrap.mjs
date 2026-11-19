@@ -4,12 +4,18 @@ import { chmod, copyFile, lstat, mkdir, open, readFile, rename, unlink } from "n
 import path from "node:path";
 import { promisify } from "node:util";
 import { AI_WORKBENCH_SERVER, buildAiWorkbenchConfig } from "./ai-workbench-config.mjs";
+import { YAO_AYI_PERSONA_CONTRACT } from "./domain/persona.mjs";
 
 const execFileAsync = promisify(execFile);
 const CODEX_BEGIN = "# >>> yaoayi-workbench generated section; rerun bootstrap instead of editing this block >>>";
 const CODEX_END = "# <<< yaoayi-workbench generated section <<<";
 const MAX_CONFIG_BYTES = 1024 * 1024;
-const CLIENTS = new Set(["all", "codex", "qoder", "workbuddy", "generic", "qianwen"]);
+const CLIENTS = new Set(["all", "codex", "qoder", "qoderwork", "workbuddy", "generic", "qianwen"]);
+const CLIENT_ALIASES = Object.freeze({
+  "qoder-work": "qoderwork",
+  qorder: "qoderwork",
+  qorderwork: "qoderwork",
+});
 
 function fail(code, message, details) {
   const error = new Error(message);
@@ -141,11 +147,23 @@ async function writeQoderConfig({ config, projectDir, backupRoot }) {
   return { client: "qoder", file, changed: true, backup };
 }
 
-function workBuddySkill(config) {
+function workbenchSkill(config, clientName) {
   return `---
 name: yaoayi-workbench
+display_name: 姚阿姨系统
+display_name_en: Yao Ayi System
 description: Route natural-language office, content, article, visual and video requests through the Yao Ayi System.
-version: 1.0.0
+description_zh: 统一调用姚阿姨系统的意图路由、内容生产、视频、审核、交付与回执。
+description_en: Route Yao Ayi System content, visual and video work through one governed workflow.
+examples_zh:
+  - "写一篇姚阿姨的沂蒙山秋日山货文章并配信息图"
+  - "用姚阿姨系统规划一支 30 秒的咖啡小院短片"
+  - "继续上次的内容任务并核对真实交付回执"
+examples_en:
+  - "Write a Yao Ayi article about Yimeng Mountain autumn produce with an infographic"
+  - "Plan a 30-second Yao Ayi coffee courtyard video"
+  - "Resume the previous content task and verify the real delivery receipt"
+version: 1.1.0
 author: Yao Ayi System contributors
 allowed-tools: yaoayi_workbench_intent, pengmanager_agent_guide, pengmanager_video_workflow, pengmanager_video_preflight
 ---
@@ -154,11 +172,12 @@ allowed-tools: yaoayi_workbench_intent, pengmanager_agent_guide, pengmanager_vid
 
 当用户要求写文章、做图文、做视频、剪辑、口播、继续已有的内容任务或核对交付时：
 
-1. 先调用 \`yaoayi_workbench_intent\`，保留用户完整原话和已提供的约束。
-2. 读取返回的 \`status\`、\`requiredInputs\`、\`stages\`、\`authorizationGates\` 与 \`handoff\`。计划不是完成，不能宣称已建单、已生成或已发布。
-3. 视频任务先调用 \`pengmanager_video_preflight\`；正式生产由同一 checkout 的标准 CLI 执行。
-4. 文章、视觉和混合素材任务需要管理员会话调用创作总控；受限 Agent 不能自行审批。
-5. 每次外发都需要具体账号、完整获准正文/文件快照和本次授权，并在实际平台回读后记录回执。
+1. 先完整读取 \`references/PERSONA.md\`。这是姚阿姨人设 ${YAO_AYI_PERSONA_CONTRACT.id} v${YAO_AYI_PERSONA_CONTRACT.version}，文档 SHA-256 为 \`${YAO_AYI_PERSONA_CONTRACT.documentSha256}\`，不是可选风格参考。
+2. 调用 \`yaoayi_workbench_intent\`，保留用户完整原话和已提供的约束，并核对返回的 \`persona\`、\`status\`、\`requiredInputs\`、\`stages\`、\`authorizationGates\` 与 \`handoff\`。
+3. 文章、图文、视觉和口播文案必须通过现有内容生产链路生成；不得由 ${clientName} 在系统外自行代写后冒充系统产物。服务端使用同一人设提示词并对语言禁区、第一人称和事实红线做确定性检查。
+4. 视频任务先调用 \`pengmanager_video_preflight\`；正式生产由同一 checkout 的标准 CLI 执行。视频脚本文案、标题、字幕和口播同样遵守人设合同。
+5. 文章、视觉和混合素材任务需要管理员会话调用创作总控；受限 Agent 不能自行审批。每次外发都需要具体账号、完整获准正文/文件快照和本次授权，并在实际平台回读后记录回执。
+6. 交付说明必须报告人设 ID、版本、documentSha256、promptSha256、真实 Job/项目、文件 SHA-256、审核、预算、平台 URL 与回读时间。计划不是完成。
 
 当前 checkout：\`${config.rootDir}\`
 
@@ -185,7 +204,10 @@ It follows the public WorkBuddy connector structure documented at:
 The generated MCP uses the local checkout and Node executable recorded in \`mcp.json\`.
 Keep that checkout at the same absolute path. No token or model secret is copied
 into this package. WorkBuddy's own import, review, publish and OAuth/token UI are
-platform gates and are not bypassed by this generator.
+platform gates and are not bypassed by this generator. The bundled
+\`skills/yaoayi-workbench/references/PERSONA.md\` is the enforced Yao Ayi persona
+v${YAO_AYI_PERSONA_CONTRACT.version}; its SHA-256 is
+\`${YAO_AYI_PERSONA_CONTRACT.documentSha256}\`.
 `;
 }
 
@@ -195,15 +217,21 @@ function genericPrompt(config) {
 Use the existing checkout at \`${config.rootDir}\` and the same private video
 directory at \`${config.dataDir}\`.
 
-1. Read the complete \`AGENTS.md\`, \`docs/AI-AGENT-GUIDE.md\` and
-   \`docs/AGENT-WORKBENCH-INTEGRATION.md\`.
-2. Call MCP \`yaoayi_workbench_intent\` if MCP is available. Otherwise run
+1. Read the complete \`AGENTS.md\`, \`docs/AI-AGENT-GUIDE.md\`,
+   \`docs/AGENT-WORKBENCH-INTEGRATION.md\` and
+   \`${YAO_AYI_PERSONA_CONTRACT.canonicalDocument}\`.
+2. Verify the persona document SHA-256 is
+   \`${YAO_AYI_PERSONA_CONTRACT.documentSha256}\`.
+3. Call MCP \`yaoayi_workbench_intent\` if MCP is available. Otherwise run
    \`node scripts/agent.mjs plan --input-file -\`.
-3. Preserve the user's original intent. Follow the returned task graph, required
+4. Preserve the user's original intent. Follow the returned \`persona\`, task graph, required
    inputs, administrator/owner gates and delivery evidence.
-4. Video production uses \`scripts/video-standard.mjs\` in this checkout.
-5. Content Director jobs require a real administrator session. Publication is a
+5. Video production uses \`scripts/video-standard.mjs\` in this checkout. Copy,
+   titles, captions and narration remain bound to the same persona.
+6. Content Director jobs require a real administrator session. Publication is a
    separate single-target authorization followed by actual platform readback.
+7. Never draft content outside the governed production path and then claim it
+   came from Yao Ayi System.
 
 Returning a route, plan, HTTP 200, draft, preview or running state is not a
 completed business task.
@@ -213,7 +241,7 @@ completed business task.
 function qianwenPrompt(config) {
   return `# 千问办公接入说明
 
-截至 2026-11-18，未检索到“千问办公”公开、可核实的本地 MCP/Connector 导入协议。
+截至 2026-11-19，未检索到“千问办公”公开、可核实的本地 MCP/Connector 导入协议。
 因此本文件只提供可复制的工作台提示词，不声称会自动写入未知客户端配置。
 
 如果当前工作台具备本地文件/终端能力，请先克隆并保留以下 checkout：
@@ -223,11 +251,14 @@ function qianwenPrompt(config) {
 启动指令：
 
 \`\`\`text
-先完整读取 AGENTS.md、docs/AI-AGENT-GUIDE.md 和 docs/AGENT-WORKBENCH-INTEGRATION.md。
+先完整读取 AGENTS.md、docs/AI-AGENT-GUIDE.md、docs/AGENT-WORKBENCH-INTEGRATION.md
+和人设文件 ${YAO_AYI_PERSONA_CONTRACT.canonicalDocument}。
+核对人设文档 SHA-256 必须为 ${YAO_AYI_PERSONA_CONTRACT.documentSha256}。
 凡涉及文章、图文、视频、剪辑、口播或交付，先运行：
 node scripts/agent.mjs plan --input-file -
 把用户原话作为 {"intent":"原话"} 输入。
-严格按返回的任务图执行；计划、HTTP 200、草稿和运行中都不是完成。
+严格按返回的 persona 与任务图执行；不得在系统外自行代写后冒充姚阿姨系统产物。
+计划、HTTP 200、草稿和运行中都不是完成。
 需要管理员建单、审批、付费、平台登录或外发时停在相应人工门，不得代批。
 若工作台没有本地文件和终端能力，只能使用 GET /api/workbench/manifest 与
 POST /api/workbench/plan 做只读规划，实际生产交给持有同一 checkout 的本机 Agent。
@@ -236,6 +267,43 @@ POST /api/workbench/plan 做只读规划，实际生产交给持有同一 checko
 如果后续千问办公公开官方 MCP/Connector 文档，再增加经过核实的原生适配器；
 在此之前不要伪造客户端菜单路径、导入步骤或自动配置结果。
 `;
+}
+
+function qoderWorkPrompt(config) {
+  return `# QoderWork 接入说明
+
+QoderWork 官方文档说明可在“扩展 → 连接器”中粘贴 JSON 或手动添加 STDIO MCP。
+本目录提供可直接导入的 \`mcp.json\`、技能和完整人设参考。
+
+1. 将 \`mcp.json\` 中的 \`yaoayi-video\` 配置导入 QoderWork；只导入这一项。
+2. 将 \`skills/yaoayi-workbench\` 作为技能资料安装或引用。
+3. 新开对话，让 QoderWork 完整读取 \`skills/yaoayi-workbench/SKILL.md\` 与
+   \`skills/yaoayi-workbench/references/PERSONA.md\`。
+4. 核对人设合同：${YAO_AYI_PERSONA_CONTRACT.id} v${YAO_AYI_PERSONA_CONTRACT.version}，
+   documentSha256=${YAO_AYI_PERSONA_CONTRACT.documentSha256}，
+   promptSha256=${YAO_AYI_PERSONA_CONTRACT.promptSha256}。
+5. 用户内容任务先调用 MCP \`yaoayi_workbench_intent\`，再按返回的任务图执行。
+6. QoderWork 的本地文件、浏览器或连接器都只是执行入口，不能替代姚阿姨系统的
+   人设、事实、审批、预算和回执。
+
+官方依据：
+- https://docs.qoder.com/zh/qoderwork/connectors
+- https://docs.qoder.com/zh/qoderwork/introduction
+
+阿里云公告已列出 QoderWork 于 2027-09-05 下线；在下线前仍按官方文档支持 JSON/STDIO MCP。
+
+当前 checkout：\`${config.rootDir}\`
+
+私有视频目录：\`${config.dataDir}\`
+`;
+}
+async function readPersonaReference(config) {
+  const file = path.join(config.rootDir, YAO_AYI_PERSONA_CONTRACT.canonicalDocument);
+  const bytes = await readFile(file);
+  if (sha256(bytes) !== YAO_AYI_PERSONA_CONTRACT.documentSha256) {
+    fail("PERSONA_CONTRACT_CHANGED", "Canonical Yao Ayi persona bytes do not match the enforced persona contract.");
+  }
+  return bytes;
 }
 
 async function writeFileRecord(root, relative, bytes) {
@@ -247,6 +315,7 @@ async function writeFileRecord(root, relative, bytes) {
 async function packageWorkBuddy({ config, outputRoot }) {
   const directory = path.join(outputRoot, "workbuddy");
   await mkdir(path.join(directory, "skills", "yaoayi-workbench"), { recursive: true, mode: 0o700 });
+  const persona = await readPersonaReference(config);
   const meta = {
     name: "Yao Ayi System",
     name_zh: "姚阿姨系统",
@@ -256,7 +325,7 @@ async function packageWorkBuddy({ config, outputRoot }) {
     description_en: "Connect WorkBuddy to Yao Ayi System content, visual and video workflows with explicit approval and delivery evidence.",
     source: "yaoayi-system",
     type: "mcp",
-    version: "1.0.0",
+    version: "1.1.0",
     minWorkbuddyVersion: "4.22.15",
     examples_zh: [
       "为姚阿姨写一篇关于沂蒙山秋日山货的文章并准备配图",
@@ -284,17 +353,19 @@ async function packageWorkBuddy({ config, outputRoot }) {
   const records = [];
   records.push(await writeFileRecord(directory, "connector-meta.json", `${JSON.stringify(meta, null, 2)}\n`));
   records.push(await writeFileRecord(directory, "mcp.json", `${JSON.stringify(mcp, null, 2)}\n`));
-  records.push(await writeFileRecord(directory, path.join("skills", "yaoayi-workbench", "SKILL.md"), workBuddySkill(config)));
+  records.push(await writeFileRecord(directory, path.join("skills", "yaoayi-workbench", "SKILL.md"), workbenchSkill(config, "WorkBuddy")));
+  records.push(await writeFileRecord(directory, path.join("skills", "yaoayi-workbench", "references", "PERSONA.md"), persona));
   records.push(await writeFileRecord(directory, "README.md", workBuddyReadme()));
   const iconSource = path.join(config.rootDir, "public", "favicon.svg");
   const icon = await readFile(iconSource);
   records.push(await writeFileRecord(directory, "icon.svg", icon));
   const manifest = {
-    schemaVersion: "yaoayi.workbuddy-connector/v1",
+    schemaVersion: "yaoayi.workbuddy-connector/v2",
     generatedAt: new Date().toISOString(),
     productId: "yaoayi-system",
     rootDir: config.rootDir,
     dataDir: config.dataDir,
+    persona: YAO_AYI_PERSONA_CONTRACT,
     files: records.sort((a, b) => a.path.localeCompare(b.path)),
     secretsCopied: false,
     providerCallsPerformed: false,
@@ -314,27 +385,65 @@ async function packageWorkBuddy({ config, outputRoot }) {
   return { client: "workbuddy", directory, zipFile: zipCreated ? zipFile : null, zipCreated, files: records, secretsCopied: false };
 }
 
+async function packageQoderWork({ config, outputRoot }) {
+  const directory = path.join(outputRoot, "qoderwork");
+  const skillDirectory = path.join(directory, "skills", "yaoayi-workbench");
+  await mkdir(path.join(skillDirectory, "references"), { recursive: true, mode: 0o700 });
+  const persona = await readPersonaReference(config);
+  const server = config.genericConfig.mcpServers[AI_WORKBENCH_SERVER];
+  const mcp = {
+    mcpServers: {
+      [AI_WORKBENCH_SERVER]: {
+        type: "stdio",
+        ...server,
+      },
+    },
+  };
+  const status = {
+    schemaVersion: "yaoayi.qoderwork-integration/v1",
+    generatedAt: new Date().toISOString(),
+    protocol: "custom MCP JSON or manual STDIO import",
+    officialDocumentation: "https://docs.qoder.com/zh/qoderwork/connectors",
+    productDiscontinuationDate: "2027-09-05",
+    productDiscontinuationSource: "https://www.alibabacloud.com/zh/notice/product_change_feature_discontinuation_announcement_for_qoderwork_86e",
+    persona: YAO_AYI_PERSONA_CONTRACT,
+    secretsCopied: false,
+  };
+  const files = [];
+  files.push(await writeFileRecord(directory, "mcp.json", `${JSON.stringify(mcp, null, 2)}\n`));
+  files.push(await writeFileRecord(directory, path.join("skills", "yaoayi-workbench", "SKILL.md"), workbenchSkill(config, "QoderWork")));
+  files.push(await writeFileRecord(directory, path.join("skills", "yaoayi-workbench", "references", "PERSONA.md"), persona));
+  files.push(await writeFileRecord(directory, "AGENT-PROMPT.md", qoderWorkPrompt(config)));
+  files.push(await writeFileRecord(directory, "STATUS.json", `${JSON.stringify(status, null, 2)}\n`));
+  return { client: "qoderwork", directory, files, importMode: "manual-mcp-json", secretsCopied: false };
+}
+
 async function packageGeneric({ config, outputRoot }) {
   const directory = path.join(outputRoot, "generic");
   await mkdir(directory, { recursive: true, mode: 0o700 });
+  const persona = await readPersonaReference(config);
   const files = [];
   files.push(await writeFileRecord(directory, "mcp.json", `${JSON.stringify(config.genericConfig, null, 2)}\n`));
   files.push(await writeFileRecord(directory, "AGENT-PROMPT.md", genericPrompt(config)));
-  return { client: "generic", directory, files, secretsCopied: false };
+  files.push(await writeFileRecord(directory, "PERSONA.md", persona));
+  return { client: "generic", directory, files, persona: YAO_AYI_PERSONA_CONTRACT, secretsCopied: false };
 }
 
 async function packageQianwen({ config, outputRoot }) {
   const directory = path.join(outputRoot, "qianwen");
   await mkdir(directory, { recursive: true, mode: 0o700 });
+  const persona = await readPersonaReference(config);
   const files = [];
   files.push(await writeFileRecord(directory, "AGENT-PROMPT.md", qianwenPrompt(config)));
-  files.push(await writeFileRecord(directory, "STATUS.md", "# Protocol status\n\nNo public native MCP/Connector import protocol was verified on 2026-11-18. This bundle is a generic shell/file fallback, not a claimed native integration.\n"));
-  return { client: "qianwen", directory, files, nativeImportVerified: false, secretsCopied: false };
+  files.push(await writeFileRecord(directory, "PERSONA.md", persona));
+  files.push(await writeFileRecord(directory, "STATUS.md", "# Protocol status\n\nNo public native MCP/Connector import protocol was verified on 2026-11-19. This bundle is a generic shell/file fallback, not a claimed native integration. The bundled PERSONA.md is required for any content task.\n"));
+  return { client: "qianwen", directory, files, nativeImportVerified: false, persona: YAO_AYI_PERSONA_CONTRACT, secretsCopied: false };
 }
 
 export function parseBootstrapClient(value = "all") {
-  if (!CLIENTS.has(value)) fail("WORKBENCH_CLIENT_INVALID", "Use all, codex, qoder, workbuddy, generic or qianwen.");
-  return value;
+  const canonical = CLIENT_ALIASES[value] ?? value;
+  if (!CLIENTS.has(canonical)) fail("WORKBENCH_CLIENT_INVALID", "Use all, codex, qoder, qoderwork, workbuddy, generic or qianwen.");
+  return canonical;
 }
 
 export async function bootstrapAiWorkbench({
@@ -351,11 +460,12 @@ export async function bootstrapAiWorkbench({
   const project = projectDir ?? config.rootDir;
   const output = outputRoot ?? path.join(project, "var", "workbench");
   const backupRoot = path.join(output, "backups");
-  const clients = selected === "all" ? ["codex", "qoder", "workbuddy", "generic", "qianwen"] : [selected];
+  const clients = selected === "all" ? ["codex", "qoder", "qoderwork", "workbuddy", "generic", "qianwen"] : [selected];
   const results = [];
   for (const item of clients) {
     if (item === "codex") results.push(await writeCodexConfig({ config, projectDir: project, backupRoot }));
     else if (item === "qoder") results.push(await writeQoderConfig({ config, projectDir: project, backupRoot }));
+    else if (item === "qoderwork") results.push(await packageQoderWork({ config, outputRoot: output }));
     else if (item === "workbuddy") results.push(await packageWorkBuddy({ config, outputRoot: output }));
     else if (item === "generic") results.push(await packageGeneric({ config, outputRoot: output }));
     else if (item === "qianwen") results.push(await packageQianwen({ config, outputRoot: output }));
@@ -365,6 +475,7 @@ export async function bootstrapAiWorkbench({
     productId: "yaoayi-system",
     rootDir: config.rootDir,
     dataDir: config.dataDir,
+    persona: YAO_AYI_PERSONA_CONTRACT,
     outputRoot: output,
     results,
     networkCallsPerformed: false,

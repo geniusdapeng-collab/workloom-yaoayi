@@ -25,7 +25,7 @@ const RECEIPT = {
 };
 
 const paragraph = (topic, key, part) =>
-  `${part}。这是「${topic}」在 ${key} 场景中的完整说明，需要交代问题、权限、执行、失败恢复、人工责任和真实回执，不能只给抽象结论。第 ${key} 段还必须解释取舍、限制和不能自动化的边界，确保读者能够复核判断。`;
+  `${part}。我看，这是「${topic}」在 ${key} 场景中的完整说明，需要交代问题、权限、执行、失败恢复、人工责任和真实回执，不能只给抽象结论。第 ${key} 段还必须解释取舍、限制和不能自动化的边界，确保读者能够复核判断。`;
 
 class AdvancedModel {
   constructor(options = {}) {

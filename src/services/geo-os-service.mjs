@@ -12,6 +12,11 @@ import {
 import { transitionContent } from "../domain/state-machine.mjs";
 import { verifyEventChain } from "../storage/json-store.mjs";
 import { MAIN_PROFILE, SYSTEM_IDENTITY } from "../domain/identity.mjs";
+import {
+  YAO_AYI_PERSONA_CONTRACT,
+  isYaoAyiPersonaContract,
+  personaFindings,
+} from "../domain/persona.mjs";
 import { requirePublicUrl } from "../domain/public-url.mjs";
 import { isFinalContent } from "../../public/final-backup-format.js";
 import { EDITORIAL_SCHEMA, EDITORIAL_NATIVE_SCHEMA, isEditorialVariantSchema, EDITORIAL_PUBLICATION_AUTHORIZATION, validateEditorialVariant } from "../domain/editorial.mjs";
@@ -223,7 +228,7 @@ export class GeoOsService {
       {
         type: "content.created",
         actor,
-        payload: { title, contentType, claimIds, platforms },
+        payload: { title, contentType, claimIds, platforms, persona: YAO_AYI_PERSONA_CONTRACT },
       },
       (state) => {
         const knownClaims = new Set(state.claims.map((claim) => claim.id));
@@ -253,6 +258,7 @@ export class GeoOsService {
           platforms,
           owner: actor,
           opinion,
+          persona: YAO_AYI_PERSONA_CONTRACT,
           visibility: "private",
           createdAt: at,
           updatedAt: at,
@@ -288,6 +294,17 @@ export class GeoOsService {
           validateContentForApproval(state.content[index], state.claims, {
             now: this.clock(),
           });
+          const persona = state.content[index].persona;
+          if (persona !== undefined) {
+            if (!isYaoAyiPersonaContract(persona)) {
+              throw new PolicyError("PERSONA_CONTRACT_CHANGED", "内容绑定的人设合同与当前受控版本不一致。", []);
+            }
+            const findings = personaFindings(`${state.content[index].title}\n${state.content[index].body}`, persona)
+              .filter((finding) => ["blocker", "major"].includes(finding.severity));
+            if (findings.length) {
+              throw new PolicyError("PERSONA_APPROVAL_BLOCKED", "内容未通过姚阿姨人设审批检查。", findings);
+            }
+          }
         }
         state.content[index] = transitionContent(
           state.content[index],

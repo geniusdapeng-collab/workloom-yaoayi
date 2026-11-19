@@ -4,6 +4,7 @@ import { basename, dirname, join, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { ApiError } from "../domain/errors.mjs";
 import { hashObject } from "../domain/hash.mjs";
+import { YAO_AYI_PERSONA_CONTRACT } from "../domain/persona.mjs";
 import { requirePublicUrl } from "../domain/public-url.mjs";
 import { CONTENT_ARTIFACT_KINDS, resolveContentIntent } from "../domain/content-intent.mjs";
 import {
@@ -115,8 +116,9 @@ function normalizeFindings(value) {
   });
 }
 
-function articleHash(article) {
+function articleHash(article, persona = YAO_AYI_PERSONA_CONTRACT) {
   return hashObject({
+    persona,
     title: article.title,
     summary: article.summary,
     body: article.body,
@@ -536,6 +538,7 @@ export class ContentDirectorService {
         artifactKind: route.artifactKind,
         pipeline: route.pipeline,
         route,
+        persona: YAO_AYI_PERSONA_CONTRACT,
         input: normalized,
         status: route.missing.length ? "needs_input" : "queued",
         revision: 1,
@@ -631,6 +634,7 @@ export class ContentDirectorService {
           artifactKind: row.route.artifactKind,
           pipeline: row.route.pipeline,
           route: row.route,
+          persona: YAO_AYI_PERSONA_CONTRACT,
           input: row.normalized,
           status: row.route.missing.length ? "needs_input" : "queued",
           revision: 1,
@@ -1092,7 +1096,7 @@ export class ContentDirectorService {
     const expectedResultHash = job.artifactKind === "pure_visual"
       ? job.result.contentHash
       : job.result.article
-        ? articleHash(job.result.article)
+        ? articleHash(job.result.article, job.persona ?? YAO_AYI_PERSONA_CONTRACT)
         : job.result.contentHash;
     if (input.contentHash !== job.result.contentHash || input.contentHash !== expectedResultHash) {
       fail(409, "CONTENT_RESULT_CHANGED", "批准目标不是当前完整内容快照。");
@@ -1214,7 +1218,13 @@ export class ContentDirectorService {
       row.updatedAt = this.clock().toISOString();
       return row;
     });
-    return { jobId: id, story, edition, visualArtifacts: job.result.visuals ?? [] };
+    return {
+      jobId: id,
+      persona: YAO_AYI_PERSONA_CONTRACT,
+      story,
+      edition,
+      visualArtifacts: job.result.visuals ?? [],
+    };
   }
 
   async createContentOpsPlan(id, input, ctx) {
@@ -1238,6 +1248,7 @@ export class ContentDirectorService {
     const packageValue = {
       schema: "pengmanager.content-publish-package/v1",
       jobId: id,
+      persona: YAO_AYI_PERSONA_CONTRACT,
       editionId: job.editorialRef.editionId,
       editionHash: this.editorial.getEdition(job.editorialRef.editionId).snapshotHash,
       plan: generated.plan,
@@ -1301,7 +1312,9 @@ export class ContentDirectorService {
         !job.visualSpecs.some(row => row.id === update.visualId))) {
       fail(400, "CONTENT_VISUAL_UPDATE_INVALID", "视觉更新必须绑定当前图表，最多 4 项。");
     }
-    const sourceHash = job.artifactKind === "article_visual" ? articleHash(job.result.article) : null;
+    const sourceHash = job.artifactKind === "article_visual"
+      ? articleHash(job.result.article, job.persona ?? YAO_AYI_PERSONA_CONTRACT)
+      : null;
     const authorizedClaimIds = job.input.claimIds ?? [];
     const activeById = new Map(job.visualSpecs.map(row => [row.id, row]));
     const nextVisuals = [];
@@ -1359,6 +1372,7 @@ export class ContentDirectorService {
         allowedUrls,
         mustKeep: job.input.mustKeep,
         mustAvoid: job.input.mustAvoid,
+        persona: YAO_AYI_PERSONA_CONTRACT,
       });
       report = await this.#auditArticle(id, {
         phase: "quality.final",
@@ -1373,10 +1387,11 @@ export class ContentDirectorService {
     }
     const blocking = findings.filter(row => ["blocker", "major"].includes(row.severity) && row.status === "open");
     const contentHash = job.artifactKind === "pure_visual"
-      ? hashObject(nextVisuals.map(row => row.specHash))
-      : articleHash(article);
+      ? hashObject({ persona: job.persona ?? YAO_AYI_PERSONA_CONTRACT, visuals: nextVisuals.map(row => row.specHash) })
+      : articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
     const result = {
       ...structuredClone(job.result),
+      persona: YAO_AYI_PERSONA_CONTRACT,
       article,
       visuals: nextVisuals,
       findings,
@@ -1926,8 +1941,9 @@ export class ContentDirectorService {
     let article = buildArticle(sections);
     const assembleKey = hashObject({ outlineHash, sections: sections.map(section => hashObject(section)) });
     step = await this.#beginStep(id, "article.assemble", assembleKey, { sectionCount: sections.length, outlineHash });
-    const assembledArtifact = await this.#writeArtifact(id, `article-${articleHash(article).slice(0, 12)}.md`, article.body, "text/markdown");
-    await this.#finishStep(id, step, { output: { articleHash: articleHash(article), characters: article.body.replace(/\s+/g, "").length }, artifact: assembledArtifact });
+    const assembledHash = articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
+    const assembledArtifact = await this.#writeArtifact(id, `article-${assembledHash.slice(0, 12)}.md`, article.body, "text/markdown");
+    await this.#finishStep(id, step, { output: { articleHash: assembledHash, characters: article.body.replace(/\s+/g, "").length }, artifact: assembledArtifact });
 
     const allowedUrls = [...research.sources.map(row => row.url), ...brief.claims.map(row => row.source).filter(value => /^https?:\/\//i.test(String(value)))];
     let deterministicFindings = deterministicArticleFindings(article, {
@@ -1935,6 +1951,7 @@ export class ContentDirectorService {
       allowedUrls,
       mustKeep: brief.mustKeep,
       mustAvoid: brief.mustAvoid,
+      persona: YAO_AYI_PERSONA_CONTRACT,
     });
     let report = await this.#auditArticle(id, {
       phase: "quality.review",
@@ -1970,6 +1987,7 @@ export class ContentDirectorService {
         allowedUrls,
         mustKeep: brief.mustKeep,
         mustAvoid: brief.mustAvoid,
+        persona: YAO_AYI_PERSONA_CONTRACT,
       });
       report = await this.#auditArticle(id, {
         phase: "quality.review",
@@ -1992,6 +2010,7 @@ export class ContentDirectorService {
       allowedUrls,
       mustKeep: brief.mustKeep,
       mustAvoid: brief.mustAvoid,
+      persona: YAO_AYI_PERSONA_CONTRACT,
     });
     report = await this.#auditArticle(id, {
       phase: "quality.final",
@@ -2005,11 +2024,12 @@ export class ContentDirectorService {
     blocking = report.findings.filter(row => ["blocker", "major"].includes(row.severity));
 
     const findings = report.findings;
-    const contentHash = articleHash(article);
+    const contentHash = articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
     const result = {
       schema: "pengmanager.content-director-result/v1",
       jobId: id,
       artifactKind: job.artifactKind,
+      persona: YAO_AYI_PERSONA_CONTRACT,
       article,
       research,
       outline,
@@ -2099,7 +2119,9 @@ export class ContentDirectorService {
   }
 
   async #auditArticle(id, { phase, article, brief, research, deterministicFindings, visuals = [], repairRound = 0, final = false }) {
-    const contentHash = articleHash(article);
+    const job = this.state().contentDirectorJobs.find(row => row.id === id);
+    if (!job) fail(404, "CONTENT_JOB_NOT_FOUND", "找不到内容 Job。");
+    const contentHash = articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
     const existing = this.state().contentAuditReports.find(report =>
       report.jobId === id && report.phase === phase && report.contentHash === contentHash && (report.repairRound ?? 0) === repairRound);
     if (existing) return existing;
@@ -2199,7 +2221,7 @@ export class ContentDirectorService {
       .filter(Boolean)
       .sort((a, b) => a.index - b.index);
     if (existing.length) return existing;
-    const sourceHash = articleHash(article);
+    const sourceHash = articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
     const planStep = await this.#beginStep(id, "visual.plan", `visuals:${sourceHash}`, { article: sourceHash, brief });
     const result = await this.model.planVisuals({ article, brief, contract: "architecture|flow nodes+edges; chart data; infographic items" });
     const plan = normalizeVisualPlan(result.value, { articleHash: sourceHash, authorizedClaimIds: brief.claimIds });
@@ -2291,6 +2313,7 @@ export class ContentDirectorService {
       schema: "pengmanager.content-director-result/v1",
       jobId: id,
       artifactKind: "pure_visual",
+      persona: YAO_AYI_PERSONA_CONTRACT,
       article: {
         title: plan.visuals[0]?.title ?? "视觉内容",
         summary: "",
@@ -2302,7 +2325,10 @@ export class ContentDirectorService {
       },
       findings: [],
       visuals,
-      contentHash: hashObject(visuals.map(row => ({ specHash: row.specHash, sourceHash: row.sourceHash }))),
+      contentHash: hashObject({
+        persona: YAO_AYI_PERSONA_CONTRACT,
+        visuals: visuals.map(row => ({ specHash: row.specHash, sourceHash: row.sourceHash })),
+      }),
       complete: true,
       frozenAt: this.clock().toISOString(),
     };
@@ -2340,6 +2366,7 @@ export class ContentDirectorService {
     const plan = {
       schema: "pengmanager.content-video-plan/v1",
       artifactKind: job.artifactKind,
+      persona: YAO_AYI_PERSONA_CONTRACT,
       durationSec: job.input.durationSec,
       platforms: job.input.platforms,
       route: job.route.videoSubroute ?? job.artifactKind.replace(/^video_/, ""),
@@ -2366,11 +2393,12 @@ export class ContentDirectorService {
       schema: "pengmanager.content-director-result/v1",
       jobId: id,
       artifactKind: job.artifactKind,
+      persona: YAO_AYI_PERSONA_CONTRACT,
       article: null,
       videoPlan: plan,
       findings: [],
       visuals: [],
-      contentHash: hashObject(plan),
+      contentHash: hashObject({ persona: YAO_AYI_PERSONA_CONTRACT, plan }),
       complete: false,
       frozenAt: this.clock().toISOString(),
     };

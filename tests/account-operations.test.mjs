@@ -38,7 +38,7 @@ async function withServices(callback) {
 async function scheduled(service) {
   await service.approveClaim("C003", { approvedBy: "姚阿姨", publicLevel: "private" });
   const content = await service.createContent({
-    title: "单元测试中的运营草稿", body: "这段内容只验证运营动作的审批、回执和持久化，不是线上发布。",
+    title: "单元测试中的运营草稿", body: "我看这段内容只验证运营动作的审批、回执和持久化，不是线上发布。",
     claimIds: ["C003"], platforms: ["GitHub"], owner: "unit-test operator",
   });
   for (const target of ["fact_check", "approved", "scheduled"]) {
@@ -156,7 +156,7 @@ test("publication approval cannot bypass content scheduling and Claim expiry is 
     assert.equal(operations.list()[0].status, "in_progress");
   });
   await withServices(async ({ service, operations }) => {
-    const content = await service.createContent({ title: "观点", body: "个人观点用于单测。", opinion: true, platforms: ["GitHub"] });
+    const content = await service.createContent({ title: "观点", body: "我认为个人观点用于单测。", opinion: true, platforms: ["GitHub"] });
     const row = await operations.create({ accountId: "github", type: "publish", contentId: content.id, actor: "operator" });
     await assert.rejects(operations.approve(row.id, { approvedBy: "姚阿姨", authorizationNote: "批准发布。" }), (error) => error.code === "PUBLICATION_BLOCKED" && error.details.findings.some((item) => item.code === "CONTENT_NOT_SCHEDULED"));
   });

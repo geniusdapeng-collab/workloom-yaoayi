@@ -41,13 +41,17 @@ test('guide contains complete current documents and exact byte hashes without ru
   assert.equal(guide.support.pureMcpProductionSupported, false);
   assert.equal(guide.providerCallsPerformed, false);
   assert.equal(guide.productionVerified, false);
-  assert.equal(guide.documents.length, 7);
+  assert.equal(guide.documents.length, 8);
   for (const doc of guide.documents) {
     const bytes = await readFile(path.join(root, doc.path));
     assert.equal(doc.markdown, new TextDecoder('utf-8', { fatal: true }).decode(bytes));
     assert.equal(doc.sha256, createHash('sha256').update(bytes).digest('hex'));
     assert.equal(doc.bytes, bytes.length);
   }
+  assert.equal(guide.persona.id, "yao_ayi_yimeng_coffee_courtyard");
+  assert.equal(guide.persona.version, "1.0.1");
+  assert.equal(guide.persona.document.sha256, guide.persona.documentSha256);
+  assert.equal(guide.persona.document.path, "docs/personas/yao-ayi-yimeng-coffee-courtyard.md");
   assert.deepEqual(guide.cli.standardVideo.argsPrefix, [path.join(root, 'scripts/video-standard.mjs')]);
   assert.deepEqual(guide.cli.standardVideo.dataArgs, ['--data-dir', dataDir]);
   await assert.rejects(access(dataDir), { code: 'ENOENT' });

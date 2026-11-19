@@ -1,4 +1,4 @@
-# 在 Codex、WorkBuddy、Qoder 和其他 AI 工作台中使用姚阿姨系统
+# 在 Codex、WorkBuddy、Qoder、QoderWork 和其他 AI 工作台中使用姚阿姨系统
 
 本指南面向在自己电脑上使用 Codex 或 Qoder 的姚阿姨系统 owner。用户说明目标、素材和交付要求，Agent 负责找到当前入口、检查权限与工位、执行命令并读回结果。已获得的同一任务授权继续有效，缺少必要输入或实际审批时按对应业务规则处理。
 
@@ -13,15 +13,17 @@ node scripts/ai-workbench.mjs bootstrap --client all
 ```
 
 `codex` 会以原子方式合并受 Git 忽略的项目 `.codex/config.toml`；`qoder`
-会合并 `.qoder/settings.local.json`；`workbuddy` 会生成 MCP + Skill
-Connector 包及 zip；`generic` 和 `qianwen` 会生成可复制的项目提示词。
+会合并 `.qoder/settings.local.json`；`qoderwork` 会生成可导入的 MCP JSON、
+技能与完整人设参考；`workbuddy` 会生成 MCP + Skill Connector 包及 zip；
+`generic` 和 `qianwen` 会生成人设参考与可复制的项目提示词。
 旧配置先备份到 `var/workbench/backups/`，生成结果不复制模型密钥、GitHub
 Token、Cookie 或平台密码。Codex 写入后需要新建会话，让宿主重新发现 MCP。
 
 只生成某一种客户端时，把 `--client all` 改为 `codex`、`qoder`、
-`workbuddy`、`generic` 或 `qianwen`。WorkBuddy 的开发者认证、Connector
-导入/审核/发布是平台门，不属于本仓库自动写配置；千问办公在
-2026-11-18 未检索到公开原生 MCP/Connector 导入协议，因此只生成通用降级提示词。
+`qoderwork`、`workbuddy`、`generic` 或 `qianwen`。WorkBuddy 的开发者认证、
+Connector 导入/审核/发布是平台门；QoderWork 需要在“扩展 → 连接器”中手动
+导入生成的 JSON；千问办公在 2026-11-19 未检索到公开原生
+MCP/Connector 导入协议，因此只生成通用降级提示词。
 完整证据和能力矩阵见[AI 工作台接入与任务交付](AGENT-WORKBENCH-INTEGRATION.md)。
 
 接入后的统一规划入口是 MCP `yaoayi_workbench_intent`，CLI 对应用：
@@ -31,14 +33,20 @@ printf '%s\n' '{"intent":"围绕姚阿姨的沂蒙山秋日山货写一篇图文
   node scripts/agent.mjs plan --input-file -
 ```
 
-它复用现有创作总控路由，返回生产线、任务 DAG、所需输入、审批门和下游
-入口。它不创建 Job、不调用模型、不渲染、不审批、不发布。
+它复用现有创作总控路由，返回绑定后的姚阿姨人设合同、生产线、任务 DAG、
+所需输入、审批门和下游入口。它不创建 Job、不调用模型、不渲染、不审批、不发布。
+
+所有客户端必须完整读取 `docs/personas/yao-ayi-yimeng-coffee-courtyard.md`，
+并核对 `persona.documentSha256` 与 `persona.promptSha256`。服务端创作总控会在
+大纲、分节、修复、审核和视觉规划阶段强制注入同一人设；正文语言禁区与第一人称
+缺失还会进入确定性检查，不依赖客户端模型自觉。
 
 ## 已有入口与本次补齐
 
 | 项目 | 当前实现与使用方式 |
 | --- | --- |
 | 统一意图规划 | `yaoayi_workbench_intent` / `node scripts/agent.mjs plan` 复用 `resolveContentIntent`，把外部工作台意图转成现有生产线的可审核任务图。 |
+| 人设强约束 | 人设 v1.0.1 同时进入指南、意图计划、创作总控提示词、独立审核、确定性检查和交付清单。 |
 | CLI 与 stdio MCP | 两者复用同一登记目录和原生权限。`scripts/agent.mjs` 提供发现、规划与调用，`scripts/agent-mcp.mjs` 提供 MCP。 |
 | 视频生产 | `scripts/video-standard.mjs` 已提供 `plan`、`start`、`status`、`resume`、`deliver`，沿用 owner 授权、原生审批、预算和项目回执。 |
 | 接入指南发现 | `pengmanager_agent_guide` 返回当前 checkout 的完整指南、文件 SHA-256、绝对路径和实际支持范围。MCP 初始化指引要求先读取它。 |
@@ -105,6 +113,24 @@ node scripts/ai-workbench.mjs config --client codex \
 仓库提供的 `.qoder/agents/pengmanager.md` 是项目级自定义 Agent。它关联名为 `yaoayi-video` 的 MCP，允许 `Read`、`Grep`、`Glob`、`Bash`，模型沿用当前会话。用户可在对话中说明姚阿姨系统任务，或使用 `/pengmanager` 选择该 Agent。实际是否自动选中取决于宿主的 Agent 加载和调度结果。 [Qoder Custom Agent 官方说明](https://docs.qoder.com/extensions/subagent)
 
 `--client generic` 提供相同启动信息的通用 JSON，其他 stdio 客户端按自己的配置结构接入。远端宿主需要能在持有该私有运行时的受控主机上启动对应进程。
+
+## QoderWork 接入
+
+```sh
+node scripts/ai-workbench.mjs bootstrap --client qoderwork
+```
+
+生成的 `var/workbench/qoderwork/` 包含：
+
+- `mcp.json`：按 QoderWork 官方文档可粘贴 JSON 或手动 STDIO 配置；
+- `skills/yaoayi-workbench/SKILL.md`：统一调用步骤；
+- `skills/yaoayi-workbench/references/PERSONA.md`：与仓库相同字节的人设 v1.0.1；
+- `AGENT-PROMPT.md`：人设、路由、生产、交付和人工门说明。
+
+在 QoderWork 的“扩展 → 连接器”中添加自定义 MCP，并把技能目录安装或引用到工作区。
+导入后新开对话，确认工具列表里能看到 `yaoayi_workbench_intent` 和
+`pengmanager_video_preflight`。QoderWork 官方公告将于 2027-09-05 下线，
+下线后使用 Qoder、Codex、WorkBuddy 或通用 CLI/HTTP 入口。
 
 ## 首次连接与每次更新后的检查
 
