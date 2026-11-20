@@ -1,8 +1,18 @@
+import { isDeepStrictEqual } from "node:util";
 import { ApiError } from "../domain/errors.mjs";
 import {
   YAO_AYI_PERSONA_CONTRACT,
   withYaoAyiPersonaPrompt,
 } from "../domain/persona.mjs";
+
+export const PERSONA_ENFORCED_SCENES = Object.freeze(new Set([
+  "content.outline",
+  "content.section",
+  "content.repair",
+  "content.audit",
+  "quality.final",
+  "visual.plan",
+]));
 
 const AUDIT_SEVERITIES = ["blocker", "major", "minor", "suggestion"];
 const AUDIT_DIMENSIONS = ["facts", "structure", "expression", "policy", "technical", "disclosure"];
@@ -13,12 +23,16 @@ const AUDIT_CONTRACT = [
   "allowedChanges must always be an array. For every actionable blocker/major in preflight review, include a section key, section:N or paragraph:N scope.",
 ].join(" ");
 
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function assertAuditPayload(value, { final = false } = {}) {
-  if (!value || typeof value !== "object" || Array.isArray(value) || !Array.isArray(value.findings)) {
+  if (!isRecord(value) || !Array.isArray(value.findings)) {
     throw new Error("Audit response must be an object with a findings array.");
   }
   for (const [index, row] of value.findings.entries()) {
-    if (!row || typeof row !== "object" || Array.isArray(row)) {
+    if (!isRecord(row)) {
       throw new Error(`findings[${index}] must be an object.`);
     }
     if (!AUDIT_SEVERITIES.includes(row.severity)) {
@@ -33,22 +47,41 @@ function assertAuditPayload(value, { final = false } = {}) {
   }
   if (final) {
     const required = ["facts", "structure", "expression", "policy", "technical", "visual"];
-    if (!value.coverage || typeof value.coverage !== "object" || Array.isArray(value.coverage)
-        || required.some(key => !Object.hasOwn(value.coverage, key))) {
+    if (!isRecord(value.coverage)
+      || required.some(key => !Object.hasOwn(value.coverage, key))) {
       throw new Error("Final audit coverage is incomplete.");
     }
   }
-  return value;
 }
 
-export const PERSONA_ENFORCED_SCENES = Object.freeze(new Set([
-  "content.outline",
-  "content.section",
-  "content.repair",
-  "content.audit",
-  "quality.final",
-  "visual.plan",
-]));
+function assertAuditJudgmentsPreserved(previous, corrected) {
+  const originalFindings = isRecord(previous?.findings) ? [previous.findings] : previous?.findings;
+  if (!Array.isArray(originalFindings) || originalFindings.length !== corrected.findings.length) {
+    throw new Error("Audit correction did not preserve the finding count.");
+  }
+  if (previous.assessment != null && previous.assessment !== corrected.assessment) {
+    throw new Error("Audit correction changed the assessment.");
+  }
+  for (const [key, value] of Object.entries(isRecord(previous.coverage) ? previous.coverage : {})) {
+    if (!isDeepStrictEqual(value, corrected.coverage?.[key])) {
+      throw new Error("Audit correction changed existing coverage.");
+    }
+  }
+  for (const [index, original] of originalFindings.entries()) {
+    if (!isRecord(original)) throw new Error(`findings[${index}] has no recoverable judgment.`);
+    const { severity, dimension, allowedChanges, ...judgment } = original;
+    const finding = corrected.findings[index];
+    const previousSeverity = String(severity ?? "").trim().toLowerCase();
+    const previousDimension = String(dimension ?? "").trim().toLowerCase();
+    const previousScope = typeof allowedChanges === "string" ? [allowedChanges] : allowedChanges;
+    if ((AUDIT_SEVERITIES.includes(previousSeverity) && finding.severity !== previousSeverity)
+      || (AUDIT_DIMENSIONS.includes(previousDimension) && finding.dimension !== previousDimension)
+      || (previousScope != null && !isDeepStrictEqual(finding.allowedChanges, previousScope))
+      || Object.entries(judgment).some(([key, value]) => !isDeepStrictEqual(value, finding[key]))) {
+      throw new Error(`findings[${index}] changed the editorial judgment.`);
+    }
+  }
+}
 
 function messages(system, input, { persona = false } = {}) {
   const boundSystem = persona ? withYaoAyiPersonaPrompt(system, YAO_AYI_PERSONA_CONTRACT) : system;
@@ -74,6 +107,49 @@ function receipt(result) {
   };
 }
 
+function rejectedAuditAttempts(modelReceipt) {
+  return [
+    ...modelReceipt.attempts,
+    {
+      type: "audit_schema_rejected",
+      responseId: modelReceipt.responseId,
+      responseHash: modelReceipt.responseHash,
+      usage: modelReceipt.usage,
+    },
+  ];
+}
+
+function isTokenCount(value) {
+  return Number.isSafeInteger(value) && value >= 0;
+}
+
+function hasReconciledAuditResponse(modelReceipt) {
+  const { usage, responseId, responseHash, attempts } = modelReceipt;
+  const input = usage?.inputTokens ?? usage?.prompt_tokens;
+  const output = usage?.outputTokens ?? usage?.completion_tokens;
+  const total = usage?.totalTokens ?? usage?.total_tokens;
+  return Boolean(responseId && responseHash) && !attempts.some(attempt => attempt.unknown === true)
+    && [input, output, total].every(isTokenCount) && total === input + output;
+}
+
+function failedAuditDispatchReceipt(error, priorAttempts) {
+  const { inputTokens, outputTokens } = error.metering ?? {};
+  const usage = isTokenCount(inputTokens) && isTokenCount(outputTokens)
+    ? { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens }
+    : null;
+  const responseId = error.providerRequestId ?? error.usageReceipt?.providerRequestId ?? null;
+  const dispatchedAttempts = error.attempts ?? [];
+  const notRequested = error.unknown === false && !responseId && !dispatchedAttempts.length;
+  return {
+    responseId,
+    responseHash: error.usageReceipt?.sha256 ?? error.responseHash ?? null,
+    usage,
+    attempts: [...priorAttempts, ...dispatchedAttempts],
+    ...(notRequested ? { status: "not_requested" } : {}),
+    unknown: error.unknown === true || (!notRequested && !usage && Boolean(responseId || error.unknown == null)),
+  };
+}
+
 export class ContentDirectorModel {
   constructor({ deepSeek } = {}) {
     if (!deepSeek || typeof deepSeek.completeTask !== "function") {
@@ -93,43 +169,56 @@ export class ContentDirectorModel {
 
   async #auditJson(scene, system, input, { final = false } = {}) {
     const baseMessages = messages(system, input, { persona: PERSONA_ENFORCED_SCENES.has(scene) });
-    let result = await this.deepSeek.completeTask({ scene, messages: baseMessages });
+    const first = await this.#dispatchAudit(scene, baseMessages);
+    let validationError;
     try {
-      assertAuditPayload(result.value, { final });
-      return { value: result.value, receipt: receipt(result) };
-    } catch (firstError) {
-      const rejectedReceipt = receipt(result);
-      result = await this.deepSeek.completeTask({
-        scene,
-        messages: [
-          ...baseMessages,
-          { role: "assistant", content: JSON.stringify(result.value ?? null) },
-          {
-            role: "user",
-            content: [
-              "Correct only the JSON schema and enum formatting of the previous audit response.",
-              "Preserve the editorial judgments, finding meanings, coverage and evidence.",
-              "Do not add, remove, upgrade or downgrade findings.",
-              `Validation error: ${String(firstError.message).slice(0, 500)}`,
-              AUDIT_CONTRACT,
-              "Return the complete corrected JSON object only.",
-            ].join(" "),
-          },
-        ],
-      });
-      assertAuditPayload(result.value, { final });
-      const acceptedReceipt = receipt(result);
-      acceptedReceipt.attempts = [
-        ...(rejectedReceipt.attempts ?? []),
-        {
-          type: "audit_schema_rejected",
-          responseId: rejectedReceipt.responseId,
-          responseHash: rejectedReceipt.responseHash,
-          usage: rejectedReceipt.usage,
-        },
-        ...(acceptedReceipt.attempts ?? []),
-      ];
-      return { value: result.value, receipt: acceptedReceipt };
+      assertAuditPayload(first.value, { final });
+      return { value: first.value, receipt: receipt(first) };
+    } catch (error) {
+      validationError = error.message;
+    }
+
+    const firstReceipt = receipt(first);
+    if (!hasReconciledAuditResponse(firstReceipt)) {
+      const unknown = new ApiError(502, "MODEL_USAGE_MISSING", "首次审核用量未核实，无法进行格式纠错。");
+      unknown.modelReceipt = { ...firstReceipt, unknown: true };
+      throw unknown;
+    }
+    const priorAttempts = rejectedAuditAttempts(firstReceipt);
+    const corrected = await this.#dispatchAudit(scene, [
+      ...baseMessages,
+      { role: "assistant", content: JSON.stringify(first.value ?? null) },
+      {
+        role: "user",
+        content: [
+          "Correct only the JSON schema and enum formatting of the previous audit response.",
+          "Preserve the editorial judgments, assessment, finding count and order, and existing coverage and evidence.",
+          "Keep finding code, location and message unchanged. Do not add, remove, upgrade or downgrade findings.",
+          `Validation error: ${validationError}`,
+          AUDIT_CONTRACT,
+          "Return the complete corrected JSON object only.",
+        ].join(" "),
+      },
+    ], priorAttempts);
+    const correctedReceipt = receipt(corrected);
+    correctedReceipt.attempts = [...priorAttempts, ...correctedReceipt.attempts];
+    try {
+      assertAuditPayload(corrected.value, { final });
+      assertAuditJudgmentsPreserved(first.value, corrected.value);
+    } catch (error) {
+      const invalid = new ApiError(502, "AUDIT_FINDING_INVALID", error.message);
+      invalid.modelReceipt = correctedReceipt;
+      throw invalid;
+    }
+    return { value: corrected.value, receipt: correctedReceipt };
+  }
+
+  async #dispatchAudit(scene, auditMessages, priorAttempts = []) {
+    try {
+      return await this.deepSeek.completeTask({ scene, messages: auditMessages });
+    } catch (error) {
+      error.modelReceipt = failedAuditDispatchReceipt(error, priorAttempts);
+      throw error;
     }
   }
 
