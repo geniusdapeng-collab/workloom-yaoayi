@@ -94,19 +94,21 @@ function claimRows(state, ids) {
 }
 
 function normalizeFindings(value) {
-  if (!Array.isArray(value)) return [];
-  return value.slice(0, 200).map((row, index) => {
+  if (!Array.isArray(value) || value.length > 200) {
+    fail(502, "AUDIT_FINDING_INVALID", "审核 findings 必须为不超过 200 项的数组。");
+  }
+  return value.map((row, index) => {
     if (!row || typeof row !== "object" || Array.isArray(row)) {
       fail(502, "AUDIT_FINDING_INVALID", "审核 finding 无效。", { index });
     }
-    const severity = String(row.severity ?? "").trim().toLowerCase();
+    const severity = typeof row.severity === "string" ? row.severity.trim().toLowerCase() : "";
     if (!["blocker", "major", "minor", "suggestion"].includes(severity)) {
       fail(502, "AUDIT_FINDING_INVALID", "审核 finding 级别无效。", {
         index,
         receivedSeverity: severity.slice(0, 80),
       });
     }
-    const dimension = String(row.dimension ?? "").trim().toLowerCase();
+    const dimension = typeof row.dimension === "string" ? row.dimension.trim().toLowerCase() : "";
     if (!["facts", "structure", "expression", "policy", "technical", "disclosure"].includes(dimension)) {
       fail(502, "AUDIT_FINDING_INVALID", "审核 finding 维度无效。", {
         index,
@@ -120,17 +122,99 @@ function normalizeFindings(value) {
       code: boundedText(String(row.code ?? "REVIEW_FINDING"), "审核 finding code", 120),
       location: boundedText(String(row.location ?? "document"), "审核 finding location", 500),
       message: boundedText(String(row.message ?? ""), "审核 finding message", 5000),
-      allowedChanges: Array.isArray(row.allowedChanges) ? row.allowedChanges.slice(0, 20).map(item => String(item).slice(0, 500)) : [],
+      allowedChanges: Array.isArray(row.allowedChanges)
+        ? row.allowedChanges.slice(0, 20).map(item => String(item).slice(0, 500))
+        : [],
       status: "open",
     };
   });
 }
 
 function isPrematureVisualFinding(row) {
-  const target = `${row.code} ${row.location}`.toUpperCase();
-  const concernsVisual = /VISUAL|VISUALSPEC|IMAGE|CAPTION/.test(target);
-  const onlyMissingOrPending = /MISSING|ABSENT|EMPTY|PENDING|REQUIRED|NOT_GENERATED/.test(target);
-  return concernsVisual && onlyMissingOrPending;
+  if (!["technical", "structure", "disclosure"].includes(row.dimension) || row.allowedChanges?.length) return false;
+  const code = row.code.toUpperCase();
+  const absence = /^(?:MISSING|ABSENT|EMPTY|PENDING|REQUIRED)_(?:VISUALS?|VISUAL_SPEC(?:_REFS?)?|VISUALSPECREFS|IMAGES?|VISUAL_DISCLOSURE|VISUAL_SPEC_AND_DISCLOSURE)$/u.test(code)
+    || /^(?:VISUALS?|VISUAL_SPEC(?:_REFS?)?|VISUALSPECREFS|IMAGES?|VISUAL_DISCLOSURE)_(?:MISSING|ABSENT|EMPTY|PENDING|REQUIRED|NOT_GENERATED)$/u.test(code);
+  if (!absence) return false;
+  // A deferred rendering task does not resolve an existing factual, rights, privacy or readability defect.
+  const integrityIssue = /\b(?:unsupported|unverified|unsubstantiated|unauthori[sz]ed|misleading|unreadable|illegible|fabricat\w*|misrepresent\w*|confidential|private|privacy|copyright|inaccurate|false|incorrect|consent|approval|licen[cs]e|rights?|provenance|source|data|evidence|but|however)\b|不实|失实|虚构|伪造|冒充|误导|未经证实|授权|权利|版权|肖像|隐私|来源|证据|依据|数据错误|数字错误|不可读|无法阅读|辨认|字迹|重叠|溢出|但|然而/iu;
+  return !integrityIssue.test(`${row.location} ${row.message}`);
+}
+
+function aggregateReceiptUsage(modelReceipt) {
+  const rows = [modelReceipt, ...(Array.isArray(modelReceipt?.attempts) ? modelReceipt.attempts : [])];
+  const seenIds = new Set();
+  const meteredIds = new Set(rows.filter(row => row?.usage && row.responseId).map(row => row.responseId));
+  const meteredHashes = new Set(rows.filter(row => row?.usage && row.responseId && row.responseHash).map(row => row.responseHash));
+  const totals = new Map();
+  let responseCount = 0;
+  let incomplete = false;
+  for (const row of rows) {
+    if (row?.unknown === true) incomplete = true;
+    // An explicit client-side HTTP rejection has no accepted model response to count.
+    if (row?.status === "not_requested" || (Number.isInteger(row?.httpStatus) && row.httpStatus >= 400 && row.httpStatus < 500)) continue;
+    const usage = row?.usage;
+    const responseId = row?.responseId ?? row?.providerRequestId;
+    if (!responseId && row?.responseHash && meteredHashes.has(row.responseHash)) continue;
+    if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
+      if (meteredIds.has(responseId)) continue;
+      incomplete = true;
+      continue;
+    }
+    const identity = responseId ? `id:${responseId}` : row.responseHash ? `hash:${row.responseHash}` : null;
+    if (identity && seenIds.has(identity)) continue;
+    if (identity) seenIds.add(identity);
+    const counters = Object.entries(usage).filter(([, amount]) => Number.isSafeInteger(amount) && amount >= 0);
+    const total = usage.totalTokens ?? usage.total_tokens;
+    if (!identity || !Number.isSafeInteger(total) || total < 0) incomplete = true;
+    if (!counters.length) continue;
+    responseCount += 1;
+    for (const [name, amount] of counters) {
+      totals.set(name, (totals.get(name) ?? 0) + amount);
+    }
+  }
+  return { ...Object.fromEntries(totals), responseCount, status: incomplete ? "unknown_usage" : "known_usage" };
+}
+
+function locateRepairSection(finding, outline) {
+  const location = String(finding.location ?? "").trim();
+  const locationKey = outline.sections.findIndex(section => section.key === location);
+  if (locationKey >= 0) return locationKey;
+  const explicit = /\bsection[-:](\d+)\b/iu.exec(location);
+  if (explicit) return Number(explicit[1]);
+
+  for (const text of [location, finding.message ?? ""]) {
+    const matching = outline.sections
+      .map((section, index) => ({ section, index }))
+      .filter(({ section }) => text.includes(section.title)
+        || text.split(/[^A-Za-z0-9_-]+/u).includes(section.key));
+    if (matching.length) return matching.length === 1 ? matching[0].index : -1;
+  }
+  const scopes = [...new Set((finding.allowedChanges ?? []).map(value => {
+    const key = outline.sections.findIndex(section => section.key === value);
+    if (key >= 0) return key;
+    const match = /^section[-:](\d+)$/iu.exec(value);
+    return match ? Number(match[1]) : -1;
+  }).filter(index => index >= 0))];
+  return scopes.length === 1 ? scopes[0] : -1;
+}
+
+function globalLengthSection(finding, sections, outline) {
+  const code = finding.code.toUpperCase();
+  const global = /^(?:全文|body|document)$/iu.test(String(finding.location ?? "").trim());
+  const lengthCode = /^(?:ARTICLE_TOO_(?:SHORT|LONG)|(?:BELOW|ABOVE)_TARGET_LENGTH|TARGET_LENGTH(?:_[A-Z_]+)?)$/u.test(code);
+  if (finding.dimension !== "structure" || !lengthCode && !(global && /字数|篇幅|字符|length/iu.test(finding.message))) return -1;
+  const tooLong = /LONG|ABOVE|OVER/u.test(code) || /过长|超出|超过|too long|above|exceeds/iu.test(finding.message);
+  const ratios = sections.map((section, index) => ({
+    index,
+    ratio: section.body.replace(/\s+/gu, "").length / outline.sections[index].targetCharacters,
+  }));
+  return ratios.sort((a, b) => (tooLong ? b.ratio - a.ratio : a.ratio - b.ratio) || a.index - b.index)[0]?.index ?? -1;
+}
+
+function openArticleBlockers(findings, { preflight = false } = {}) {
+  return findings.filter(row => ["blocker", "major"].includes(row.severity) && row.status === "open"
+    && (!preflight || !isPrematureVisualFinding(row)));
 }
 
 function articleHash(article, persona = YAO_AYI_PERSONA_CONTRACT) {
@@ -1977,46 +2061,26 @@ export class ContentDirectorService {
       research,
       deterministicFindings,
     });
-    let blocking = report.findings.filter(row => ["blocker", "major"].includes(row.severity));
+    let blocking = openArticleBlockers(report.findings, { preflight: true });
     for (let round = 1; round <= 2 && blocking.length; round += 1) {
-      const locateSection = finding => {
-        const explicit = /section[-:](\d+)/i.exec(finding.location ?? "")?.[1];
-        if (explicit !== undefined) {
-          const index = Number(explicit);
-          return Number.isSafeInteger(index) && outline.sections[index] ? index : -1;
-        }
-        const text = `${finding.location ?? ""} ${finding.message ?? ""}`;
-        return outline.sections.findIndex(section =>
-          (section.title && text.includes(section.title)) || (section.key && text.includes(section.key)));
-      };
-
       const assignments = new Map();
       for (const finding of blocking) {
-        let index = locateSection(finding);
-        const globalLocation = /^(全文|body|document)$/i.test(String(finding.location ?? "").trim());
-        const isGlobalLength = /TARGET_LENGTH|ARTICLE_TOO_SHORT|ARTICLE_TOO_LONG/i.test(finding.code)
-          || (globalLocation && finding.dimension === "structure" && /字数|篇幅|字符|length/i.test(finding.message));
-        if (index < 0 && isGlobalLength) {
-          index = sections
-            .map((section, sectionIndex) => ({
-              sectionIndex,
-              ratio: section.body.replace(/\s+/g, "").length
-                / Math.max(1, Number(outline.sections[sectionIndex].targetCharacters) || 1),
-            }))
-            .sort((a, b) => a.ratio - b.ratio)[0]?.sectionIndex ?? -1;
-        }
-        if (index < 0 || !outline.sections[index]) continue;
+        let index = locateRepairSection(finding, outline);
+        if (index < 0) index = globalLengthSection(finding, sections, outline);
+        if (!outline.sections[index]) continue;
         if (!assignments.has(index)) assignments.set(index, []);
         assignments.get(index).push(finding);
       }
 
-      const indexes = [...assignments.keys()];
-      if (!indexes.length) break;
-      for (const index of indexes) {
+      if (!assignments.size) break;
+
+      for (const [index, findings] of assignments) {
         await this.#assertLive(id);
-        const sectionFindings = assignments.get(index).map(finding => ({
+        const sectionFindings = findings.map(finding => ({
           ...finding,
-          allowedChanges: finding.allowedChanges?.length ? finding.allowedChanges : [`section:${index}`],
+          allowedChanges: finding.allowedChanges?.length
+            ? finding.allowedChanges
+            : [`section:${index}`],
         }));
         sections[index] = await this.#repairSection(id, {
           brief,
@@ -2026,8 +2090,9 @@ export class ContentDirectorService {
           currentSection: sections[index],
           findings: sectionFindings,
           round,
-        }, outline.sections[index], authorizedClaimIds, hashObject(sections[index]));
+        }, outline.sections[index], index, authorizedClaimIds, hashObject(sections[index]));
       }
+
       article = buildArticle(sections);
       deterministicFindings = deterministicArticleFindings(article, {
         ...brief.targetLength,
@@ -2044,11 +2109,13 @@ export class ContentDirectorService {
         deterministicFindings,
         repairRound: round,
       });
-      blocking = report.findings.filter(row => ["blocker", "major"].includes(row.severity));
+      blocking = openArticleBlockers(report.findings, { preflight: true });
     }
 
+    const requiresVisuals = job.route.needs.visuals || job.input.enableVisuals;
     let visuals = [];
-    if (!blocking.length && (job.route.needs.visuals || job.input.enableVisuals)) {
+    if (!blocking.length && requiresVisuals) {
+      await this.#assertLive(id);
       visuals = await this.#createVisuals(id, article, brief);
     }
     article = buildArticle(sections, visuals);
@@ -2059,16 +2126,26 @@ export class ContentDirectorService {
       mustAvoid: brief.mustAvoid,
       persona: YAO_AYI_PERSONA_CONTRACT,
     });
+    if (requiresVisuals && !visuals.length) {
+      deterministicFindings.push({
+        severity: "blocker",
+        dimension: "technical",
+        code: "REQUIRED_VISUAL_PACKAGE_MISSING",
+        location: "visualSpecRefs",
+        message: "当前任务需要视觉包，但还没有绑定真实 SVG 和 PNG。",
+      });
+    }
     report = await this.#auditArticle(id, {
       phase: "quality.final",
       article,
       brief,
       research,
       deterministicFindings,
+      retainedFindings: blocking,
       visuals,
       final: true,
     });
-    blocking = report.findings.filter(row => ["blocker", "major"].includes(row.severity));
+    blocking = openArticleBlockers(report.findings);
 
     const findings = report.findings;
     const contentHash = articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
@@ -2084,11 +2161,15 @@ export class ContentDirectorService {
       visuals,
       contentHash,
       complete: blocking.length === 0,
-      frozenAt: this.clock().toISOString(),
+      frozenAt: report.generatedAt,
     };
-    const packageArtifact = await this.#writeArtifact(id, `content-package-${contentHash.slice(0, 12)}.json`, result, "application/json");
-    const freezeStep = await this.#beginStep(id, "package.freeze", "package", { contentHash });
-    await this.#finishStep(id, freezeStep, { output: { contentHash, blockerCount: blocking.length, visualCount: visuals.length }, artifact: packageArtifact });
+    const freezeStep = await this.#beginStep(id, "package.freeze", `package:${report.reportHash}`, { contentHash });
+    const packageArtifact = freezeStep.status === "succeeded"
+      ? freezeStep.artifact
+      : await this.#writeArtifact(id, `content-package-${contentHash.slice(0, 12)}-${report.reportHash.slice(0, 12)}.json`, result, "application/json");
+    if (freezeStep.status !== "succeeded") {
+      await this.#finishStep(id, freezeStep, { output: { contentHash, blockerCount: blocking.length, visualCount: visuals.length }, artifact: packageArtifact });
+    }
     await this.#updateJob(id, {
       status: blocking.length ? "blocked" : "needs_review",
       resultRef: packageArtifact,
@@ -2100,8 +2181,20 @@ export class ContentDirectorService {
     }, "content_director.job_result_frozen");
   }
 
-  async #repairSection(id, input, section, authorizedClaimIds, beforeHash) {
-    const key = `${section.key}:round-${input.round}:${beforeHash}`;
+  async #repairSection(id, input, section, sectionIndex, authorizedClaimIds, beforeHash) {
+    const allowedChanges = input.findings.flatMap(finding => finding.allowedChanges ?? []);
+    const allowsWholeSection = allowedChanges.some(value => value === section.key
+      || Number(/^section[:-](\d+)$/iu.exec(value)?.[1]) === sectionIndex);
+    const allowedParagraphs = new Set(allowedChanges
+      .map(value => Number(/^paragraph[-: ](\d+)$/iu.exec(value)?.[1]))
+      .filter(index => index > 0 && index <= input.currentSection.paragraphs.length));
+    if (!allowsWholeSection && !allowedParagraphs.size) {
+      fail(422, "REPAIR_SCOPE_REQUIRED", "finding 没有声明允许修改的当前章节或段落，停止定点修复。");
+    }
+    const originalKey = `${section.key}:round-${input.round}:${beforeHash}`;
+    const legacy = this.#successfulStep(id, "article.repair", originalKey);
+    const inputHash = hashObject(input);
+    const key = legacy?.inputHash === inputHash ? originalKey : `${originalKey}:${inputHash}`;
     const cached = this.#successfulStep(id, "article.repair", key);
     if (cached?.artifact?.name) {
       const markdown = (await this.readArtifact(id, cached.artifact.name)).bytes.toString("utf8").trim();
@@ -2116,16 +2209,9 @@ export class ContentDirectorService {
     const step = await this.#beginStep(id, "article.repair", key, input);
     const result = await this.model.repairSection(input);
     const repaired = validateSectionDraft(result.value, section, authorizedClaimIds);
-    const allowedChanges = input.findings.flatMap(finding => finding.allowedChanges ?? []);
-    const allowsWholeSection = allowedChanges.some(value => /^section(?::|-)\d+$/i.test(value) || value === section.key);
     if (!allowsWholeSection) {
-      const allowedParagraphs = new Set(allowedChanges
-        .map(value => /paragraph[-: ]*(\d+)/i.exec(value)?.[1])
-        .filter(value => value !== undefined)
-        .map(Number));
-      if (!allowedParagraphs.size) fail(422, "REPAIR_SCOPE_REQUIRED", "finding 没有声明允许修改的段落，停止定点修复。");
-      if (repaired.paragraphs.length !== input.currentSection.paragraphs.length) {
-        fail(422, "REPAIR_SCOPE_VIOLATION", "定点修复改变了段落数量，超出允许范围。");
+      if (repaired.paragraphs.length !== input.currentSection.paragraphs.length || repaired.title !== input.currentSection.title) {
+        fail(422, "REPAIR_SCOPE_VIOLATION", "定点修复改变了章节标题或段落数量，超出允许范围。");
       }
       const changed = repaired.paragraphs
         .map((value, index) => value === input.currentSection.paragraphs[index] ? null : index)
@@ -2165,12 +2251,22 @@ export class ContentDirectorService {
     return repaired;
   }
 
-  async #auditArticle(id, { phase, article, brief, research, deterministicFindings, visuals = [], repairRound = 0, final = false }) {
+  async #auditArticle(id, { phase, article, brief, research, deterministicFindings, retainedFindings = [], visuals = [], repairRound = 0, final = false }) {
     const job = this.state().contentDirectorJobs.find(row => row.id === id);
     if (!job) fail(404, "CONTENT_JOB_NOT_FOUND", "找不到内容 Job。");
     const contentHash = articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
-    const existing = this.state().contentAuditReports.find(report =>
+    const deterministic = deterministicFindings.map((row, index) => ({ id: `D-${String(index + 1).padStart(3, "0")}`, ...row, status: "open" }));
+    const signature = ({ severity, dimension, code, location, message }) => hashObject({ severity, dimension, code, location, message });
+    const deterministicSignatures = new Set(deterministic.map(signature));
+    const retained = retainedFindings.filter(row => !deterministicSignatures.has(signature(row)))
+      .map(row => ({ ...row, id: `P-${row.id}` }));
+    const reports = this.state().contentAuditReports.filter(report =>
       report.jobId === id && report.phase === phase && report.contentHash === contentHash && (report.repairRound ?? 0) === repairRound);
+    const mustRetain = [...deterministic, ...retained];
+    const existing = reports.find(report => {
+      const previous = new Set(report.findings.map(signature));
+      return mustRetain.every(finding => previous.has(signature(finding)));
+    });
     if (existing) return existing;
     const deterministicKey = `${contentHash}:round-${repairRound}`;
     let deterministicStep = await this.#beginStep(id, "quality.deterministic", deterministicKey, { contentHash, repairRound });
@@ -2183,31 +2279,55 @@ export class ContentDirectorService {
       },
       artifact: deterministicArtifact,
     });
-    const auditKey = `${contentHash}:round-${repairRound}:${final ? "final" : "review"}`;
+    const auditKey = `${contentHash}:round-${repairRound}:${final ? "final" : "review"}${reports.length ? `:${hashObject(mustRetain)}` : ""}`;
     const step = await this.#beginStep(id, final ? "quality.final" : "quality.review", auditKey, { article, brief, research, visuals });
     const method = final ? (this.model.finalAuditArticle ?? this.model.auditArticle) : this.model.auditArticle;
     if (typeof method !== "function") fail(503, "CONTENT_AUDIT_UNAVAILABLE", "当前模型适配器不支持独立审核。");
-    const result = await method.call(this.model, { article, brief, research, visuals, deterministicFindings });
-    if (final && (!result.value.coverage || typeof result.value.coverage !== "object" ||
-        ["facts", "structure", "expression", "policy", "technical", "visual"].some(key => !Object.hasOwn(result.value.coverage, key)))) {
-      fail(502, "CONTENT_FINAL_COVERAGE_INVALID", "最终审核报告缺少事实、结构、表达、政策、技术或视觉覆盖。");
+    await this.#assertLive(id);
+    let result;
+    let report;
+    try {
+      result = await method.call(this.model, { article, brief, research, visuals, deterministicFindings, retainedFindings });
+      const coverage = result.value?.coverage;
+      if (final && (!coverage || typeof coverage !== "object" || Array.isArray(coverage) ||
+          ["facts", "structure", "expression", "policy", "technical", "visual"].some(key => !Object.hasOwn(coverage, key)))) {
+        fail(502, "CONTENT_FINAL_COVERAGE_INVALID", "最终审核报告缺少事实、结构、表达、政策、技术或视觉覆盖。");
+      }
+      const modelFindings = normalizeFindings(result.value?.findings).filter(row => final || !isPrematureVisualFinding(row));
+      report = {
+        id: `CAR-${randomBytes(10).toString("hex")}`,
+        schema: "pengmanager.content-audit-report/v1",
+        jobId: id,
+        phase,
+        repairRound,
+        contentHash,
+        assessment: boundedText(String(result.value.assessment ?? ""), "审核结论", 20_000, { optional: true }),
+        coverage: coverage && typeof coverage === "object" && !Array.isArray(coverage) ? coverage : {},
+        findings: [...mustRetain, ...modelFindings],
+        modelReceipt: result.receipt,
+        usage: aggregateReceiptUsage(result.receipt),
+        generatedAt: this.clock().toISOString(),
+      };
+    } catch (error) {
+      const receipt = result?.receipt ?? error?.modelReceipt ?? null;
+      const usage = aggregateReceiptUsage(receipt);
+      await this.store.mutate({
+        type: "content_director.audit_failed",
+        actor: "content-director-worker",
+        payload: { jobId: id, stepId: step.id, phase, usageStatus: usage.status },
+      }, state => {
+        const current = state.contentDirectorSteps.find(row => row.id === step.id);
+        current.receipt = receipt;
+        current.auditUsage = usage;
+        current.auditFailures = [...(current.auditFailures ?? []), { receipt, usage }];
+        current.status = "failed";
+        current.error = { code: error?.code ?? "CONTENT_AUDIT_FAILED" };
+        current.finishedAt = this.clock().toISOString();
+        current.updatedAt = current.finishedAt;
+        return null;
+      });
+      throw error;
     }
-    const deterministic = deterministicFindings.map((row, index) => ({ id: `D-${String(index + 1).padStart(3, "0")}`, ...row, status: "open" }));
-    const modelFindings = normalizeFindings(result.value.findings)
-      .filter(row => final || !isPrematureVisualFinding(row));
-    const report = {
-      id: `CAR-${randomBytes(10).toString("hex")}`,
-      schema: "pengmanager.content-audit-report/v1",
-      jobId: id,
-      phase,
-      repairRound,
-      contentHash,
-      assessment: boundedText(String(result.value.assessment ?? ""), "审核结论", 20_000, { optional: true }),
-      coverage: result.value.coverage && typeof result.value.coverage === "object" ? result.value.coverage : {},
-      findings: [...deterministic, ...modelFindings],
-      modelReceipt: result.receipt,
-      generatedAt: this.clock().toISOString(),
-    };
     report.reportHash = hashObject(report);
     const reportArtifact = await this.#writeArtifact(id, `audit-${phase}-${report.reportHash.slice(0, 12)}.json`, report, "application/json");
     await this.store.mutate({ type: "content_director.audit_recorded", actor: "content-director-worker", payload: { jobId: id, reportHash: report.reportHash, phase } }, state => {
@@ -2264,21 +2384,38 @@ export class ContentDirectorService {
   async #createVisuals(id, article, brief) {
     const state = this.state();
     const job = state.contentDirectorJobs.find(row => row.id === id);
-    const existing = (job.visualSpecIds ?? [])
-      .map(visualId => state.visualSpecs.find(row => row.id === visualId && row.jobId === id))
-      .filter(Boolean)
-      .sort((a, b) => a.index - b.index);
-    if (existing.length) return existing;
     const sourceHash = articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
-    const planStep = await this.#beginStep(id, "visual.plan", `visuals:${sourceHash}`, { article: sourceHash, brief });
-    const result = await this.model.planVisuals({ article, brief, contract: "architecture|flow nodes+edges; chart data; infographic items" });
-    const plan = normalizeVisualPlan(result.value, { articleHash: sourceHash, authorizedClaimIds: brief.claimIds });
-    const planArtifact = await this.#writeArtifact(id, `visual-plan-${hashObject(plan).slice(0, 12)}.json`, plan, "application/json");
-    await this.#finishStep(id, planStep, { output: { visualCount: plan.visuals.length }, artifact: planArtifact, receipt: result.receipt });
+    const planKey = `visuals:${sourceHash}`;
+    const cachedPlan = this.#successfulStep(id, "visual.plan", planKey);
+    let plan = await this.#stepJsonArtifact(id, cachedPlan);
+    if (!plan) {
+      const planStep = await this.#beginStep(id, "visual.plan", planKey, { article: sourceHash, brief });
+      const result = await this.model.planVisuals({ article, brief, contract: "architecture|flow nodes+edges; chart data; infographic items" });
+      plan = normalizeVisualPlan(result.value, { articleHash: sourceHash, authorizedClaimIds: brief.claimIds });
+      const planArtifact = await this.#writeArtifact(id, `visual-plan-${hashObject(plan).slice(0, 12)}.json`, plan, "application/json");
+      await this.#finishStep(id, planStep, { output: { visualCount: plan.visuals.length }, artifact: planArtifact, receipt: result.receipt });
+    }
     const rows = [];
     for (const [index, spec] of plan.visuals.entries()) {
+      await this.#assertLive(id);
       const renderStep = await this.#beginStep(id, "visual.render", `visual:${sourceHash}:${index + 1}`, spec);
       const visualId = stableVisualId(id, index, hashObject(spec));
+      const existing = state.visualSpecs.find(row => row.id === visualId && row.jobId === id && row.sourceHash === sourceHash);
+      if (existing) {
+        const svg = existing.artifacts.find(artifact => artifact.mime === "image/svg+xml");
+        const png = existing.artifacts.find(artifact => artifact.mime === "image/png");
+        if (!svg || !png) fail(409, "VISUAL_ARTIFACT_MISSING", "已生成的视觉项缺少真实 SVG 或 PNG。");
+        await this.readArtifact(id, svg.name);
+        await this.readArtifact(id, png.name);
+        if (renderStep.status !== "succeeded") {
+          await this.#finishStep(id, renderStep, {
+            output: { visualId, mime: png.mime, sha256: png.sha256, specHash: existing.specHash },
+            artifact: png,
+          });
+        }
+        rows.push(existing);
+        continue;
+      }
       const svg = renderVisualSvg(spec);
       const png = await renderVisualPng(spec);
       const rendered = await inspectRenderedVisual(png.bytes);
