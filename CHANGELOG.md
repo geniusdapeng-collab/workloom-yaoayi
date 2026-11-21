@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.3 — 2026-11-21
+
+- Refine the Chinese courtyard prose policy with openings grounded in a particular observation, varied pacing, and concrete endings. Drafting, repair, and both reviews use the same versioned guidance.
+- Keep the existing length checks and the policies already recorded on earlier jobs. The handcraft and explainer policies retain their previous versions.
+
 ## 0.6.2 — 2026-11-21
 
 - Freeze a versioned prose policy on new Chinese article jobs and reuse it throughout drafting, repair, AI review and final acceptance.
