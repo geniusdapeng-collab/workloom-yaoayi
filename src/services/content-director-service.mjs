@@ -3,6 +3,7 @@ import { link, lstat, mkdir, open, readFile, realpath, unlink } from "node:fs/pr
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { ApiError } from "../domain/errors.mjs";
+import { resolveArticleProsePolicy } from "../domain/article-prose-policy.mjs";
 import { hashObject } from "../domain/hash.mjs";
 import { YAO_AYI_PERSONA_CONTRACT } from "../domain/persona.mjs";
 import { scanSensitiveText } from "../domain/policy.mjs";
@@ -59,6 +60,22 @@ function fail(status, code, message, details) {
 
 function isArticleJob(job) {
   return ["article", "article_visual"].includes(job.artifactKind);
+}
+
+function articleStyleFields(stylePolicy) {
+  return stylePolicy ? { stylePolicy } : {};
+}
+
+function matchesArticleStyle(record, stylePolicy) {
+  return hashObject(record?.stylePolicy ?? null) === hashObject(stylePolicy ?? null);
+}
+
+function confirmsArticleStyleAudit(report, stylePolicy) {
+  if (!matchesArticleStyle(report, stylePolicy)) return false;
+  if (!stylePolicy) return true;
+  const { reportHash, ...audit } = report;
+  return SHA256.test(audit.styleAuditContextHash ?? "") && audit.coverage?.expression === "checked" &&
+    reportHash === hashObject(audit);
 }
 
 function jobArticleVisualForm(job) {
@@ -700,6 +717,7 @@ export class ContentDirectorService {
     const claimIds = stringList(input.claimIds, "claimIds", 100);
     claimRows(state, claimIds);
     const normalized = normalizeJobInput(route, { ...input, attachments }, claimIds);
+    const stylePolicy = resolveArticleProsePolicy({ artifactKind: route.artifactKind, language: normalized.language, intent: normalized.intent });
     const attachmentBindings = this.#attachmentBindings(normalized.attachments, state);
     const outcome = await this.#write("job_created", input, ctx, (next, { actor: writeActor, now, payload }) => {
       for (const id of claimIds) {
@@ -757,6 +775,7 @@ export class ContentDirectorService {
         pipeline: route.pipeline,
         route,
         persona: YAO_AYI_PERSONA_CONTRACT,
+        ...articleStyleFields(stylePolicy),
         input: normalized,
         status: route.missing.length ? "needs_input" : "queued",
         revision: 1,
@@ -809,6 +828,7 @@ export class ContentDirectorService {
         input: merged,
         normalized,
         claimIds,
+        stylePolicy: resolveArticleProsePolicy({ artifactKind: route.artifactKind, language: normalized.language, intent: normalized.intent }),
         attachmentBindings: this.#attachmentBindings(normalized.attachments, state),
       });
     }
@@ -853,6 +873,7 @@ export class ContentDirectorService {
           pipeline: row.route.pipeline,
           route: row.route,
           persona: YAO_AYI_PERSONA_CONTRACT,
+          ...articleStyleFields(row.stylePolicy),
           input: row.normalized,
           status: row.route.missing.length ? "needs_input" : "queued",
           revision: 1,
@@ -1116,10 +1137,19 @@ export class ContentDirectorService {
     if (route.artifactKind !== current.artifactKind) {
       fail(409, "CONTENT_ROUTE_CHANGE_REQUIRES_NEW_JOB", "切换内容生产线必须创建新 Job，不能改写原执行记录。");
     }
+    const normalized = normalizeJobInput(route, merged, current.input.claimIds);
+    const languageChanged = current.input.language !== normalized.language;
+    if (languageChanged && current.stylePolicy) {
+      fail(409, "CONTENT_STYLE_LANGUAGE_CHANGED", "修改文章语言需要创建新 Job，原任务的文风规则随版本冻结。");
+    }
+    const stylePolicy = languageChanged
+      ? resolveArticleProsePolicy({ artifactKind: route.artifactKind, language: normalized.language, intent: normalized.intent })
+      : null;
     await this.#write(`brief_patched:${id}`, input, ctx, (state, { actor, now }) => {
       const job = state.contentDirectorJobs.find(row => row.id === id);
       assertJobVersion(job, ctx.ifMatch);
-      job.input = normalizeJobInput(route, merged, job.input.claimIds);
+      job.input = normalized;
+      if (stylePolicy) job.stylePolicy = stylePolicy;
       job.route = route;
       job.missing = upsertMissing(route.missing);
       job.status = job.missing.length ? "needs_input" : "queued";
@@ -1341,14 +1371,16 @@ export class ContentDirectorService {
     if (!oldArticle || !Array.isArray(oldArticle.sections) || oldArticle.sections.length < 3 ||
         !Array.isArray(original.research?.sources) || !original.outline ||
         oldArticle.body !== composeArticleBody(oldArticle.sections) ||
-        articleHash(oldArticle, persona) !== job.resultHash || original.contentHash !== job.resultHash) {
+        articleHash(oldArticle, persona) !== job.resultHash || original.contentHash !== job.resultHash ||
+        !matchesArticleStyle(original, job.stylePolicy)) {
       fail(409, "ARTICLE_ILLUSTRATION_HISTORY_UNVERIFIED", "历史文章的全文、章节与冻结摘要无法准确核对。");
     }
     const article = { ...oldArticle, blocks: buildArticleBlocks(oldArticle.sections), visualSpecRefs: [] };
     delete article.visualBundleHash;
     const bareHash = articleHash(article, persona);
     const report = job.reports
-      .filter(item => item.phase === "quality.review" && item.contentHash === bareHash)
+      .filter(item => item.phase === "quality.review" && item.contentHash === bareHash &&
+        confirmsArticleStyleAudit(item, job.stylePolicy))
       .sort((a, b) => (b.repairRound ?? 0) - (a.repairRound ?? 0))[0];
     const brief = await this.#briefContext(job);
     const deterministic = deterministicArticleFindings(article, {
@@ -1526,7 +1558,11 @@ export class ContentDirectorService {
       const row = state.contentDirectorJobs.find(item => item.id === id);
       assertJobVersion(row, ctx.ifMatch);
       row.status = "approved";
-      row.review = { reviewedBy: actor, reviewedAt: now.toISOString(), contentHash: input.contentHash, note: boundedText(input.note ?? "", "审核说明", 4000, { optional: true }) };
+      row.review = {
+        reviewedBy: actor, reviewedAt: now.toISOString(), contentHash: input.contentHash,
+        note: boundedText(input.note ?? "", "审核说明", 4000, { optional: true }),
+        ...(job.stylePolicy ? { stylePolicy: job.stylePolicy, styleAuditReportHash: job.result.styleAuditReportHash } : {}),
+      };
       row.revision += 1;
       row.updatedAt = now.toISOString();
       return contentDirectorEntity(row);
@@ -1841,6 +1877,7 @@ export class ContentDirectorService {
       visuals: nextVisuals,
       findings,
       contentHash,
+      ...(job.stylePolicy ? { styleAuditReportHash: report.reportHash } : {}),
       complete: blocking.length === 0,
       revisedAt: this.clock().toISOString(),
     };
@@ -2073,6 +2110,7 @@ export class ContentDirectorService {
       audience: job.input.audience,
       goal: job.input.goal,
       language: job.input.language,
+      ...articleStyleFields(job.stylePolicy),
       platforms: job.input.platforms,
       targetLength: normalizeArticleLength(job.route.targetLength),
       mustKeep: job.input.mustKeep,
@@ -2253,7 +2291,8 @@ export class ContentDirectorService {
     if (job.editorialIllustration?.status === "bound") {
       const draft = await this.#readIllustrationDraft(job);
       const preflight = state.contentAuditReports.find(row => row.jobId === id && row.phase === "quality.review" &&
-        row.contentHash === job.editorialIllustration.draftHash && row.reportHash === draft.preflightReportHash);
+        row.contentHash === job.editorialIllustration.draftHash && row.reportHash === draft.preflightReportHash &&
+        confirmsArticleStyleAudit(row, job.stylePolicy));
       if (draft.briefHash !== briefHash || !preflight || openArticleBlockers(preflight.findings, { preflight: true }).length) {
         fail(409, "ARTICLE_ILLUSTRATION_DRAFT_CHANGED", "正文简报、事实 Claim 或初审快照已变化，请重新生产后绑定实际配图。");
       }
@@ -2349,8 +2388,9 @@ export class ContentDirectorService {
       if (cachedOutline?.artifact?.name) {
         outline = validateOutline(await this.#stepJsonArtifact(id, cachedOutline), brief);
       } else {
-        step = await this.#beginStep(id, "outline.generate", outlineKey, { brief, research });
-        const outlineResult = await this.model.generateOutline({ brief, research });
+        const input = { brief, research, ...articleStyleFields(job.stylePolicy) };
+        step = await this.#beginStep(id, "outline.generate", outlineKey, input);
+        const outlineResult = await this.model.generateOutline(input);
         outline = validateOutline(outlineResult.value, brief);
         const outlineArtifact = await this.#writeArtifact(id, `outline-${hashObject(outline).slice(0, 12)}.json`, outline, "application/json");
         await this.#finishStep(id, step, { output: { sectionCount: outline.sections.length, outlineHash: hashObject(outline) }, artifact: outlineArtifact, receipt: outlineResult.receipt });
@@ -2378,6 +2418,7 @@ export class ContentDirectorService {
       await this.#finishStep(id, researchStep, { output: { claimCount: evidence.claims.length, sourceCount: evidence.sources.length }, artifact: evidenceArtifact });
       const input = {
         brief,
+        ...articleStyleFields(job.stylePolicy),
         research: { sources: evidence.sources, claims: evidence.claims },
         outline,
         section,
@@ -2444,6 +2485,7 @@ export class ContentDirectorService {
         }));
         sections[index] = await this.#repairSection(id, {
           brief,
+          ...articleStyleFields(job.stylePolicy),
           research: { sources: research.sources, claims: brief.claims },
           outline,
           section: outline.sections[index],
@@ -2499,6 +2541,7 @@ export class ContentDirectorService {
   }
 
   async #writeIllustrationDraft(job, draft) {
+    draft = { ...draft, ...articleStyleFields(job.stylePolicy) };
     const draftHash = articleHash(draft.article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
     const draftIdentity = hashObject(draft);
     const requestId = "CDI-" + hashObject({ id: job.id, draftIdentity }).slice(0, 24);
@@ -2509,7 +2552,7 @@ export class ContentDirectorService {
   async #readIllustrationDraft(job) {
     const design = job.editorialIllustration;
     const draft = await this.#stepJsonArtifact(job.id, { artifact: design?.draftArtifact });
-    if (!draft?.article || !Array.isArray(draft.article.sections) ||
+    if (!draft?.article || !Array.isArray(draft.article.sections) || !matchesArticleStyle(draft, job.stylePolicy) ||
         articleHash(draft.article, job.persona ?? YAO_AYI_PERSONA_CONTRACT) !== design.draftHash ||
         "CDI-" + hashObject({ id: job.id, draftIdentity: hashObject(draft) }).slice(0, 24) !== design.requestId) {
       fail(409, "ARTICLE_ILLUSTRATION_DRAFT_CHANGED", "绑定的正文和图文设计请求不是当前冻结快照。");
@@ -2550,6 +2593,9 @@ export class ContentDirectorService {
     const editorial = await this.#readBoundIllustrations(job);
     const { article, visuals } = job.result ?? {};
     if (!article || !Array.isArray(visuals)) fail(409, "ARTICLE_ILLUSTRATION_BINDING_CHANGED", "当前文章缺少完整配图快照。");
+    if (!matchesArticleStyle(job.result, job.stylePolicy)) {
+      fail(409, "CONTENT_STYLE_SNAPSHOT_CHANGED", "冻结文章的文风规则与任务不一致。");
+    }
     const rowHash = ({ index, ...row }) => hashObject(row);
     const expected = new Map(editorial.map(row => [row.id, rowHash(row)]));
     const actual = visuals.filter(isEditorialIllustration);
@@ -2564,8 +2610,14 @@ export class ContentDirectorService {
     }
     assertTechnicalVisualKinds(jobArticleVisualForm(job), visuals.filter(row => !isEditorialIllustration(row)).map(row => row.spec), 409);
     if (requireAudit && !job.reports.some(report => report.phase === "quality.final" && report.contentHash === job.result.contentHash &&
+        confirmsArticleStyleAudit(report, job.stylePolicy) &&
+        (!job.stylePolicy || report.reportHash === job.result.styleAuditReportHash) &&
         openArticleBlockers(report.findings).length === 0)) {
       fail(409, "CONTENT_FINAL_AUDIT_REQUIRED", "当前配图快照没有通过最终独立审核。");
+    }
+    if (requireAudit && job.stylePolicy && ["approved", "completed"].includes(job.status) &&
+        (!matchesArticleStyle(job.review, job.stylePolicy) || job.review.styleAuditReportHash !== job.result.styleAuditReportHash)) {
+      fail(409, "CONTENT_STYLE_SNAPSHOT_CHANGED", "人工签收所依据的文风规则或终审报告已变化。");
     }
   }
 
@@ -2620,6 +2672,7 @@ export class ContentDirectorService {
       findings,
       visuals,
       contentHash,
+      ...(job.stylePolicy ? { stylePolicy: job.stylePolicy, styleAuditReportHash: report.reportHash } : {}),
       complete: blocking.length === 0,
       frozenAt: report.generatedAt,
     };
@@ -2727,16 +2780,20 @@ export class ContentDirectorService {
       requiredDiagramKinds: jobArticleVisualForm(job)?.kinds ?? [],
     } : null;
     const visualContractHash = visualContract ? hashObject(visualContract) : null;
+    const styleAuditContextHash = job.stylePolicy ? hashObject({ brief, research, visuals, visualContract }) : null;
+    const styleKey = styleAuditContextHash ? `:${styleAuditContextHash}` : "";
     const reports = this.state().contentAuditReports.filter(report =>
       report.jobId === id && report.phase === phase && report.contentHash === contentHash && (report.repairRound ?? 0) === repairRound &&
-      (!visualContractHash || report.visualContractHash === visualContractHash));
+      (!visualContractHash || report.visualContractHash === visualContractHash) &&
+      (!styleAuditContextHash || report.styleAuditContextHash === styleAuditContextHash));
     const mustRetain = [...deterministic, ...retained];
     const existing = reports.find(report => {
+      if (!confirmsArticleStyleAudit(report, job.stylePolicy)) return false;
       const previous = new Set(report.findings.map(signature));
       return mustRetain.every(finding => previous.has(signature(finding)));
     });
     if (existing) return existing;
-    const deterministicKey = `${contentHash}:round-${repairRound}`;
+    const deterministicKey = `${contentHash}:round-${repairRound}${styleKey}`;
     let deterministicStep = await this.#beginStep(id, "quality.deterministic", deterministicKey, { contentHash, repairRound });
     const deterministicArtifact = await this.#writeArtifact(id, `quality-deterministic-${contentHash.slice(0, 10)}-r${repairRound}-${hashObject(deterministicFindings).slice(0, 8)}.json`, deterministicFindings, "application/json");
     await this.#finishStep(id, deterministicStep, {
@@ -2747,8 +2804,10 @@ export class ContentDirectorService {
       },
       artifact: deterministicArtifact,
     });
-    const auditKey = `${contentHash}:round-${repairRound}:${final ? "final" : "review"}${visualContractHash ? `:${visualContractHash.slice(0, 12)}` : ""}${reports.length ? `:${hashObject(mustRetain)}` : ""}`;
-    const step = await this.#beginStep(id, final ? "quality.final" : "quality.review", auditKey, { article, brief, research, visuals, ...(visualContract ? { visualContract } : {}) });
+    const auditKey = `${contentHash}:round-${repairRound}:${final ? "final" : "review"}${styleKey}${visualContractHash ? `:${visualContractHash.slice(0, 12)}` : ""}${reports.length ? `:${hashObject(mustRetain)}` : ""}`;
+    const auditInput = { article, brief, research, visuals,
+      ...articleStyleFields(job.stylePolicy), ...(visualContract ? { visualContract } : {}) };
+    const step = await this.#beginStep(id, final ? "quality.final" : "quality.review", auditKey, auditInput);
     const method = final ? (this.model.finalAuditArticle ?? this.model.auditArticle) : this.model.auditArticle;
     if (typeof method !== "function") fail(503, "CONTENT_AUDIT_UNAVAILABLE", "当前模型适配器不支持独立审核。");
     await this.#assertLive(id);
@@ -2775,9 +2834,13 @@ export class ContentDirectorService {
       const reviewerBrief = final && job.editorialIllustration?.previousResultRef
         ? { ...brief, authorThoughts: brief.authorThoughts.filter(note => !/\bVisualSpec\b.*"visuals"\s*:/iu.test(note)) }
         : brief;
-      result = await method.call(this.model, { article, brief: reviewerBrief, research, visuals: visualReviewInput,
-        ...(visualContract ? { visualContract } : {}), deterministicFindings, retainedFindings });
+      result = await method.call(this.model, {
+        ...auditInput, brief: reviewerBrief, visuals: visualReviewInput, deterministicFindings, retainedFindings,
+      });
       const coverage = result.value?.coverage;
+      if (job.stylePolicy && coverage?.expression !== "checked") {
+        fail(502, "CONTENT_STYLE_COVERAGE_INVALID", "独立审核未核对当前文章的文风，不能沿用这份报告。");
+      }
       if (final && (!coverage || typeof coverage !== "object" || Array.isArray(coverage) ||
           ["facts", "structure", "expression", "policy", "technical", "visual"].some(key => !Object.hasOwn(coverage, key)))) {
         fail(502, "CONTENT_FINAL_COVERAGE_INVALID", "最终审核报告缺少事实、结构、表达、政策、技术或视觉覆盖。");
@@ -2791,6 +2854,7 @@ export class ContentDirectorService {
         repairRound,
         contentHash,
         ...(visualContractHash ? { visualContractHash } : {}),
+        ...(job.stylePolicy ? { stylePolicy: job.stylePolicy, styleAuditContextHash } : {}),
         assessment: boundedText(String(result.value.assessment ?? ""), "审核结论", 20_000, { optional: true }),
         coverage: coverage && typeof coverage === "object" && !Array.isArray(coverage) ? coverage : {},
         findings: [...mustRetain, ...modelFindings],
@@ -2841,7 +2905,9 @@ export class ContentDirectorService {
   }
 
   async #draftSection(id, input, section, authorizedClaimIds, suffix = "draft") {
-    const cached = this.#successfulStep(id, "section.draft", `${section.key}:${suffix}`);
+    const contextKey = input.stylePolicy ? `:${hashObject(input)}` : "";
+    const stepKey = `${section.key}:${suffix}${contextKey}`;
+    const cached = this.#successfulStep(id, "section.draft", stepKey);
     if (cached?.artifact?.name) {
       const markdown = (await this.readArtifact(id, cached.artifact.name)).bytes.toString("utf8").trim();
       const lines = markdown.split("\n");
@@ -2850,7 +2916,7 @@ export class ContentDirectorService {
       const body = lines.join("\n").trim();
       return validateSectionDraft({ title, body, paragraphs: body.split(/\n\s*\n/), claimIds: cached.output?.claimIds ?? [] }, section, authorizedClaimIds);
     }
-    const step = await this.#beginStep(id, "section.draft", `${section.key}:${suffix}`, input);
+    const step = await this.#beginStep(id, "section.draft", stepKey, input);
     let lastError = null;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       try {

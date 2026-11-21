@@ -26,6 +26,9 @@ test("article intent reuses the existing route and exposes approval and delivery
   assert.equal(planned.status, "planned");
   assert.equal(planned.persona.id, "yao_ayi_yimeng_coffee_courtyard");
   assert.equal(planned.persona.version, "1.0.1");
+  assert.equal(planned.stylePolicy.id, "yaoayi.article.prose");
+  assert.equal(planned.stylePolicy.version, "1.0.0");
+  assert.match(planned.stylePolicy.sha256, /^[a-f0-9]{64}$/);
   assert.deepEqual(planned.requiredInputs, []);
   assert.ok(planned.stages.some((stage) => stage.id === "persona-bind" && stage.status === "completed"));
   assert.ok(planned.stages.some((stage) => stage.id === "create-content-job" && stage.executor === "administrator-session"));
@@ -77,6 +80,7 @@ test("video intent preserves the original sentence and enters the existing nativ
   assert.equal(plan.route.intent, raw);
   assert.equal(plan.route.artifactKind, "video_ai");
   assert.equal(plan.route.durationSec, 30);
+  assert.equal(plan.stylePolicy, undefined);
   assert.equal(plan.persona.documentSha256, "a81ff53526b57d759ca5ae8465db8a6056a7fd82b68bb60625efa8ff55d46e7c");
   assert.ok(plan.stages.some((stage) => stage.id === "preflight" && stage.entry.tool === "pengmanager_video_preflight"));
   const start = plan.stages.find((stage) => stage.id === "start");
@@ -155,6 +159,24 @@ test("public HTTP manifest and plan routes are read-only and reject unsupported 
   assert.equal(plan.route.artifactKind, "pure_visual");
   assert.equal(plan.planOnly, true);
   assert.equal(plan.writesPerformed, false);
+
+  const articleIntent = { intent: "写一篇小院日记文章，记录沂蒙山小院的日常" };
+  const articleResponse = await fetch(`${base}/api/workbench/plan`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(articleIntent),
+  });
+  assert.equal(articleResponse.status, 200);
+  const article = await articleResponse.json();
+  assert.equal(article.stylePolicy.genre, "courtyard");
+  assert.deepEqual(article.stylePolicy, planWorkbenchIntent(articleIntent).stylePolicy);
+  assert.equal(article.providerCallsPerformed, false);
+  const english = planWorkbenchIntent({ ...articleIntent, language: "en-US" });
+  assert.equal(english.stylePolicy, undefined);
+  assert.equal(english.handoff.mcp.arguments.language, "en-US");
+  assert.throws(() => planWorkbenchIntent({ ...articleIntent, stylePolicy: article.stylePolicy }), {
+    code: "WORKBENCH_INTENT_INVALID",
+  });
 
   const wrongMethod = await fetch(`${base}/api/workbench/plan`);
   assert.equal(wrongMethod.status, 405);

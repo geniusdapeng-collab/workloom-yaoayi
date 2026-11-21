@@ -111,6 +111,38 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(manifest["gitSha"], "a" * 40)
         self.assertEqual(len(manifest["files"]), 8)
 
+    def test_repository_packager_creates_a_clean_package_accepted_by_installer(self):
+        node = shutil.which(os.environ.get("NODE_BINARY", "node"))
+        if not node:
+            self.skipTest("Node runtime is required to exercise the repository packager.")
+        fixture = self.path / "checkout"
+        fixture.mkdir()
+        for name in (
+            "package.json", "pnpm-lock.yaml", "public/index.html", "src/server.mjs",
+            "src/security/admin-auth.mjs", "deploy/aliyun/runtime.json", "deploy/aliyun/deploy.py",
+            "deploy/aliyun/nginx_proxy.py", "deploy/aliyun/configure.mjs", "scripts/package-deployment.mjs",
+        ):
+            target = fixture / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if name in {"package.json", "scripts/package-deployment.mjs"}:
+                shutil.copyfile(ROOT / name, target)
+            else:
+                target.write_text("synthetic source\n")
+        subprocess.run(["git", "init", "-q"], cwd=fixture, check=True)
+        subprocess.run(["git", "add", "."], cwd=fixture, check=True)
+        subprocess.run(["git", "-c", "user.name=Deployment Fixture", "-c", "user.email=fixture@example.invalid",
+                        "commit", "-qm", "fixture"], cwd=fixture, check=True)
+        build = subprocess.run(
+            [node, str(fixture / "scripts/package-deployment.mjs"), "--out-dir", str(self.path / "packages")],
+            cwd=fixture, check=True, capture_output=True, text=True,
+        )
+        receipt = json.loads(build.stdout)
+        manifest = DEPLOY.verify_source(Path(receipt["archive"]), receipt["archiveSha256"])
+        self.assertEqual(manifest["gitSha"], receipt["gitSha"])
+        self.assertEqual(manifest["contentSha256"], receipt["contentSha256"])
+        self.assertEqual(len(manifest["files"]), receipt["files"])
+        self.assertFalse(manifest["dirty"])
+
     def test_wrong_package_checksum_fails_before_extract(self):
         archive = self.path / "source.tar.gz"
         source_archive(archive)
