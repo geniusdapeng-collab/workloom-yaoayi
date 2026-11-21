@@ -3,7 +3,8 @@ import { hashObject } from "./hash.mjs";
 
 const id = "yaoayi.article.prose";
 const legacyVersion = "1.0.0";
-const courtyardVersion = "1.1.0";
+const previousCourtyardVersion = "1.1.0";
+const courtyardVersion = "1.2.0";
 const commonRules = [
   "沿用姚阿姨第一人称。用平常能说出口的话，多写实际动作、物件和做事的次序，每段推进一件事。",
   "只用本任务已确认素材和事实。区分亲历、转述与参考图片。没有依据时缩小叙述范围，不补造日期、物候、味道、对话或人物反应。",
@@ -49,6 +50,25 @@ const courtyardStages = {
   "quality.final": "按同样标准读冻结正文，重点核对返修后是否新增无据的亲历、对白或由参考图推成的细节，并检查结尾是否多出解释或议论。按原要求核对实际配图及事实，缺少幽默、岔笔或反差本身不构成问题。",
 };
 
+const headingRules = [
+  "二级小标题从该节实际写到的物件、动作或可核实的细节里取词，读者扫一眼就知道这一节讲什么。用一句简短、说得出口的话，各节标题着眼于不同的内容。",
+  "小标题从叙述的转折处断开，详略随材料走。避免章节编号、空泛的引言与结语、整齐排比或复用文章总标题。不要为了凑标题数、均分字数或套固定格式而拆段。",
+];
+
+const headingStages = {
+  "content.outline": "按材料中有内容的转折安排小标题和各节篇幅。每节先写清能展开的事，再用这件事中的具体字眼拟名。建议章节数可随已核实材料调整，保持文章已有的结构要求。",
+  "content.section": "写出小标题所指的具体事物或动作，保持本节和前后文的区别。标题和实际写出的内容有偏差时，在本节范围内把标题改得具体，保留已核实事实。",
+  "content.repair": "仅在 allowedChanges 包含该章节键或整个章节时修改小标题。若问题仅在小标题，把本节正文原样保留，不借机改写或重排章节。",
+  "content.audit": "逐个核对小标题是否点出本节实际写到的内容，是否和其他小标题或总标题重复，分节是否落在自然转折处。若小标题需要返修，用实际章节键作为 location，并在 allowedChanges 中写入同一个键。",
+  "quality.final": "在冻结正文中复查小标题的指向、区分度和分节位置。核对改过的小标题仍对应本节实际内容，短长和节数服从材料。建议节数本身不作为通过或拒绝的依据。",
+};
+
+const courtyardHeadingCount = Object.freeze({
+  minimum: 3,
+  maximum: 8,
+  targetCharactersPerSection: 600,
+});
+
 const supportedArticles = new Set(["article", "article_visual"]);
 const genreSignals = [
   ["explainer", /说明文|科普文?|教程|指南|知识文章|山货笔记|笔记翻翻|技术文章|产品说明|GEO[\s\S]{0,4}(?:说明|解释|问答)/giu],
@@ -59,19 +79,29 @@ const genreSignals = [
 
 const refKeys = ["id", "version", "genre", "sha256"];
 
-function publishedPolicy(version, genre, rules, stageRules = stages) {
-  const sha256 = hashObject({ id, version, genre, commonRules, rules, stages: stageRules });
-  return Object.freeze({ ref: Object.freeze({ id, version, genre, sha256 }), commonRules, rules, stages: stageRules });
+function publishedPolicy(version, genre, rules, stageRules = stages, headingCount) {
+  const definition = { commonRules, rules, stages: stageRules, ...(headingCount ? { headingCount } : {}) };
+  const sha256 = hashObject({ id, version, genre, ...definition });
+  return Object.freeze({ ref: Object.freeze({ id, version, genre, sha256 }), ...definition });
 }
+
+function extendStages(base, additions) {
+  return Object.fromEntries(Object.entries(base)
+    .map(([scene, instructions]) => [scene, `${instructions}\n${additions[scene]}`]));
+}
+
+const courtyardStageRules = extendStages(stages, courtyardStages);
 
 const registry = Object.freeze({
   // Keep each published version resolvable for jobs that have already frozen it.
   [legacyVersion]: Object.freeze(Object.fromEntries(Object.entries(genres).map(([genre, rules]) =>
     [genre, publishedPolicy(legacyVersion, genre, rules)]))),
+  [previousCourtyardVersion]: Object.freeze({
+    courtyard: publishedPolicy(previousCourtyardVersion, "courtyard", courtyardRules, courtyardStageRules),
+  }),
   [courtyardVersion]: Object.freeze({
-    courtyard: publishedPolicy(courtyardVersion, "courtyard", courtyardRules, Object.fromEntries(
-      Object.entries(stages).map(([scene, instructions]) => [scene, `${instructions}\n${courtyardStages[scene]}`]),
-    )),
+    courtyard: publishedPolicy(courtyardVersion, "courtyard", [...courtyardRules, ...headingRules],
+      extendStages(courtyardStageRules, headingStages), courtyardHeadingCount),
   }),
 });
 
@@ -96,16 +126,26 @@ export function isArticleProsePolicyRef(value) {
   return registered !== null && refKeys.every(key => value[key] === registered[key]);
 }
 
-export function articleProsePrompt(scene, policy) {
+export function articleProsePrompt(scene, policy, targetLength) {
   if (!Object.hasOwn(stages, scene) || policy == null) return "";
   if (!isArticleProsePolicyRef(policy)) {
     throw new ApiError(409, "CONTENT_PROSE_POLICY_INVALID", "文章任务绑定的文风规则版本或摘要无法核验。");
   }
   const published = registry[policy.version][policy.genre];
-  return [
+  const lines = [
     `文章文风规则（服务端冻结）：${policy.id} v${policy.version} / ${policy.genre} / SHA-256 ${policy.sha256}。`,
     ...published.commonRules,
     ...published.rules,
     published.stages[scene],
-  ].join("\n");
+  ];
+  const { minCharacters, maxCharacters } = targetLength ?? {};
+  if (scene === "content.outline" && published.headingCount &&
+      Number.isSafeInteger(minCharacters) && Number.isSafeInteger(maxCharacters) &&
+      minCharacters > 0 && maxCharacters >= minCharacters) {
+    const { minimum, maximum, targetCharactersPerSection } = published.headingCount;
+    const midpoint = minCharacters + (maxCharacters - minCharacters) / 2;
+    const count = Math.min(maximum, Math.max(minimum, Math.round(midpoint / targetCharactersPerSection)));
+    lines.push(`按本任务的目标篇幅 ${minCharacters}–${maxCharacters} 字符，先拟约 ${count} 个有内容的二级章节，再按已核实材料调整。`);
+  }
+  return lines.join("\n");
 }

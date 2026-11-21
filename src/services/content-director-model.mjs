@@ -85,7 +85,7 @@ function assertAuditJudgmentsPreserved(previous, corrected) {
 }
 
 function messages(scene, system, input) {
-  const prose = articleProsePrompt(scene, input?.stylePolicy);
+  const prose = articleProsePrompt(scene, input?.stylePolicy, input?.brief?.targetLength);
   const instructions = prose ? `${system}\n${prose}` : system;
   const boundSystem = PERSONA_ENFORCED_SCENES.has(scene) ? withYaoAyiPersonaPrompt(instructions, YAO_AYI_PERSONA_CONTRACT) : instructions;
   return [
