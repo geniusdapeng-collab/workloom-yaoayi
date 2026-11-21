@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.4 — 2026-11-21
+
+- Suggest section counts from the target length of new Chinese courtyard articles. Use brief headings drawn from the corresponding passage and place section breaks where the subject changes.
+- Carry the heading guidance through drafting, scoped repair and both editorial reviews. Preserve frozen courtyard policies from previous versions.
+
 ## 0.6.3 — 2026-11-21
 
 - Refine the Chinese courtyard prose policy with openings grounded in a particular observation, varied pacing, and concrete endings. Drafting, repair, and both reviews use the same versioned guidance.
