@@ -1,6 +1,6 @@
 {
   "name": "yaoayi-system",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "type": "module",
   "packageManager": "pnpm@11.25.0",
   "description": "姚阿姨系统（Yao Ayi System）：围绕姚阿姨与沂蒙山咖啡小院的故事、风土人情、山货内容和 GEO 经营控制面",

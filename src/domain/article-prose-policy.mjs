@@ -2,7 +2,8 @@ import { ApiError } from "./errors.mjs";
 import { hashObject } from "./hash.mjs";
 
 const id = "yaoayi.article.prose";
-const version = "1.0.0";
+const legacyVersion = "1.0.0";
+const courtyardVersion = "1.1.0";
 const commonRules = [
   "沿用姚阿姨第一人称。用平常能说出口的话，多写实际动作、物件和做事的次序，每段推进一件事。",
   "只用本任务已确认素材和事实。区分亲历、转述与参考图片。没有依据时缩小叙述范围，不补造日期、物候、味道、对话或人物反应。",
@@ -33,6 +34,21 @@ const stages = {
   "quality.final": "复查冻结正文与初审使用同一文风规则，核对标题、各节和结尾。以上规则纳入 coverage.expression，真实检查后标记 checked。残留问题给出具体段落和理由，缺事实依据的问题进入 facts 维度。继续完成当前事实、权利与实际画面的所有终审检查。",
 };
 
+const courtyardRules = [
+  "从写作材料里确有的一点反差或小疑问开篇，让具体物件或动作带出它。没有合适的疑问时，从眼前动作写起。只有后文用得上的人物经历才顺手交代。",
+  "写清手怎么动、眼在看哪里、做这一步凭什么停或继续。每一处细节都要有材料依据；一般做法和假设场景保留限定，不写成某一天发生的事。",
+  "按叙述需要安排详略和停顿，可以一笔带过，也可以停下来细看。有依据的俏皮话或顺手想到的一句可以自然插入，随即回到眼前的事。不要规定每篇都有笑话、短句或固定转折，不挪用其他作者的原句。",
+  "用短实的章节名保留长文结构，段落长短随内容变化。收在一个动作、一件物件，或一句带有条件的待客话上。不要在结尾重述题意、解释感情或总结道理。",
+];
+
+const courtyardStages = {
+  "content.outline": "从已核实材料找开头的一点不齐整，列出至少三个有实际内容的二级章节。章节名简短，详略随材料，让最后一节留出一个自然收尾的动作。",
+  "content.section": "承接已经讲到的物件或动作，每节增加新的观察。若有自然的一句岔笔，写完便回到本节主线。保持原有标题层级和全文目标篇幅，不以重复或补造经历拉长正文。",
+  "content.repair": "只修允许范围内已经指出的表达问题，例如齐整重复、突兀岔笔或总结式结尾。保留已核实事实、章节结构和此前有分寸的叙述。",
+  "content.audit": "检查开头的疑问或反差是否有材料且在正文接得住，动作是否足以说清做事的判断，岔笔是否回到主线，收尾是否用动作等实处收住。缺少幽默、岔笔或反差本身不构成问题。",
+  "quality.final": "按同样标准读冻结正文，重点核对返修后是否新增无据的亲历、对白或由参考图推成的细节，并检查结尾是否多出解释或议论。按原要求核对实际配图及事实，缺少幽默、岔笔或反差本身不构成问题。",
+};
+
 const supportedArticles = new Set(["article", "article_visual"]);
 const genreSignals = [
   ["explainer", /说明文|科普文?|教程|指南|知识文章|山货笔记|笔记翻翻|技术文章|产品说明|GEO[\s\S]{0,4}(?:说明|解释|问答)/giu],
@@ -42,12 +58,21 @@ const genreSignals = [
 ];
 
 const refKeys = ["id", "version", "genre", "sha256"];
+
+function publishedPolicy(version, genre, rules, stageRules = stages) {
+  const sha256 = hashObject({ id, version, genre, commonRules, rules, stages: stageRules });
+  return Object.freeze({ ref: Object.freeze({ id, version, genre, sha256 }), commonRules, rules, stages: stageRules });
+}
+
 const registry = Object.freeze({
   // Keep each published version resolvable for jobs that have already frozen it.
-  [version]: Object.freeze(Object.fromEntries(Object.entries(genres).map(([genre, rules]) => {
-    const sha256 = hashObject({ id, version, genre, commonRules, rules, stages });
-    return [genre, Object.freeze({ ref: Object.freeze({ id, version, genre, sha256 }), commonRules, rules, stages })];
-  }))),
+  [legacyVersion]: Object.freeze(Object.fromEntries(Object.entries(genres).map(([genre, rules]) =>
+    [genre, publishedPolicy(legacyVersion, genre, rules)]))),
+  [courtyardVersion]: Object.freeze({
+    courtyard: publishedPolicy(courtyardVersion, "courtyard", courtyardRules, Object.fromEntries(
+      Object.entries(stages).map(([scene, instructions]) => [scene, `${instructions}\n${courtyardStages[scene]}`]),
+    )),
+  }),
 });
 
 function hasGenreSignal(clauses, signal) {
@@ -59,7 +84,7 @@ export function resolveArticleProsePolicy({ artifactKind, language, intent } = {
   if (!supportedArticles.has(artifactKind) || language !== "zh-CN") return null;
   const clauses = String(intent ?? "").split(/[，,。！？!?；;\n]|而是|改为/u);
   const genre = genreSignals.find(([, signal]) => hasGenreSignal(clauses, signal))?.[0] ?? "explainer";
-  return registry[version][genre].ref;
+  return registry[genre === "courtyard" ? courtyardVersion : legacyVersion][genre].ref;
 }
 
 export function isArticleProsePolicyRef(value) {
