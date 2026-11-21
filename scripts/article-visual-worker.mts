@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import {
   articleIllustrationReceiptDirectory, assertEditorialImageBytes, registerArticleIllustrationReceipt,
 } from "../src/services/article-illustration-receipts.mjs";
-import { createArticleVisualPreparationReviewer } from "../src/services/article-visual-preparation.mjs";
+import { compositorPhotoChanges, createArticleVisualPreparationReviewer } from "../src/services/article-visual-preparation.mjs";
 import { ARTICLE_MIN_ILLUSTRATIONS, isMeaningfulIllustrationText, normalizeOpenImageAttribution } from "../src/domain/article-illustration-policy.mjs";
 import { hashObject } from "../src/domain/hash.mjs";
 import { scanSensitiveText } from "../src/domain/policy.mjs";
@@ -87,18 +87,42 @@ async function prepare() {
   const { createToolExecutorForScope } = await loader("bundles/geo-growth/connectors/visual-bridge/server-adapter.mts");
   const app = new Pool({ connectionString: process.env.DATABASE_URL });
   const gateway = new Pool({ connectionString: process.env.DATABASE_GATEWAY_URL });
-  const runId = hashObject({ policy: "visual-preparation/v1", jobId, requestId: design.requestId, draftHash: design.draftHash, images }).slice(0, 24);
+  const runIdentity = { jobId, requestId: design.requestId, draftHash: design.draftHash, images };
+  const priorRunId = hashObject({ policy: "visual-preparation/v1", ...runIdentity }).slice(0, 24);
+  const work = join(dataRoot, "work", "article-visuals");
+  const priorHandoff = join(work, priorRunId);
+  const hasPrior = await lstat(priorHandoff).then(info => {
+    requirePrivate(info, false);
+    return true;
+  }, error => {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  });
+  let prior;
+  if (hasPrior) {
+    try {
+      const archived = await readJSON(join(priorHandoff, "completed.json"));
+      prior = await readJSON(join(priorHandoff, "manifest.json"));
+      if (archived.status !== "prepared" || archived.jobId !== jobId || prior.jobId !== jobId ||
+          archived.draftHash !== binding.draftHash || prior.draftHash !== binding.draftHash || prior.requestId !== binding.requestId ||
+          !Array.isArray(prior.images) || prior.images.length !== images.length) throw Error("ARTICLE_VISUAL_BINDING_CHANGED");
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      return { status: "needs_input", jobId, draftHash: binding.draftHash, reason: "ARTICLE_VISUAL_LEGACY_PLAN_UNRECONCILED" };
+    }
+  }
+  const runId = prior ? priorRunId : hashObject({ policy: "visual-preparation/v2", ...runIdentity }).slice(0, 24);
   const toolRoot = resolve(process.env.WORKLOOM_VISUAL_BRIDGE_OUT_DIR ?? "");
   if (toolRoot === dataRoot || !inside(dataRoot, toolRoot)) throw Error("ARTICLE_VISUAL_SCOPE_MISMATCH");
   const sourceDirectory = join(dirname(toolRoot), "assets", runId);
   const outputDirectory = join(toolRoot, runId);
-  const handoff = join(dataRoot, "work", "article-visuals", runId);
+  const handoff = join(work, runId);
   await Promise.all([sourceDirectory, outputDirectory, handoff].map(directory => mkdir(directory, { recursive: true, mode: 0o700 })));
   for (const directory of [sourceDirectory, outputDirectory, handoff]) {
     if (await realpath(directory) !== directory) throw Error("ARTICLE_VISUAL_PRIVATE_FILE_INVALID");
     requirePrivate(await lstat(directory), false);
   }
-  const status = join(handoff, "completed.json");
+  const status = join(handoff, "completed-v2.json");
   try {
     const previous = await readJSON(status);
     if (previous.jobId !== jobId || previous.draftHash !== design.draftHash) throw Error("ARTICLE_VISUAL_BINDING_CHANGED");
@@ -107,7 +131,7 @@ async function prepare() {
 
   const toolExecutor = createToolExecutorForScope(scope);
   const call = routedLlmCall({ gateway, scope, scene: "quest-plan", industry: "geo-growth" });
-  if (!toolExecutor || !call || new URL(process.env.WORKLOOM_VISUAL_BRIDGE_URL).origin !== process.env.WORKLOOM_VISUAL_BRIDGE_URL ||
+  if (!toolExecutor || (!prior && !call) || new URL(process.env.WORKLOOM_VISUAL_BRIDGE_URL).origin !== process.env.WORKLOOM_VISUAL_BRIDGE_URL ||
       new URL(process.env.WORKLOOM_VISUAL_BRIDGE_URL).hostname !== "127.0.0.1") {
     throw Error("ARTICLE_VISUAL_NATIVE_ADAPTERS_REQUIRED");
   }
@@ -157,7 +181,7 @@ async function prepare() {
       try { await copyFile(original, sourcePath, constants.COPYFILE_EXCL); }
       catch (error) { if (error.code !== "EEXIST") throw error; }
       if (sha(await readPrivate(sourcePath)) !== image.sha256) throw Error("ARTICLE_VISUAL_SOURCE_BYTES_MISMATCH");
-      const attribution = normalizeOpenImageAttribution(image.attribution);
+      const attribution = normalizeOpenImageAttribution({ ...image.attribution, modifications: "按正文版式处理，回执记录实际改动。" });
       const metadata = await sharp(raw).metadata();
       const scale = Math.max(width / metadata.width, height / metadata.height);
       const photoWidth = Math.round(metadata.width * scale), photoHeight = Math.round(metadata.height * scale);
@@ -165,14 +189,14 @@ async function prepare() {
       const threadId = "thr-yaoayi-article-" + runId + "-" + (index + 1);
       const name = "yaoayi-photo-" + runId + "-" + (index + 1);
       const claim = { jobId, requestId: binding.requestId, draftHash: binding.draftHash, sectionKey: image.sectionKey,
-        sourceSha256: image.sha256, caption: image.caption, attribution };
+        sourceSha256: image.sha256, caption: image.caption };
       const goal = [
         "你是姚阿姨系统的视觉设计师。用指定开放许可实拍做正文参考配图；不添加文字、人物或虚构布景。",
         "为本机 Compositor 选择裁剪重心和轻微色调。仅 JSON：{\"focus\":\"center|upper|lower|left|right\",\"tone\":\"指定色值\",\"opacity\":0.02到0.055,\"reason\":\"与章节相关的具体取舍\"}。",
         JSON.stringify({ title: image.title, sourceTitle: attribution.title, caption: image.caption, chapter: section.title,
           chapterText: String(section.body).slice(0, 4500), allowedTones: toneColors, sourceWidth: metadata.width, sourceHeight: metadata.height }),
       ].join("\n");
-      await app.query(`INSERT INTO threads (id,tenant_id,workspace_id,title,mode,status,progress_done,progress_total,created_by,agent_id,created_at,updated_at)
+      if (!prior) await app.query(`INSERT INTO threads (id,tenant_id,workspace_id,title,mode,status,progress_done,progress_total,created_by,agent_id,created_at,updated_at)
         SELECT $1,$2,$3,$4,'quest','queued',0,2,m.id,a.id,now(),now() FROM agents a
         JOIN members m ON m.workspace_id=a.workspace_id AND m.id=$6 AND m.role='owner'
         WHERE a.workspace_id=$3 AND a.preset_key=$5 AND a.status='ready' ON CONFLICT (id) DO NOTHING`,
@@ -191,14 +215,21 @@ async function prepare() {
             y: Math.round((height-photoHeight)*yRatio), width: photoWidth, height: photoHeight, opacity: 1 },
           { type: "solid", name: "轻量色调调整", color: art.tone, x: 0, y: 0, width, height, opacity: art.opacity },
         ], exports: [{ format: "png", path: name + ".png" }] };
+        const { modifications } = compositorPhotoChanges(recipe, attribution.licenseId);
         return JSON.stringify([
           { action: "visualwrite.compose", tool: "visualwrite.compose", objectType: "visual_asset", label: image.title,
-            params: { has_portrait: false, has_third_party_asset: true, source_evidence: claim, recipe, out_dir: outputDirectory } },
+            params: { has_portrait: false, has_third_party_asset: true,
+              source_evidence: { ...claim, attribution: { ...attribution, modifications } }, recipe, out_dir: outputDirectory } },
           { action: "visualread.verify", tool: "visualread.verify", objectType: "visual_asset", label: "回读实际配图摘要",
             params: { path: join(outputDirectory, name + ".png"), width, height } },
         ]);
       };
-      const result = await runQuest(app, gateway, scope, { threadId, goal, presetKey: "visual-designer", toolExecutor,
+      const observedThread = async () => {
+        const { rows } = await app.query("SELECT status, progress_done FROM threads WHERE id=$1 AND tenant_id=$2 AND workspace_id=$3",
+          [threadId, scope.tenantId, scope.workspaceId]);
+        return { status: rows[0]?.status ?? "missing", stepsDone: rows[0]?.progress_done };
+      };
+      const result = prior ? await observedThread() : await runQuest(app, gateway, scope, { threadId, goal, presetKey: "visual-designer", toolExecutor,
         reviewVisualPreparation: privateReview, llmCall: useDesigner, fallbackPlanner: () => { throw Error("ARTICLE_VISUAL_DESIGN_INVALID"); },
       });
       if (result.status !== "completed" || result.stepsDone !== 2) {
@@ -221,29 +252,44 @@ async function prepare() {
       if (await realpath(project) !== project) throw Error("ARTICLE_VISUAL_PROJECT_UNSAFE");
       try { requirePrivate(await lstat(archive), true, 100 * 1024 * 1024); }
       catch (error) {
-        if (error.code !== "ENOENT") throw error;
+        if (error.code !== "ENOENT" || prior) throw error;
         await bin("/usr/bin/ditto", ["-c", "-k", "--keepParent", project, archive], {
           env: { PATH: "/usr/bin:/bin" }, timeout: 60_000, maxBuffer: 64 * 1024,
         });
         await chmod(archive, 0o600);
       }
       const file = name + ".png";
-      await writeFile(join(handoff, file), bytes, { mode: 0o600 });
-      items.push({
+      const target = join(handoff, file);
+      try { await writeFile(target, bytes, { mode: 0o600, flag: "wx" }); }
+      catch (error) {
+        if (error.code !== "EEXIST" || sha(await readPrivate(target)) !== outputSha256) throw error;
+      }
+      const performedRecipe = compose.decision.params.recipe;
+      const { changes, modifications } = compositorPhotoChanges(performedRecipe, attribution.licenseId);
+      const entry = {
         file, sha256: outputSha256, title: image.title, alt: image.alt, caption: image.caption, sectionKey: image.sectionKey,
-        source: { type: "licensed", ref: attribution.landingUrl, attribution },
+        source: { type: "licensed", ref: attribution.landingUrl, attribution: { ...attribution, modifications } },
         workshop: { threadId, composeEventId: compose.event_id, verifyEventId: verify.event_id,
           modelEventId: accepted.decision.after.modelEventId, sourceSha256: image.sha256, outputSha256,
-          recipeSha256: hashObject(compose.decision.params.recipe), projectSha256: sha(await readFile(archive)), changes: ["crop","tone"] },
+          recipeSha256: hashObject(performedRecipe), projectSha256: sha(await readFile(archive)), changes },
         rights: { approved: true, note: "自动核对开放许可、作者署名和实际原图摘要，并将许可和处理说明保留在配图回执。" },
         privacy: { approved: true, note: "本机 Apple Vision 已检查实际来源字节，未检测到人脸。" },
         relevance: { approved: true, note: "独立原生模型初审已核对该来源、章节、图注和纪实参考标识。" },
-      });
+      };
+      if (prior) {
+        const previous = prior.images[index];
+        const previousSource = previous?.source?.attribution;
+        if (!previousSource || previous.sha256 !== entry.sha256 ||
+            hashObject({ ...previousSource, modifications }) !== hashObject(entry.source.attribution) ||
+            hashObject({ ...previous.workshop, changes }) !== hashObject(entry.workshop)) throw Error("ARTICLE_VISUAL_LEGACY_PROOF_CHANGED");
+        items.push({ ...previous, source: { ...previous.source, attribution: entry.source.attribution }, workshop: entry.workshop });
+      } else items.push(entry);
     }
-    const manifest = join(handoff, "manifest.json");
+    const manifest = join(handoff, "manifest-v2.json");
     const bundle = { schema: "yaoayi.article-illustration-receipt/v1", jobId, requestId: binding.requestId,
-      draftHash: binding.draftHash, reviewedBy: "姚阿姨系统独立配图初审", reviewedAt: new Date().toISOString(),
-      renderer: "姚阿姨 visual-designer / 本机 Compositor", images: items };
+      draftHash: binding.draftHash, reviewedBy: prior?.reviewedBy ?? "姚阿姨系统独立配图初审",
+      reviewedAt: prior?.reviewedAt ?? new Date().toISOString(),
+      renderer: prior?.renderer ?? "姚阿姨 visual-designer / 本机 Compositor", images: items };
     try { await writeJSON(manifest, bundle); }
     catch (error) {
       if (error.code !== "EEXIST") throw error;

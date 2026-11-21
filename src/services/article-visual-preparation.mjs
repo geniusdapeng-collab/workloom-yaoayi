@@ -95,6 +95,18 @@ function validRecipe(params, outputDirectory) {
     exactKeys(exported, ["format", "path"]) && exported.format === "png" && exported.path === recipe.name + ".png";
 }
 
+export function compositorPhotoChanges(recipe, licenseId) {
+  const { canvas, layers } = recipe;
+  const photo = layers[0], tone = layers[1];
+  const cropped = photo.x < 0 || photo.y < 0 || photo.x + photo.width > canvas.width || photo.y + photo.height > canvas.height;
+  if (photo.type !== "image" || tone?.type !== "solid" || !(tone.opacity > 0)) throw new Error("ARTICLE_VISUAL_RECIPE_UNVERIFIED");
+  const shareAlike = /^CC-BY-SA-(\d\.\d)$/.exec(licenseId ?? "")?.[1];
+  return {
+    changes: cropped ? ["crop", "tone"] : ["tone"],
+    modifications: `按正文版式${cropped ? "裁剪并" : ""}轻度调色。${shareAlike ? `本图改作沿用 CC BY-SA ${shareAlike}。` : ""}`,
+  };
+}
+
 function preparationDecision(value) {
   if (!exactKeys(value, ["decision", "captionAccurate", "relatedToSection", "referenceFraming", "reason"]) ||
       !["accept", "revise"].includes(value.decision) || !approvedText(value.reason, 600) ||
@@ -123,7 +135,8 @@ export function createArticleVisualPreparationReviewer({
     if (!section) return denied("ARTICLE_VISUAL_BINDING_INVALID");
     let source, attribution, bytes;
     try {
-      attribution = normalizeOpenImageAttribution(claim.attribution);
+      const editing = compositorPhotoChanges(recipe, claim.attribution?.licenseId);
+      attribution = normalizeOpenImageAttribution({ ...claim.attribution, modifications: editing.modifications });
       source = await sourceReader(attribution.landingUrl);
       if (!knownMimes.has(source.mime) || source.landingUrl !== attribution.landingUrl || source.licenseId !== attribution.licenseId ||
         source.licenseUrl !== attribution.licenseUrl || source.credit !== attribution.credit ||

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import sharp from "sharp";
-import { createArticleVisualPreparationReviewer } from "../src/services/article-visual-preparation.mjs";
+import { compositorPhotoChanges, createArticleVisualPreparationReviewer } from "../src/services/article-visual-preparation.mjs";
 import { SCOPE } from "../src/video-runtime/config.mjs";
 
 const sha = (kind, bytes) => createHash(kind).update(bytes).digest("hex");
@@ -54,6 +54,7 @@ async function fixture(t, deps = {}) {
 
 test("license, true source bytes, native model and no-face evidence admit only the exact low-risk preparation", async t => {
   const f = await fixture(t);
+  f.input.step.params.source_evidence.attribution.modifications = "已移除画面里的包装及车辆品牌。";
   const accepted = await f.review(f.input);
   assert.equal(accepted.decision, "approved");
   assert.equal(accepted.fingerprint, fingerprint);
@@ -61,7 +62,22 @@ test("license, true source bytes, native model and no-face evidence admit only t
   assert.equal(accepted.evidenceHash, f.recorded[0].evidenceHash);
   assert.equal(f.recorded[0].sourceSha256, f.input.step.params.source_evidence.sourceSha256);
   assert.doesNotMatch(f.modelCalls[0].prompt, new RegExp(f.path));
+  assert.doesNotMatch(f.modelCalls[0].prompt, /已移除|车辆品牌/u);
+  assert.equal(f.recorded[0].attribution.modifications, "按正文版式裁剪并轻度调色。本图改作沿用 CC BY-SA 4.0。");
   assert.match(f.modelCalls[0].prompt, /不可假称亲眼见到/);
+});
+
+test("the native geometry reports only tone if the frame fits, without inferring an object was removed", async t => {
+  const { input } = await fixture(t);
+  const { recipe } = input.step.params;
+  assert.deepEqual(compositorPhotoChanges(recipe, "CC0-1.0"), {
+    changes: ["crop", "tone"], modifications: "按正文版式裁剪并轻度调色。",
+  });
+  recipe.layers[0].y = 0;
+  recipe.layers[0].height = recipe.canvas.height;
+  assert.deepEqual(compositorPhotoChanges(recipe, "CC-BY-SA-4.0"), {
+    changes: ["tone"], modifications: "按正文版式轻度调色。本图改作沿用 CC BY-SA 4.0。",
+  });
 });
 
 test("no model call occurs for unauthoritative license, mismatched bytes, faces, out-of-scope role or writable path", async t => {
