@@ -68,6 +68,32 @@ export interface QuestStep {
 
 export type QuestPlanner = (goal: string, preset: AssembledPreset) => QuestStep[];
 
+export type VisualPreparationReview = (input: {
+  scope: { tenantId: string; workspaceId: string };
+  threadId: string;
+  step: QuestStep;
+  fingerprint: string;
+}) => Promise<{
+  fingerprint: string;
+  evidenceHash: string;
+  modelEventId?: string;
+  modelResponseHash?: string;
+  decision: "approved" | "needs_input";
+  code: string;
+}>;
+
+export function supportsVisualPreparationReview(
+  step: QuestStep,
+  { presetKey, review, impacts }: { presetKey: string; review: boolean; impacts: readonly RuleImpact[] },
+): boolean {
+  const active = impacts.filter(impact => impact.result !== "pass");
+  return review && presetKey === "visual-designer" && step.objectType === "visual_asset"
+    && step.action === "visualwrite.compose" && step.tool === "visualwrite.compose"
+    && step.params.has_third_party_asset === true && step.params.has_portrait === false
+    && step.context?.irreversible !== true && active.length === 1
+    && active[0]?.rule_id === "G-VIS1" && active[0].version === "geo-growth-visual/v1/geo-growth" && active[0].result === "review";
+}
+
 /** 稳定序列化（键排序）：步骤指纹的输入口径，确保同一计划在多次 replay 中得到同一指纹 */
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value ?? null) ?? "null";
@@ -685,6 +711,8 @@ async function runQuestOwned(
     fallbackPlanner?: QuestPlanner;
     /** 真实连接器执行器由部署层注入；缺省执行器仅支持明确的模拟档案。 */
     toolExecutor?: ToolExecutor;
+    /** Local deployment may provide an independent review for licensed illustration preparation. */
+    reviewVisualPreparation?: VisualPreparationReview;
     modelId?: string;
     /**
      * GR-01：显式重规划。缺省 false —— 已有持久化计划时**复用原计划**（replay 不再重规划），
@@ -945,7 +973,56 @@ async function runQuestOwned(
     const approvalDrifted = approvalRecord ? !approvalMatches : false;
     const approvalRef = approvalRecord && !approvalDrifted && !paramsIncomplete && !fenceUnevaluable ? approvalRecord.approvalId : undefined;
 
-    if (effectiveLevel === "review" && !approvalRef) {
+    let preparationReviewRef: string | undefined;
+    const mayReviewPreparation = input.reviewVisualPreparation && input.toolExecutor && !simulated
+      && input.mode !== "agent" && !preset.highRisk && !preset.readonly && !needsHumanCheck
+      && !fenceUnevaluable && !approvalRecord && !approvalRef
+      && supportsVisualPreparationReview(step, { presetKey: preset.presetKey, review: effectiveLevel === "review", impacts: verdict.impacts });
+    if (mayReviewPreparation && !await pendingApprovalForStep(app, scope, threadId, step.stepId)) {
+      let result: Awaited<ReturnType<VisualPreparationReview>> | undefined;
+      try {
+        result = await input.reviewVisualPreparation!({ scope: { ...scope }, threadId, step: structuredClone(step), fingerprint });
+      } catch { result = undefined; }
+      const evidenceIsBound = result?.fingerprint === fingerprint && /^[a-f0-9]{64}$/.test(result.evidenceHash);
+      let modelEventId: string | undefined;
+      if (/^E-\d+$/.test(result?.modelEventId ?? "") && /^[a-f0-9]{64}$/.test(result?.modelResponseHash ?? "")) {
+        const evidence = await inTx(app, scope, c => c.query(
+          `SELECT 1 FROM biz_events WHERE event_id=$1 AND tenant_id=$2 AND workspace_id=$3
+             AND payload->'decision'->>'action'='model.call'
+             AND payload->'model_trace'->>'responseHash'=$4
+             AND nullif(payload->'model_trace'->>'responseId','') IS NOT NULL`,
+          [result?.modelEventId, scope.tenantId, scope.workspaceId, result?.modelResponseHash],
+        ));
+        if (evidence.rowCount === 1) modelEventId = result?.modelEventId;
+      }
+      const accepted = result?.decision === "approved" && evidenceIsBound && Boolean(modelEventId);
+      const code = result?.decision === "needs_input" && /^[A-Z][A-Z_0-9]{2,95}$/.test(result.code)
+        ? result.code : accepted ? "VISUAL_PREPARATION_ACCEPTED" : "VISUAL_PREPARATION_REVIEW_UNAVAILABLE";
+      const reviewEvent = await inTx(app, scope, async c => {
+        const event = await gatewayAppendOnClient(c, {
+          ...scope, actor: { id: "system", type: "system" }, sessionId: threadId,
+        }, {
+          who: { type: "system", id: "system" },
+          context: { tenant_id: scope.tenantId, workspace_id: scope.workspaceId, time: new Date().toISOString() },
+          object: { type: "visual_asset", id: step.objectId },
+          decision: {
+            kind: "preparation_review", action: "visual.preparation.review", step_id: step.stepId,
+            fingerprint, after: { accepted, code, ...(evidenceIsBound ? { evidenceHash: result!.evidenceHash } : {}), modelEventId },
+          },
+          rule_impact: verdict.impacts,
+          ...(modelEventId ? { links: [modelEventId] } : {}),
+        });
+        if (!accepted) await c.query(
+          "UPDATE threads SET status='failed', error=$3, updated_at=now() WHERE id=$1 AND workspace_id=$2 AND status='running'",
+          [threadId, scope.workspaceId, code],
+        );
+        return event;
+      });
+      if (!accepted) return { threadId, status: "failed", stepsDone: done.size, stepsTotal: steps.length, unverified, error: code, planVersion, planReused };
+      preparationReviewRef = reviewEvent.eventId;
+    }
+
+    if (effectiveLevel === "review" && !approvalRef && !preparationReviewRef) {
       /**
        * N-14：本线程该步骤已有未决审批 → 复用既有审批（不新建事件、不新建审批行、不刷屏）。
        * 线程状态仍置回 pending_review（可能被上一次失败/暂停改动过）。
@@ -1119,7 +1196,8 @@ async function runQuestOwned(
       context: { tenant_id: scope.tenantId, workspace_id: scope.workspaceId, time: new Date().toISOString() },
       object: { type: step.objectType, id: step.objectId },
       decision: { kind: "execution_started", action: step.action, step_id: step.stepId, tool: step.tool,
-        effect: effectOf(step.tool), params: step.params, fingerprint, original_fingerprint: originalFingerprint },
+        effect: effectOf(step.tool), params: step.params, fingerprint, original_fingerprint: originalFingerprint,
+        ...(preparationReviewRef ? { preparation_review_ref: preparationReviewRef } : {}) },
       rule_impact: verdict.impacts,
       receipt: { synced: false, mode: simulated ? "simulated" as const : "real" as const },
     };
@@ -1166,6 +1244,7 @@ async function runQuestOwned(
     if (!verified) unverified.push(step.stepId);
     const execBasis: string[] = [
       ...(approvalRef ? [`经审批 ${approvalRef} 批准执行（E3.3 恢复闭环）`] : []),
+      ...(preparationReviewRef ? [`通过本机配图准备检查 ${preparationReviewRef}`] : []),
       // N-04：指纹不一致导致旧「已完成」不成立时，重跑留痕（可复盘计划漂移）
       ...(drifted.includes(step.stepId) ? ["原计划同序号步骤与本步不一致，按新步骤重新过围栏执行"] : []),
       // GR-15：演示态回执与真实回执在账本上可区分（假回执不得外观同真回执）
@@ -1184,6 +1263,7 @@ async function runQuestOwned(
           action: step.action, step_id: step.stepId, tool: step.tool, effect: effectOf(step.tool), params: step.params, before: step.before,
           fingerprint,
           original_fingerprint: originalFingerprint,
+          ...(preparationReviewRef ? { preparation_review_ref: preparationReviewRef } : {}),
           after: { ...(typeof step.after === "object" && step.after !== null ? step.after as Record<string, unknown> : {}), result: out.result },
           basis: execBasis.length ? execBasis : undefined,
           ...(prefUsageRecorded ? {} : { memory_refs: preferenceMemoryRefs(prefs) }),

@@ -1,5 +1,6 @@
 import { DATA_MODES } from "../domain/constants.mjs";
 import { ApiError, PolicyError } from "../domain/errors.mjs";
+import { assertLegacyArticlePipeline } from "../domain/article-illustration-policy.mjs";
 import { hashText, hashObject } from "../domain/hash.mjs";
 import {
   classifyInteraction,
@@ -19,7 +20,8 @@ import {
 } from "../domain/persona.mjs";
 import { requirePublicUrl } from "../domain/public-url.mjs";
 import { isFinalContent } from "../../public/final-backup-format.js";
-import { EDITORIAL_SCHEMA, EDITORIAL_NATIVE_SCHEMA, isEditorialVariantSchema, EDITORIAL_PUBLICATION_AUTHORIZATION, validateEditorialVariant } from "../domain/editorial.mjs";
+import { EDITORIAL_SCHEMA, EDITORIAL_NATIVE_SCHEMA, isEditorialVariantSchema, EDITORIAL_PUBLICATION_AUTHORIZATION, validateEditorialVariant, claimEditorialFingerprint } from "../domain/editorial.mjs";
+import { editorialTextReviewHash, hasEditorialTextReview, runEditorialTextReview } from "./editorial-text-review.mjs";
 
 const CONTENT_TYPES = new Set([
   "article",
@@ -77,11 +79,44 @@ function publicClaim(claim) {
   };
 }
 
+function legacyTextReviewContext(state, row) {
+  const claims = state.claims.filter(claim => row.claimIds.includes(claim.id));
+  const input = {
+    article: { title: row.title, body: row.body },
+    brief: {
+      format: row.contentType,
+      platforms: row.platforms,
+      claims: claims.filter(claim => claim.state === "approved" && !scanSensitiveText(claim.text).length)
+        .map(({ id, type, text }) => ({ id, type, text })),
+    },
+  };
+  const snapshotHash = hashObject({ id: row.id, title: row.title, body: row.body, persona: row.persona,
+    contentType: row.contentType, platforms: row.platforms, claimIds: row.claimIds,
+    claimBindings: claims.map(claim => [claim.id, claim.state, claimEditorialFingerprint(claim)]) });
+  return { row: { ...row, snapshotHash }, input };
+}
+
 export class GeoOsService {
-  constructor({ store, clock = () => new Date(), finalContentBackup = null }) {
+  #pendingTextReviews = new Map();
+
+  constructor({ store, clock = () => new Date(), finalContentBackup = null, aiReviewer = null, requireTextPreflight = aiReviewer !== null }) {
     this.store = store;
     this.clock = clock;
     this.finalContentBackup = finalContentBackup;
+    this.aiReviewer = aiReviewer;
+    this.requireTextPreflight = requireTextPreflight;
+  }
+
+  #runTextReview(state, row) {
+    const context = legacyTextReviewContext(state, row);
+    const key = editorialTextReviewHash(context.row, context.input);
+    let running = this.#pendingTextReviews.get(key);
+    if (!running) {
+      running = runEditorialTextReview(this.aiReviewer, context.row, context.input, this.clock())
+        .finally(() => this.#pendingTextReviews.delete(key));
+      this.#pendingTextReviews.set(key, running);
+    }
+    return running;
   }
 
   async backupFinalContent(content) {
@@ -275,6 +310,17 @@ export class GeoOsService {
     const target = requireText(input.target, "target", 40);
     const actor = requireText(input.actor, "actor", 120);
     const note = typeof input.note === "string" ? input.note.trim() : "";
+    let preflight;
+    if (this.requireTextPreflight && target === "fact_check") {
+      const state = this.store.snapshot();
+      const candidate = state.content.find(row => row.id === id);
+      if (!candidate) throw new ApiError(404, "CONTENT_NOT_FOUND", `找不到内容 ${id}。`);
+      if (candidate.snapshotSchema !== undefined) {
+        throw new PolicyError("EDITORIAL_TRANSITION_REQUIRED", "编辑版本必须通过精确快照审核接口变更。");
+      }
+      transitionContent(candidate, target, { approvedBy: input.approvedBy || actor, note }, { now: this.clock() });
+      preflight = await this.#runTextReview(state, candidate);
+    }
 
     const { result } = await this.store.mutate(
       {
@@ -306,13 +352,27 @@ export class GeoOsService {
             }
           }
         }
-        state.content[index] = transitionContent(
-          state.content[index],
-          target,
-          { approvedBy: input.approvedBy || actor, note },
-          { now: this.clock() },
-        );
-        return state.content[index];
+        const current = state.content[index];
+        if (target === "approved" || target === "scheduled") {
+          assertLegacyArticlePipeline(current);
+          if (this.requireTextPreflight) {
+            const context = legacyTextReviewContext(state, current);
+            if (!hasEditorialTextReview(context.row, context.input)) {
+              throw new PolicyError("EDITORIAL_AI_PREFLIGHT_REQUIRED", "最终确认前须有当前原稿和证据的有效 AI 初审回执。");
+            }
+          }
+        }
+        const next = transitionContent(current, target,
+          { approvedBy: input.approvedBy || actor, note }, { now: this.clock() });
+        if (preflight) {
+          const context = legacyTextReviewContext(state, current);
+          if (preflight.checkContextHash !== editorialTextReviewHash(context.row, context.input)) {
+            throw new ApiError(412, "EDITORIAL_AI_PREFLIGHT_STALE", "正文或事实依据在 AI 初审期间发生变化。");
+          }
+          next.aiPreflight = preflight;
+        }
+        state.content[index] = next;
+        return next;
       },
     );
     const finalBackup = await this.backupFinalContent(result);

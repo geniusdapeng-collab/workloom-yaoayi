@@ -80,7 +80,7 @@ async function actualWorker(t, f, job, { checker = false, onProvider, tamperLeas
 }
 
 test('actual worker and backend process a real source-backed text DAG with independent identities and reserved unknown costs', async t => {
-  const f = await contentOpsFixture(t), sourceBytes = Buffer.from('# Actual isolated source\n\nThis complete source is included in the final independent checker input.\n');
+  const f = await contentOpsFixture(t, { articleIllustrations: true }), sourceBytes = Buffer.from('# Actual isolated source\n\nThis complete source is included in the final independent checker input.\n');
   const source = await uploadOpsSource(f, { role: 'transcript', mime: 'text/markdown', bytes: sourceBytes });
   const { job } = await createOpsJob(f, { sourceArtifactIds: [source.id] }), initial = f.ops.getJob(job.id, opsContext());
   const beforeContent = structuredClone(f.store.snapshot().content), writer = await actualWorker(t, f, job), checker = await actualWorker(t, f, job, { checker: true });
@@ -100,6 +100,17 @@ test('actual worker and backend process a real source-backed text DAG with indep
   assert.equal(finished.budgetTotals.unknown.count, 5); assert.deepEqual(f.store.snapshot().content, beforeContent);
   assert.equal(finished.blueprintHash, initial.blueprintHash);
   assert.deepEqual(finished.tasks.map(row => [row.taskId, row.taskHash]), initial.tasks.map(row => [row.taskId, row.taskHash]));
+  const exact = f.ops.getCandidate(finished.candidates[0].id, opsContext());
+  f.service.productionArtifacts = f.artifacts;
+  const acceptance = { accepted: true, packageHash: exact.packageHash, checkContextHash: exact.checkContextHash,
+    aiReportHash: reviewed.reports[0].reportHash };
+  const approver = opsContext(exact, 'isolated final approver');
+  const result = await f.ops.acceptCandidate(exact.id, acceptance, approver, f.service);
+  assert.equal(result.status, 'approved');
+  assert.equal(result.approval.approvedBy, 'isolated final approver');
+  assert.equal(result.visibility, 'private');
+  assert.equal(f.ops.getCandidate(exact.id, opsContext()).finalAcceptance.contentId, result.id);
+  assert.equal(f.store.snapshot().contentQualityReports.filter(report => report.candidateId === exact.id).length, 1);
   const currentSource = await f.artifacts.openVerifiedArtifact(source.id);
   try { assert.equal(bytesHash(await currentSource.handle.readFile()), source.sha256); }
   finally { await currentSource.handle.close(); }
@@ -173,13 +184,42 @@ test('actual image worker output needs separate artifact/media reviews and genui
     evidence.push({ artifactId: ref.id, sha256: ref.sha256, method: 'deterministic_static_inspection', coverage: 'full',
       note: 'Complete real PNG bytes decoded. Semantic and artistic signoff here is an isolated administrator-attestation fixture, not a production human review.' });
   }
-  await f.ops.submitQualityReport(candidate.id, { checkedPackageHash: candidate.packageHash, checkContextHash: candidate.checkContextHash, reviewed: true,
-    coverage: { textKeys: qualityTextKeys(candidate.package), artifactHashes: candidate.package.artifactRefs.map(ref => ref.sha256), semantic: 'checked', artistic: 'checked' },
-    mediaEvidence: evidence, assessment: 'Independent final-review fixture after all actual isolated text and native files were available; no platform publication or real customer approval is asserted.' },
-  opsContext(candidate, 'independent final-review fixture'));
-  candidate = f.ops.getCandidate(candidate.id, opsContext()); assert.equal(candidate.status, 'ready_for_review');
-  const variant = await f.service.materializeCandidate(candidate.id, { packageHash: candidate.packageHash,
-    qualityReportHashes: candidate.qualityReportHashes, reviewSnapshotHash: candidate.reviewSnapshotHash }, opsContext(candidate));
-  assert.equal(variant.status, 'draft'); assert.equal(variant.format, 'image_text'); assert.equal(variant.assetRefs.length, 2);
+  const input = {
+    accepted: true,
+    aiReportHash: candidate.reports.at(-1).reportHash,
+    review: {
+      checkedPackageHash: candidate.packageHash, checkContextHash: candidate.checkContextHash, reviewed: true,
+      coverage: { textKeys: qualityTextKeys(candidate.package), artifactHashes: candidate.requiredCoverage.artifactHashes, semantic: 'checked', artistic: 'checked' },
+      mediaEvidence: evidence,
+      assessment: 'Independent final-review fixture after all actual isolated text and native files were available; no platform publication or real customer approval is asserted.',
+    },
+  };
+  const approver = 'independent final-review fixture';
+  const approvalContext = opsContext(candidate, approver);
+  await assert.rejects(f.ops.acceptCandidate(candidate.id, input, { ...approvalContext, method: 'checker' }, f.service), { code: 'AGENT_SCOPE_DENIED' });
+  await assert.rejects(f.ops.acceptCandidate(candidate.id, { ...input, aiReportHash: 'f'.repeat(64) }, approvalContext, f.service), { code: 'AI_MEDIA_REVIEW_REQUIRED' });
+  await assert.rejects(f.ops.acceptCandidate(candidate.id, { ...input, review: { ...input.review, mediaEvidence: [] } },
+    approvalContext, f.service), { code: 'QUALITY_RECHECK_REQUIRED' });
+  const interruptedEditorial = {
+    materializeCandidate: f.service.materializeCandidate.bind(f.service),
+    async transitionVariant(id, value, ctx) {
+      if (value.target === 'approved') throw new Error('isolated interrupted final write');
+      return f.service.transitionVariant(id, value, ctx);
+    },
+  };
+  await assert.rejects(f.ops.acceptCandidate(candidate.id, input, approvalContext, interruptedEditorial), /isolated interrupted final write/);
+  assert.equal(f.store.snapshot().content.find(row => row.candidateId === candidate.id).status, 'fact_check');
+  const variant = await f.ops.acceptCandidate(candidate.id, input, approvalContext, f.service);
+  assert.equal(variant.status, 'approved');
+  assert.equal(variant.approval.approvedBy, approver);
+  assert.equal(variant.visibility, 'private');
+  assert.equal(variant.format, 'image_text');
+  assert.equal(variant.assetRefs.length, 2);
+  assert.equal(variant.aiReportHash, input.aiReportHash);
+  assert.deepEqual(await f.ops.acceptCandidate(candidate.id, input, approvalContext, f.service), variant);
+  assert.equal(f.store.snapshot().content.filter(row => row.candidateId === candidate.id).length, 1);
+  assert.equal(f.ops.getCandidate(candidate.id, opsContext()).finalAcceptance.contentId, variant.id);
+  await assert.rejects(f.ops.acceptCandidate(candidate.id, { ...input, review: { ...input.review, assessment: 'Different assessment using the original acceptance key.' } },
+    approvalContext, f.service), { code: 'IDEMPOTENCY_CONFLICT' });
   assert.equal(f.store.snapshot().publications.length, 0); assert.equal(f.store.snapshot().websiteRoutes.length, 0);
 });

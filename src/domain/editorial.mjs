@@ -1,4 +1,5 @@
 import { ApiError, PolicyError } from "./errors.mjs";
+import { ARTICLE_ILLUSTRATION_SOURCE_TYPES, ARTICLE_MIN_ILLUSTRATIONS, EDITORIAL_VISUAL_REQUIREMENT, hasGeneratedIllustrationDisclosure, isMeaningfulIllustrationText } from "./article-illustration-policy.mjs";
 import { hashObject } from "./hash.mjs";
 import { isClaimPubliclyExportable, scanSensitiveText, validateContentForApproval } from "./policy.mjs";
 import { requirePublicUrl } from "./public-url.mjs";
@@ -238,7 +239,49 @@ export function assertEditorialAssets(state, refs, { reviewed = false } = {}) {
   }
 }
 
-export function validateEditorialVariant(state, content, account, { now = new Date(), requireReady = true, requireApproval = false } = {}) {
+const EDITORIAL_IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+export function isEditorialArticle(document) {
+  return document?.format === "article"
+    && (document.snapshotSchema !== EDITORIAL_NATIVE_SCHEMA || document.publicationPackage?.nativeForm === "article");
+}
+
+export function collectArticleIllustrationRefs(state, document) {
+  if (!isEditorialArticle(document)) return [];
+  const refs = new Map(document.assetRefs.filter(ref => ref.role === "image").map(ref => [ref.assetId, ref]));
+  const assets = new Map((state.mediaAssets ?? []).map(asset => [asset.id, asset]));
+  const generatedHashes = new Set((state.mediaAssets ?? [])
+    .filter(asset => asset.review?.illustrationSourceType === "generated").map(asset => asset.sha256));
+  const byHash = new Map();
+  for (const block of document.blocks) {
+    if (block.type !== "image") continue;
+    const ref = refs.get(block.assetId);
+    const asset = assets.get(block.assetId);
+    if (!ref || !asset || !EDITORIAL_IMAGE_MIMES.has(asset.mime) || asset.kind !== "image"
+      || asset.sha256 !== ref.sha256 || asset.status !== "reviewed" || asset.review?.sha256 !== ref.sha256
+      || asset.review?.rightsConfirmed !== true || asset.review?.privacyConfirmed !== true
+      || !ARTICLE_ILLUSTRATION_SOURCE_TYPES.includes(asset.review.illustrationSourceType)
+      || asset.review.illustrationSourceType === "licensed" && !asset.review.illustrationAttribution
+      || !isMeaningfulIllustrationText(block.alt) || !isMeaningfulIllustrationText(block.caption)
+      || generatedHashes.has(ref.sha256) && !hasGeneratedIllustrationDisclosure(block.caption)) continue;
+    byHash.set(ref.sha256, ref);
+  }
+  return [...byHash.values()];
+}
+
+export function requireArticleIllustrationRefs(state, document) {
+  if (!isEditorialArticle(document)) return [];
+  const refs = collectArticleIllustrationRefs(state, document);
+  if (refs.length < ARTICLE_MIN_ILLUSTRATIONS) {
+    throw new PolicyError("ARTICLE_ILLUSTRATIONS_REQUIRED", EDITORIAL_VISUAL_REQUIREMENT,
+      [{ minimum: ARTICLE_MIN_ILLUSTRATIONS, eligible: refs.length }]);
+  }
+  return refs;
+}
+
+export function validateEditorialVariant(state, content, account, {
+  now = new Date(), requireReady = true, requireApproval = false, requireArticleIllustrations = true,
+} = {}) {
   if (!isEditorialVariantSchema(content?.snapshotSchema)) return;
   if (hashObject(editorialVariantSnapshot(content)) !== content.snapshotHash) throw new PolicyError("EDITORIAL_SNAPSHOT_CHANGED", "渠道版本与原快照不一致。");
   if (content.snapshotSchema === EDITORIAL_NATIVE_SCHEMA) {
@@ -283,6 +326,7 @@ export function validateEditorialVariant(state, content, account, { now = new Da
   if (requireReady) {
     validateContentForApproval(content, state.claims, { now });
     assertEditorialAssets(state, content.assetRefs, { reviewed: true });
+    if (requireArticleIllustrations) requireArticleIllustrationRefs(state, content);
     if (content.format === "image_text" && !content.assetRefs.some(ref => ref.role === "image")) {
       throw new PolicyError("GALLERY_ASSET_REQUIRED", "图文版本至少需要一张获准的正文图片。");
     }

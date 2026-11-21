@@ -60,7 +60,7 @@ test("HTTP API completes a manual publish flow and keeps fixture receipts blocke
       body: JSON.stringify({
         title: "API flow test",
         body: "我看，这是一份由已批准项目事实支持的完整内容草稿。",
-        contentType: "article",
+        contentType: "social_post",
         claimIds: ["C003"],
         platforms: ["GitHub"],
         owner: "姚阿姨",

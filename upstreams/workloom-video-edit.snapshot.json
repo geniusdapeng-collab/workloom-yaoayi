@@ -25867,11 +25867,11 @@
       "sourceMode": "100644",
       "gitBlob": "f668cf6c72376c8ea6a891ca74aa11115df57236",
       "bytes": 68116,
-      "targetBytes": 68232,
+      "targetBytes": 72976,
       "sourceSha256": "ae4ec887d54baf5af27591f6c1a1a3684e761bf6c2c31a622b2fa2f3bfbc9d7e",
-      "targetSha256": "d317846ccc76f366748e431b56e22c9618bec022a73524567eb4a7f3c7b247d4",
+      "targetSha256": "797d49d111e580c380b556562292a4cc05124b2cb12a270405102dff9c5200e8",
       "evidence": "B",
-      "adaptation": "PengManager host integration preserved during the 2026-10-31 upgrade to WorkLoom-video-edit a544ab8b068790bfb14b7977efc81b33897fc9de; exact target bytes are listed here for runtime verification."
+      "adaptation": "Yao Ayi host integration retains the upstream authorization fences and records an exact independent model-backed preliminary review for a qualifying local article-image compose step."
     },
     {
       "path": "packages/runtime/src/quest-hardening.test.ts",

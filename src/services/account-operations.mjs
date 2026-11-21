@@ -1,3 +1,4 @@
+import { verifyEditorialArticleMedia } from "./editorial-article-media.mjs";
 import { ApiError, PolicyError } from "../domain/errors.mjs";
 import { hashObject, hashText } from "../domain/hash.mjs";
 import { requirePublicUrl as publicUrl } from "../domain/public-url.mjs";
@@ -182,7 +183,10 @@ export class AccountOperationsService {
     this.mediaAssets = mediaAssets;
   }
 
-  async #verifyNativeContent(content) {
+  async #verifyPublicationMedia(content) {
+    if (isEditorialVariantSchema(content?.snapshotSchema)) {
+      await verifyEditorialArticleMedia(this.store.snapshot(), content, this.mediaAssets);
+    }
     if (content?.snapshotSchema !== EDITORIAL_NATIVE_SCHEMA) return;
     if (typeof this.productionArtifacts?.verifyReferences !== "function") throw new ApiError(503, "NATIVE_ARTIFACT_VERIFICATION_UNAVAILABLE", "原生发布前必须配置真实附件字节核对。");
     await this.productionArtifacts.verifyReferences(content.publicationPackage.artifactRefs);
@@ -251,7 +255,7 @@ export class AccountOperationsService {
     const executionMode = input.executionMode ?? "browser";
     if (!["browser", "manual"].includes(executionMode)) throw new ApiError(400, "INVALID_EXECUTION_MODE", "执行方式只能是 browser 或 manual。");
     return this.#serialize(async () => {
-      if (input.type === "publish") await this.#verifyNativeContent(this.store.snapshot().content.find(row => row.id === input.contentId));
+      if (input.type === "publish") await this.#verifyPublicationMedia(this.store.snapshot().content.find(row => row.id === input.contentId));
       const { result } = await this.store.mutate(
         { type: "account.operation_created", actor, payload: { accountId, operationType: input.type } },
         (state) => {
@@ -313,7 +317,7 @@ export class AccountOperationsService {
     const authorizationNote = text(input.authorizationNote, "authorizationNote", 2_000);
     return this.#serialize(async () => {
       const snapshot = this.store.snapshot(), original = operationFor(snapshot, id);
-      await this.#verifyNativeContent(snapshot.content.find(row => row.id === original.contentId));
+      await this.#verifyPublicationMedia(snapshot.content.find(row => row.id === original.contentId));
       const { result } = await this.store.mutate(
         { type: "account.operation_approved", actor: approvedBy, payload: { operationId: id } },
         (state) => {
@@ -337,7 +341,7 @@ export class AccountOperationsService {
     const actor = text(input.actor, "actor");
     return this.#serialize(async () => {
       const snapshot = this.store.snapshot(), original = operationFor(snapshot, id);
-      await this.#verifyNativeContent(snapshot.content.find(row => row.id === original.contentId));
+      await this.#verifyPublicationMedia(snapshot.content.find(row => row.id === original.contentId));
       const { result } = await this.store.mutate(
         { type: "account.operation_started", actor, payload: { operationId: id } },
         (state) => {
@@ -368,7 +372,6 @@ export class AccountOperationsService {
         if (operation.receipt.receiptHash !== receiptHash) throw new ApiError(409, "RECEIPT_CONFLICT", "动作已完成，不能以不同回执覆盖原记录。");
         return operation;
       }
-      await this.#verifyNativeContent(state.content.find(row => row.id === operation.contentId));
       expectedState(operation, ["in_progress"]);
       const approvedAt = Date.parse(operation.approval?.approvedAt), startedAt = Date.parse(operation.execution?.startedAt);
       if (operation.approval?.contentHash !== operation.contentHash || !Number.isFinite(approvedAt) || !Number.isFinite(startedAt) ||
@@ -394,6 +397,7 @@ export class AccountOperationsService {
           publicationId = existing.id;
         } else {
           assertReady(state, operation, this.clock());
+          await this.#verifyPublicationMedia(state.content.find(row => row.id === operation.contentId));
           const publication = await this.service.recordPublication({ contentId: operation.contentId, accountId: operation.accountId, actor, receipt,
             [EDITORIAL_PUBLICATION_AUTHORIZATION]: isEditorialVariantSchema(operation.snapshotSchema) ? { operationId: operation.id, snapshotHash: operation.editorialSnapshotHash,
               ...(operation.snapshotSchema === EDITORIAL_NATIVE_SCHEMA ? { packageHash: operation.packageHash, reviewSnapshotHash: operation.reviewSnapshotHash } : {}) } : null });

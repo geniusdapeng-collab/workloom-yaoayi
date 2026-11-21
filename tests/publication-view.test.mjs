@@ -292,3 +292,20 @@ test("workbench renders real service-shaped lifecycle data without prechecked hu
     else globalThis.document = previousDocument;
   }
 });
+
+test("licensed photograph credits remain adjacent to the actual image with source, license and edits", () => {
+  const markup = renderDocumentBlocks([{ type: "image", assetId: "asset-01", alt: "旧院石阶", caption: "山东民居院落参考" }], {
+    assets: [{ assetId: "asset-01", url: "/public-media/asset-01/example", attribution: {
+      credit: "Photographer <Name>",
+      title: "Old Courtyard",
+      landingUrl: "https://commons.wikimedia.org/wiki/File:Courtyard.jpg",
+      licenseId: "CC-BY-SA-4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+      modifications: "裁切与轻调色",
+    } }],
+  });
+  assert.match(markup, /照片署名.*Photographer &lt;Name&gt;/u);
+  assert.match(markup, /https:\/\/commons\.wikimedia\.org\/wiki\/File:Courtyard\.jpg/u);
+  assert.match(markup, /https:\/\/creativecommons\.org\/licenses\/by-sa\/4\.0\//u);
+  assert.match(markup, /裁切与轻调色/u);
+});

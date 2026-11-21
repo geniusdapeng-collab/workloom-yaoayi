@@ -5,6 +5,7 @@ import {
   TECHNICAL_TERMS,
 } from "./constants.mjs";
 import { PolicyError } from "./errors.mjs";
+import { assertLegacyArticlePipeline } from "./article-illustration-policy.mjs";
 
 const SENSITIVE_PATTERNS = Object.freeze([
   { kind: "email", pattern: /\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b/g },
@@ -205,6 +206,7 @@ export function validatePublication({
       message: "只有已排期内容可以登记发布回执。",
     });
   } else {
+    assertLegacyArticlePipeline(content);
     if (
       account &&
       (!Array.isArray(content.platforms) || !content.platforms.includes(account.platform))

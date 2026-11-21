@@ -1087,7 +1087,7 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .co-form label { display: grid; gap: 7px; }
 .co-form .co-check { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid #dce6f3; border-radius: 8px; background: #f5f9ff; }
 .co-check input { flex: 0 0 16px; width: 16px; height: 16px; padding: 0; margin: 3px 0 0; accent-color: var(--blue); }
-.co-check span { font-weight: 400; font-size: 12px; line-height: 1.8; color: #3d536f; }
+.co-check span { font-weight: 400; font-size: 12px; line-height: 1.8; color: #3d536f; overflow-wrap: anywhere; }
 .co-form > button { justify-self: start; }
 .co-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .co-form-grid .wide { grid-column: 1 / -1; }

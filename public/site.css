@@ -117,6 +117,8 @@ h1, h2, h3, p, figure { margin-top: 0; }
 .figure-zoom img { display: block; width: 100%; height: auto; }
 .zoom-label { display: inline-flex; position: absolute; right: 12px; bottom: 12px; padding: 6px 9px; color: #f7f9fc; background: #172a40db; font-family: "Avenir Next", "PingFang SC", system-ui, sans-serif; font-size: 10px; line-height: 1.6; opacity: .9; }
 .figure-zoom:hover .zoom-label, .figure-zoom:focus-visible .zoom-label { background: #245bdd; opacity: 1; }
+.figure-credit { display: block; margin-top: 4px; font-size: inherit; }
+.figure-credit a { color: inherit; text-decoration: underline; text-underline-offset: 0.2em; }
 .piece-figure figcaption { display: flex; align-items: flex-start; gap: 13px; margin-top: 13px; color: var(--site-muted); font-family: "Avenir Next", "PingFang SC", system-ui, sans-serif; font-size: 12px; line-height: 1.85; overflow-wrap: anywhere; }
 .figure-number { flex-shrink: 0; color: var(--site-warm); font-size: 10px; line-height: 2.2; }
 .image-fallback { padding: 18px; margin: 0; border: 1px solid var(--site-rule); color: var(--site-muted); font-size: 12px; line-height: 1.8; }

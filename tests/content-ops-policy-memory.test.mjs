@@ -58,7 +58,7 @@ test("typed model-file rights are frozen separately from byte SHA and re-review 
 });
 
 test("real immutable human revisions create scoped style candidates, promotion and rollback without changing facts or old packages", async t => {
-  const f = await contentOpsFixture(t), { job } = await createOpsJob(f), completed = await finishTextOpsJob(f, job.id), candidate = f.ops.getCandidate(completed.job.candidates[0].id, opsContext());
+  const f = await contentOpsFixture(t, { articleIllustrations: true }), { job } = await createOpsJob(f), completed = await finishTextOpsJob(f, job.id), candidate = f.ops.getCandidate(completed.job.candidates[0].id, opsContext());
   const original = await f.service.materializeCandidate(candidate.id, { packageHash: candidate.packageHash, qualityReportHashes: candidate.qualityReportHashes, reviewSnapshotHash: candidate.reviewSnapshotHash }, opsContext(candidate));
   const beforeState = f.store.snapshot(), before = "这是一份隔离测试中的完整正文。", after = "这是我为这个账号保留的简明正文。";
   const revision = await f.service.createVariant(f.editionId, { destinationId: "official-site", body: candidate.package.body.replace(before, after), title: candidate.package.title, summary: candidate.package.summary, supersedesContentId: original.id }, context(f.service.getEdition(f.editionId)));

@@ -24,6 +24,7 @@ import { ContentOpsService } from "./services/content-ops-service.mjs";
 import { migrateContentDirectorState } from "./services/content-director-migration.mjs";
 import { ContentDirectorModel } from "./services/content-director-model.mjs";
 import { ContentDirectorService } from "./services/content-director-service.mjs";
+import { articleIllustrationReceiptDirectory, createArticleIllustrationReceiptVerifier } from "./services/article-illustration-receipts.mjs";
 import { contentOpsAdapterBindings } from "./content-ops-worker/adapters.mjs";
 import { randomUUID } from "node:crypto";
 
@@ -56,7 +57,8 @@ export async function createYaoAyiApplication({
   await migrateYaoAyiIdentity(store, dataDir);
   const publicOrigin = env.PUBLIC_ORIGIN || `http://${host === "::1" ? "[::1]" : host}:${port}`;
   await migrateEditorialState(store, { publicOrigin });
-  const service = new GeoOsService({ store, finalContentBackup });
+  const contentModel = new ContentDirectorModel({ deepSeek: new DeepSeekAdapter() });
+  const service = new GeoOsService({ store, finalContentBackup, aiReviewer: contentModel });
   let editorial;
   const mediaAssets = new MediaAssets({ store, publicAssetAuthorizer: (id, hash) => editorial?.isAssetPublic(id, hash) === true });
   await mediaAssets.initialize();
@@ -67,18 +69,21 @@ export async function createYaoAyiApplication({
   const contentOps = new ContentOpsService({ store, artifactStore: productionArtifacts,
     adapterBindings: await contentOpsAdapterBindings({ rootDir }) });
   await contentOps.recover({ actor: "system", method: "local", idempotencyKey: randomUUID() });
-  editorial = new EditorialService({ store, geoService: service, mediaAssets, productionArtifacts, publicOrigin,
+  editorial = new EditorialService({ store, geoService: service, mediaAssets, productionArtifacts, publicOrigin, aiReviewer: contentModel,
     verifyReadback: createWebsiteReadback({ origin: publicOrigin, allowLoopback: env.NODE_ENV !== "production" && !env.PUBLIC_ORIGIN }),
     beforeActivation: editorialBackup });
   let runtime = videoRuntime;
   const contentDirector = new ContentDirectorService({
     store,
-    model: new ContentDirectorModel({ deepSeek: new DeepSeekAdapter() }),
+    model: contentModel,
     editorial,
     mediaAssets,
     contentOps,
     videoRuntime: { capabilities: () => runtime?.capabilities ? runtime.capabilities() : null },
     artifactRoot: join(dirname(dataFile), "content-director"),
+    articleIllustrationVerifier: createArticleIllustrationReceiptVerifier({
+      directory: articleIllustrationReceiptDirectory({ rootDir, env }),
+    }),
     autoStart: true,
     mode: env.ENABLE_CONTENT_DIRECTOR === "false" ? "disabled" : env.CONTENT_DIRECTOR_MODE || "enabled",
   });

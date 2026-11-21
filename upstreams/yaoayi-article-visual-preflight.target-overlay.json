@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "pengmanager.target-adaptation/v2",
+  "id": "yaoayi-article-visual-preflight",
+  "engineBaselineCommit": "a544ab8b068790bfb14b7977efc81b33897fc9de",
+  "engineBaselineTree": "2f1a5835d4363496efd692fd4434506e28254e70",
+  "generatedAt": "2026-11-21T04:10:00+08:00",
+  "sourceOverlayCount": 1,
+  "scope": "Yao Ayi article illustration preparation: a trusted host can record independent model-backed review of the exact local compositor recipe and open-license asset before low-risk composition. Hard blocks and final delivery authorizations are retained.",
+  "files": [
+    {
+      "path": "packages/runtime/src/loop.ts",
+      "targetPath": "engines/video-edit/packages/runtime/src/loop.ts",
+      "sourceSha256": "ae4ec887d54baf5af27591f6c1a1a3684e761bf6c2c31a622b2fa2f3bfbc9d7e",
+      "targetSha256": "797d49d111e580c380b556562292a4cc05124b2cb12a270405102dff9c5200e8",
+      "sourceBytes": 68116,
+      "targetBytes": 72976
+    }
+  ]
+}

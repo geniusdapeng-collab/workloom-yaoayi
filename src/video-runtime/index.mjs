@@ -185,6 +185,18 @@ export function createVideoRuntime(options = {}) {
     },
     async status(){if(state==='ready')return health();return snapshot();},health,
     async nativeSession(){if(!ready||stopping)throw new VideoRuntimeError('NATIVE_BACKEND_NOT_READY','The native video workbench is not ready.');return nativeSessionInternal();},
+    async prepareArticleIllustrations(inputFile) {
+      if (!ready || stopping || !controller) throw new VideoRuntimeError('NATIVE_BACKEND_NOT_READY', 'The local visual workstation is not ready.');
+      await nativeSessionInternal(controller.signal);
+      const worker = path.join(config.rootDir, 'scripts', 'article-visual-worker.mts');
+      const result = await runCommand(config.node, [enginePath('tsx/cli'), worker, config.rootDir, config.dataRoot, inputFile], {
+        cwd: config.dataRoot, env, safe, signal: controller.signal, timeoutMs: 20 * 60_000,
+        log: path.join(config.logs, 'article-visual-preparation.log'),
+      });
+      const line = result.stdout.trimEnd().split('\n').findLast(value => value.startsWith('YAOAYI_ARTICLE_VISUAL_RESULT '));
+      if (!line) throw new VideoRuntimeError('ARTICLE_VISUAL_RECEIPT_MISSING', 'The visual workstation returned no article illustration receipt.');
+      return JSON.parse(line.slice('YAOAYI_ARTICLE_VISUAL_RESULT '.length));
+    },
     async capabilities(){
       let catalog=null;try{catalog=JSON.parse(fs.readFileSync(path.join(config.engineRoot,'pengmanager-capabilities.json'),'utf8'));}catch(error){if(error.code!=='ENOENT')log(`CAPABILITY_CATALOG_UNREADABLE: ${safe(error)}`);}
       const actualTools=tools?await tools.status():toolsResult;

@@ -13,6 +13,10 @@ import {
 } from "../domain/editorial.mjs";
 import { JsonStore } from "../storage/json-store.mjs";
 import { validateCandidateForReview } from "../domain/content-ops-quality.mjs";
+import { verifyEditorialArticleMedia } from "./editorial-article-media.mjs";
+import {
+  editorialTextReviewHash, editorialTextReviewInput, hasEditorialTextReview, runEditorialTextReview,
+} from "./editorial-text-review.mjs";
 
 export { editorialEtag, editorialVariantSnapshot, validateEditorialVariant } from "../domain/editorial.mjs";
 
@@ -103,12 +107,20 @@ function destinationLocator(kind, value, origin) {
   return locator;
 }
 
+function editorialRequestKey(scope, ctx) {
+  const actor = editorialText(ctx.actor, "actor", 120);
+  if (typeof ctx.idempotencyKey !== "string" || !/^[A-Za-z0-9_-]{8,128}$/.test(ctx.idempotencyKey)) {
+    throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "新编辑操作必须提供 8 到 128 位 Idempotency-Key。");
+  }
+  return hashObject({ actor, scope, key: ctx.idempotencyKey });
+}
+
 function releaseSnapshot(release) { return release.publicSnapshot; }
 function releaseSnapshotValid(release) { return hashObject(releaseSnapshot(release)) === release.snapshotHash; }
 
 export class EditorialService {
   constructor({ store, geoService = null, mediaAssets = null, productionArtifacts = null, publicOrigin = "https://pengmanager.com",
-    clock = () => new Date(), verifyReadback = null, beforeActivation = null } = {}) {
+    clock = () => new Date(), verifyReadback = null, beforeActivation = null, aiReviewer = null } = {}) {
     this.store = store;
     this.geoService = geoService;
     this.mediaAssets = mediaAssets;
@@ -117,6 +129,8 @@ export class EditorialService {
     this.clock = clock;
     this.verifyReadback = verifyReadback;
     this.beforeActivation = beforeActivation;
+    this.aiReviewer = aiReviewer;
+    this.pendingAiReviews = new Map();
   }
 
   #state() {
@@ -129,12 +143,9 @@ export class EditorialService {
 
   async #write(scope, input, ctx, handler) {
     if (!ctx || typeof ctx !== "object" || !["local", "session"].includes(ctx.method)) throw new ApiError(403, "AGENT_SCOPE_DENIED", "编辑与公开发布操作仅允许管理员。");
-    const actor = editorialText(ctx.actor, "actor", 120);
-    if (typeof ctx.idempotencyKey !== "string" || !/^[A-Za-z0-9_-]{8,128}$/.test(ctx.idempotencyKey)) {
-      throw new ApiError(400, "IDEMPOTENCY_KEY_REQUIRED", "新编辑操作必须提供 8 到 128 位 Idempotency-Key。");
-    }
+    const keyHash = editorialRequestKey(scope, ctx);
+    const actor = ctx.actor.trim();
     this.#state();
-    const keyHash = hashObject({ actor, scope, key: ctx.idempotencyKey });
     const requestHash = hashObject(input);
     const payload = { scope, requestHash };
     const { result } = await this.store.mutate({ type: `editorial.${scope.split(":")[0]}`, actor, payload }, async state => {
@@ -163,10 +174,17 @@ export class EditorialService {
 
   bootstrap() {
     const state = this.#state();
+    const now = this.clock();
+    const variants = state.content.filter(row => isEditorialVariantSchema(row.snapshotSchema)).map(row => ({
+      ...entity(row),
+      ...(row.snapshotSchema === EDITORIAL_SCHEMA && row.status === "fact_check" ? {
+        aiReviewCurrent: hasEditorialTextReview(row, editorialTextReviewInput(state, row, now)),
+      } : {}),
+    }));
     return { schemaVersion: state.schemaVersion, revision: state.revision, catalog: this.catalog(),
       accounts: state.accounts.map(entity), destinations: state.destinations.map(entity),
       stories: state.stories.map(entity), editions: state.editions.map(row => this.#editionEntity(state, row)),
-      variants: state.content.filter(row => isEditorialVariantSchema(row.snapshotSchema)).map(entity),
+      variants,
       releases: state.websiteReleases.map(entity), routes: state.websiteRoutes.map(entity), claims: state.claims };
   }
 
@@ -544,22 +562,47 @@ export class EditorialService {
     });
   }
 
+  async #requestAiReview(state, row, now) {
+    const input = editorialTextReviewInput(state, row, now);
+    const key = editorialTextReviewHash(row, input);
+    if (!this.pendingAiReviews.has(key)) {
+      const pending = runEditorialTextReview(this.aiReviewer, row, input, now)
+        .finally(() => this.pendingAiReviews.delete(key));
+      this.pendingAiReviews.set(key, pending);
+    }
+    return this.pendingAiReviews.get(key);
+  }
+
   async transitionVariant(id, input, ctx) {
     editorialInput(input, ["target", "note", "reviewed", "snapshotHash", "reviewSnapshotHash"]);
     if (!["local", "session"].includes(ctx?.method)) throw new ApiError(403, "AGENT_SCOPE_DENIED", "编辑审核与排期仅允许管理员。");
-    if (["approved", "scheduled"].includes(input.target)) {
-      const state = this.#state(), row = record(state.content, id, "CONTENT_NOT_FOUND");
-      const previousKey = ctx && hashObject({ actor: ctx.actor, scope: `variant_transitioned:${id}`, key: ctx.idempotencyKey });
-      if (row.snapshotSchema === EDITORIAL_NATIVE_SCHEMA && !state.editorialRequests.some(request => request.keyHash === previousKey)) {
-        if (typeof this.productionArtifacts?.verifyReferences !== "function") throw new ApiError(503, "NATIVE_ARTIFACT_VERIFICATION_UNAVAILABLE", "原生稿批准前必须核对真实附件字节。");
-        await this.productionArtifacts.verifyReferences(row.publicationPackage.artifactRefs);
-        if (row.assetRefs.length) {
-          if (typeof this.mediaAssets?.verifyForRelease !== "function") throw new ApiError(503, "MEDIA_VERIFICATION_UNAVAILABLE", "原生稿批准前必须核对真实媒体。");
-          await this.mediaAssets.verifyForRelease(row.assetRefs);
+    const scope = `variant_transitioned:${id}`;
+    const keyHash = editorialRequestKey(scope, ctx);
+    const initial = this.#state(), original = record(initial.content, id, "CONTENT_NOT_FOUND");
+    const replay = initial.editorialRequests.some(request => request.keyHash === keyHash);
+    let aiPreflight;
+    if (!replay) {
+      assertMatch(original, ctx.ifMatch);
+      if (input.target === "fact_check" && original.snapshotSchema === EDITORIAL_SCHEMA) {
+        const now = this.clock();
+        validateEditorialVariant(initial, original, null, { now, requireReady: false });
+        if (!["draft", "fact_check"].includes(original.status)) transitionContent(original, input.target, {}, { now });
+        aiPreflight = await this.#requestAiReview(initial, original, now);
+      }
+      if (["approved", "scheduled"].includes(input.target)) {
+        const state = initial, row = original;
+        if (row.snapshotSchema === EDITORIAL_NATIVE_SCHEMA) {
+          if (typeof this.productionArtifacts?.verifyReferences !== "function") throw new ApiError(503, "NATIVE_ARTIFACT_VERIFICATION_UNAVAILABLE", "原生稿批准前必须核对真实附件字节。");
+          await this.productionArtifacts.verifyReferences(row.publicationPackage.artifactRefs);
+          if (row.assetRefs.length) {
+            if (typeof this.mediaAssets?.verifyForRelease !== "function") throw new ApiError(503, "MEDIA_VERIFICATION_UNAVAILABLE", "原生稿批准前必须核对真实媒体。");
+            await this.mediaAssets.verifyForRelease(row.assetRefs);
+          }
         }
+        if (isEditorialVariantSchema(row.snapshotSchema)) await verifyEditorialArticleMedia(state, row, this.mediaAssets);
       }
     }
-    const result = await this.#write(`variant_transitioned:${id}`, input, ctx, (state, { actor, ifMatch, now, payload }) => {
+    const result = await this.#write(scope, input, ctx, (state, { actor, ifMatch, now, payload }) => {
       const row = record(state.content, id, "CONTENT_NOT_FOUND"); assertMatch(row, ifMatch);
       if (!isEditorialVariantSchema(row.snapshotSchema)) throw new ApiError(409, "EDITORIAL_SCHEMA_UNSUPPORTED", "内容不是受支持的编辑版本。");
       validateEditorialVariant(state, row, null, { now, requireReady: ["approved", "scheduled"].includes(input.target), requireApproval: input.target === "scheduled" });
@@ -567,11 +610,26 @@ export class EditorialService {
           row.snapshotSchema === EDITORIAL_NATIVE_SCHEMA && input.reviewSnapshotHash !== row.reviewSnapshotHash)) {
         throw new PolicyError("EXACT_EDITORIAL_REVIEW_REQUIRED", "批准前必须完整核对并确认这一正文与媒体快照。");
       }
+      if (row.snapshotSchema === EDITORIAL_SCHEMA) {
+        if (input.target === "fact_check" && aiPreflight?.checkContextHash !== editorialTextReviewHash(row, editorialTextReviewInput(state, row, now))) {
+          throw new PolicyError("EDITORIAL_AI_REVIEW_STALE", "AI 初审期间正文或事实依据发生变化，请重新核对。");
+        }
+        if (input.target === "approved" && !hasEditorialTextReview(row, editorialTextReviewInput(state, row, now))) {
+          throw new PolicyError("EDITORIAL_AI_REVIEW_REQUIRED", "先完成此精确快照的 AI 初审，再由人作最终批准。");
+        }
+      }
       if (["draft", "blocked", "archived"].includes(input.target) && state.websiteRoutes.some(route => state.websiteReleases.find(release => release.id === route.activeReleaseId)?.contentId === id)) {
         throw new PolicyError("ACTIVE_RELEASE_WITHDRAWAL_REQUIRED", "先撤回正在公开的版本，不能直接改变其正文状态。");
       }
-      const next = transitionContent(row, input.target, { approvedBy: actor, note: input.note }, { now });
+      const next = aiPreflight && row.status === "fact_check" ? { ...row, version: row.version + 1, updatedAt: now.toISOString() }
+        : transitionContent(row, input.target, { approvedBy: actor, note: input.note }, { now });
+      if (aiPreflight) {
+        next.aiPreflight = aiPreflight;
+        payload.aiReviewHash = hashObject(aiPreflight);
+        payload.aiReviewStatus = aiPreflight.status;
+      }
       if (input.target === "approved") next.approval = { ...next.approval, snapshotSchema: row.snapshotSchema, snapshotHash: row.snapshotHash, reviewed: true,
+        ...(row.aiPreflight ? { aiReviewHash: hashObject(row.aiPreflight) } : {}),
         ...(row.snapshotSchema === EDITORIAL_NATIVE_SCHEMA ? { packageHash: row.packageHash, reviewSnapshotHash: row.reviewSnapshotHash } : {}) };
       else if (["draft", "blocked", "archived"].includes(input.target)) next.approval = null;
       state.content[state.content.findIndex(item => item.id === id)] = next; payload.contentId = id; payload.target = input.target;
@@ -585,7 +643,7 @@ export class EditorialService {
     if (!releaseSnapshotValid(release)) throw new PolicyError("PUBLIC_SNAPSHOT_CHANGED", "公开快照与审核版本不一致。");
     const content = record(state.content, release.contentId, "CONTENT_NOT_FOUND");
     const destination = record(state.destinations, content.destinationId, "DESTINATION_NOT_FOUND");
-    validateEditorialVariant(state, content, null, { now, requireReady: true, requireApproval: true });
+    validateEditorialVariant(state, content, null, { now, requireReady: true, requireApproval: true, requireArticleIllustrations: !checkLive });
     if (!["approved", "scheduled", "published"].includes(content.status)) throw new PolicyError("CONTENT_NOT_APPROVED", "公开稿尚未批准。");
     if (destination.kind !== "owned_origin" || destination.platformId !== "official-site" || destination.visibility !== "public" || destination.locator.origin !== this.publicOrigin) {
       throw new PolicyError("OWNED_PUBLIC_DESTINATION_REQUIRED", "发布必须使用已核实的本站公开目的地。");
@@ -656,6 +714,7 @@ export class EditorialService {
       const row = record(state.websiteReleases, id, "RELEASE_NOT_FOUND"); assertMatch(row, ifMatch);
       if (row.status !== "approved" || row.publicApproval?.snapshotHash !== row.snapshotHash) throw new ApiError(409, "INVALID_RELEASE_TRANSITION", "公开激活只接受已精确批准的修订。");
       const content = this.#validatePublicCandidate(state, row, { now });
+      await verifyEditorialArticleMedia(state, content, this.mediaAssets);
       if (content.status !== "scheduled") throw new PolicyError("CONTENT_NOT_SCHEDULED", "官网激活前须将渠道稿排入待发布。");
       let route = state.websiteRoutes.find(item => item.canonicalPath === row.canonicalPath);
       if ((route?.activeReleaseId ?? null) !== input.expectedPreviousReleaseId) throw new ApiError(409, "RELEASE_ROUTE_CONFLICT", "正式 URL 的当前修订已变化，请重新核对。");
@@ -752,6 +811,7 @@ export class EditorialService {
       return { id: asset.id, assetId: asset.id, sha256: ref.sha256,
         url: privatePreview ? `/api/media/assets/${asset.id}/bytes` : `/public-media/${asset.id}/${ref.sha256}`,
         mime: asset.mime, kind: asset.kind, size: asset.size, role: ref.role, alt: ref.alt, caption: ref.caption, locale: ref.locale,
+        ...(asset.review?.illustrationAttribution ? { attribution: structuredClone(asset.review.illustrationAttribution) } : {}),
         ...(Number.isSafeInteger(asset.width) ? { width: asset.width } : {}),
         ...(Number.isSafeInteger(asset.height) ? { height: asset.height } : {}),
         ...(Number.isFinite(asset.durationMs) ? { durationMs: asset.durationMs } : {}) };

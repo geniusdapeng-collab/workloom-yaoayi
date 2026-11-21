@@ -10,6 +10,10 @@ test("article intent with an embedded question remains article work", () => {
   assert.equal(route.artifactKind, "article");
   assert.equal(route.pipeline, "article.v1");
   assert.equal(route.needs.claims, true);
+  assert.equal(route.needs.articleIllustrations, true);
+  assert.equal(route.articleIllustrations.minimum, 3);
+  assert.equal(route.articleIllustrations.executor, "visual-designer");
+  assert.deepEqual(route.missing, []);
 });
 
 test("article plus a long architecture title still resolves to article_visual", () => {
@@ -18,12 +22,49 @@ test("article plus a long architecture title still resolves to article_visual", 
   });
   assert.equal(route.artifactKind, "article_visual");
   assert.equal(route.enableVisuals, true);
+  assert.equal(route.visualForm.mode, "technical");
+  assert.deepEqual(route.visualForm.kinds, ["architecture"]);
+  assert.equal(route.articleIllustrations.minimum, 3);
+});
+
+test("illustrated articles stay with the designer when a technical form is absent, negated, or only discussed", () => {
+  const illustrated = [
+    { intent: "写一篇关于小院的文章，为正文配图" },
+    { intent: "写一篇关于系统架构图的文章，另给正文配图" },
+    { intent: "写一篇《如何做信息图》的文章，并配一张图" },
+    { intent: "写一篇介绍「如何制作信息图」的文章，并配图" },
+    { intent: "写一篇文章，不要流程图，给正文配图" },
+    { intent: "写一篇文章，并配一张架构图，再为正文设计插画" },
+    { intent: "写一篇文章，主视觉一张，附信息图" },
+    { intent: "写一篇文章，要一张主视觉并附一张信息图" },
+    { intent: "给我一篇图文，讲小院生活" },
+    { intent: "写一篇小院日记", explicitKind: "article_visual", enableVisuals: true },
+  ];
+  for (const input of illustrated) {
+    const route = resolveContentIntent(input);
+    assert.equal(route.artifactKind, "article_visual", input.intent);
+    assert.equal(route.visualForm.mode, "editorial", input.intent);
+    assert.equal(route.needs.articleIllustrations, true);
+    assert.equal(route.articleIllustrations.minimum, 3);
+    assert.equal(route.articleIllustrations.executor, "visual-designer");
+    assert.equal(route.articleIllustrations.composeTool, "visualwrite.compose");
+    assert.equal(route.articleIllustrations.verifyTool, "visualread.verify");
+    assert.deepEqual(route.missing, []);
+  }
+});
+
+test("a quoted visual name is accepted when the directive is outside the quote", () => {
+  const route = resolveContentIntent({ intent: "写一篇文章，并配一张「架构图」" });
+  assert.equal(route.artifactKind, "article_visual");
+  assert.equal(route.visualForm.mode, "technical");
+  assert.deepEqual(route.visualForm.kinds, ["architecture"]);
 });
 
 test("pure visual request does not become an article", () => {
   const route = resolveContentIntent({ intent: "做一张 AI 自主经营系统的产品架构图，要求可编辑" });
   assert.equal(route.artifactKind, "pure_visual");
   assert.equal(route.pipeline, "visual.v1");
+  assert.equal(route.articleIllustrations, undefined);
 });
 
 test("video routes distinguish AI, real footage, talking head and mixed media", () => {

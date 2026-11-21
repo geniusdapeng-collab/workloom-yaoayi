@@ -63,7 +63,7 @@ test('cancelled native dependency child groups leave no owned descendant running
     const controller=new AbortController(),pending=runProcess(process.execPath,['-e','setInterval(()=>{},1000)'],{signal:controller.signal});const result=assert.rejects(pending,cancelled);controller.abort();await result;return;
   }
   const childCode="process.on('SIGTERM',()=>{});setInterval(()=>{},1000)";
-  const parentCode="const{spawn}=require('node:child_process'),fs=require('node:fs');const c=spawn(process.execPath,['-e',process.argv[2]],{stdio:'ignore'});fs.writeFileSync(process.argv[1],JSON.stringify({parent:process.pid,child:c.pid}));process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)";
+  const parentCode="const{spawn}=require('node:child_process'),fs=require('node:fs');const c=spawn(process.execPath,['-e',process.argv[2]],{stdio:'ignore'});const marker=process.argv[1];fs.writeFileSync(marker+'.tmp',JSON.stringify({parent:process.pid,child:c.pid}));fs.renameSync(marker+'.tmp',marker);process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)";
   const controller=new AbortController(),pending=runProcess(process.execPath,['-e',parentCode,marker,childCode],{signal:controller.signal,timeoutMs:20000});const result=assert.rejects(pending,cancelled);
   for(let attempt=0;attempt<500&&!fs.existsSync(marker);attempt++)await wait(20);
   assert.equal(fs.existsSync(marker),true,'owned descendant fixture did not start');const pids=JSON.parse(fs.readFileSync(marker,'utf8'));

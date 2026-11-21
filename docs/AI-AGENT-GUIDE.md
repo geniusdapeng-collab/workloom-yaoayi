@@ -540,6 +540,7 @@ POST /api/content-director/attachments
 POST /api/content-director/jobs
 GET  /api/content-director/jobs/:id
 POST /api/content-director/jobs/:id/start|pause|resume|cancel|repair
+POST /api/content-director/jobs/:id/illustrations
 POST /api/content-director/jobs/:id/final-review
 POST /api/content-director/jobs/:id/materialize-edition
 POST /api/content-director/jobs/:id/create-content-ops-plan
@@ -550,7 +551,7 @@ GET  /api/content-director/jobs/:id/publication-status
 
 每个 Job 和冻结结果都记录 `persona` 合同：ID、版本、人设文档 SHA-256 与提示词 SHA-256。persona 版本变化会进入内容哈希，旧审批不能覆盖新的人设快照。
 
-`article.v1` 逐节 checkpoint，最多定点修复两轮；结构、量化事实、URL、敏感资料和最终独立审核分别留证。视觉包同时保留 JSON、SVG、PNG、alt、caption 和哈希。视频统一入口只输出到现有原生 Studio/剪辑执行器的 handoff，不自动付费或批准，也不把计划称为成片。最终 Edition 的物化、内容运营计划、官网发布和外部平台发布是不同状态。
+`article.v1` 逐节 checkpoint，最多定点修复两轮。正文初审通过后，先冻结章节和摘要，再用本机已核实的配图回执绑定至少三张真实、应景且不同的画面。开放许可实拍可由本机视觉设计师和 Compositor 在 AI 自主初审后加工并绑定，逐张注明来源、替代文字、图注及适用的 AI 披露。系统终检与人工最终签收各自绑定整份图文快照。操作见[文章正文配图](CONTENT-DIRECTOR.md#文章正文配图)。视频统一入口只输出到现有原生 Studio/剪辑执行器的 handoff，不自动付费或批准，也不把计划称为成片。最终 Edition 的物化、内容运营计划、官网发布和外部平台发布是不同状态。
 
 ## 源码导航与证据边界
 

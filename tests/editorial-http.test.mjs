@@ -14,6 +14,7 @@ import { createWebsiteReadback } from "../src/services/website-readback.mjs";
 import { createGeoOsServer } from "../src/http/server.mjs";
 import { createAdminAuth, hashAdminPassword, hashAgentToken } from "../src/security/admin-auth.mjs";
 import { PNG, MP4 } from "./fixtures/synthetic-media.mjs";
+import { fixtureEditorialImages, fixtureEditorialReviewer } from "./editorial-fixtures.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -36,7 +37,7 @@ async function fixture(t) {
   const mediaAssets = new MediaAssets({ store, publicAssetAuthorizer: (id, sha) => editorial.isAssetPublic(id, sha) });
   await mediaAssets.initialize();
   const backup = createEditorialBackup({ store, mediaAssets });
-  editorial = new EditorialService({ store, geoService: service, mediaAssets, beforeActivation: backup });
+  editorial = new EditorialService({ store, geoService: service, mediaAssets, aiReviewer: fixtureEditorialReviewer, beforeActivation: backup });
   const server = createGeoOsServer({ service, editorial, mediaAssets, auth, publicDir: join(root, "public"), publicWebsite: true });
   await new Promise(done => server.listen(0, "127.0.0.1", done));
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -84,14 +85,15 @@ async function upload(f, bytes, mime, index) {
     body: { sha256: asset.sha256, rightsConfirmed: true, privacyConfirmed: true, rightsNote: "Synthetic owner-created acceptance fixture." } });
 }
 
-async function release(f, { locale = "zh-CN", format = "article", assetRefs = [], story: existingStory } = {}) {
+async function release(f, { locale = "zh-CN", format = "article", assetRefs, story: existingStory } = {}) {
+  assetRefs ??= format === "article" ? await fixtureEditorialImages(f.mediaAssets) : [];
   const story = existingStory ? await f.ok(`/api/stories/${existingStory.id}`) : await f.ok("/api/stories", {
     method: "POST", body: { workingTitle: "Synthetic acceptance only", claimIds: ["C-T1"] },
   }, 201);
   const title = locale === "en-US" ? "A complete synthetic edition" : "完整的隔离验收稿";
   const body = 'First complete paragraph <script>window.injected=1</script> & exact text.\n\n第二段，不得摘要替换。';
   const blocks = [{ type: "heading", level: 2, text: "00:00 A real section" }, { type: "paragraph", text: body },
-    ...assetRefs.filter(row => row.role === "image").map(row => ({ type: "image", assetId: row.assetId, alt: row.alt }))];
+    ...assetRefs.filter(row => row.role === "image").map(row => ({ type: "image", assetId: row.assetId, alt: row.alt, ...(row.caption ? { caption: row.caption } : {}) }))];
   const edition = await f.ok(`/api/stories/${story.id}/editions`, { method: "POST", etag: story.etag,
     body: { locale, format, title, body, blocks, claimIds: ["C-T1"], assetRefs } }, 201);
   let variant = await f.ok(`/api/editions/${edition.id}/variants`, { method: "POST", etag: edition.etag, body: { destinationId: "official-site" } }, 201);

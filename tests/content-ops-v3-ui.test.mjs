@@ -148,6 +148,22 @@ test("v3 editorial renderer keeps whole native package visible and disables appr
   } finally { if (previous === undefined) delete globalThis.document; else globalThis.document = previous; }
 });
 
+test("an AI-checked candidate offers one final acceptance, including actual evidence fields when media remains unverified", () => {
+  const ai = { ...quality, execution: { method: "checker" } };
+  const passed = { ...candidate, reports: [ai] };
+  const acceptance = renderHumanQualityReview(passed, artifacts, { sources: [source] });
+  assert.match(acceptance, /final-acceptance/);
+  assert.match(acceptance, /nativeArtifactConfirmed-/);
+  assert.doesNotMatch(acceptance, /保存真实独立终检记录/);
+  assert.doesNotMatch(renderNativeCandidate(passed, { artifacts, reports: [ai], source }), /转为编辑出版待核草稿/);
+  const partial = { ...candidate, status: "needs_input", reports: [{ ...ai, status: "needs_input",
+    dimensions: { ...ai.dimensions, media: "unverified", artistic: "unverified" },
+    mediaEvidence: [{ sha256: a, mime: "image/png", byteHashVerified: true, semanticInspection: "unverified" }],
+  }] };
+  assert.match(renderHumanQualityReview(partial, artifacts, { sources: [source] }), /final-acceptance[\s\S]+qualityNote-/);
+  assert.doesNotMatch(renderHumanQualityReview({ ...partial, finalAcceptance: { contentId: "CNT-accepted" } }, artifacts, { sources: [source] }), /type="submit"/);
+});
+
 test("whole-package materialization and independent review stay disabled for missing or changed artifact metadata", () => {
   for (const rows of [[], [artifacts[0]], [artifacts[0], { ...artifacts[1], status: "staged" }], [artifacts[0], { ...artifacts[1], bytes: 999 }], [artifacts[0], { ...artifacts[1], rightsReviewHash: d }]]) {
     assert.match(renderNativeCandidate(candidate, { artifacts: rows, reports: [quality], source }), /type="submit" disabled>转为编辑出版待核草稿/);
@@ -247,9 +263,9 @@ test("usage builder refuses unknown amounts and changed provider IDs while prese
 });
 
 test("real isolated backend consumes UI quality, approval and receipt payloads without substituting package or file hashes", async t => {
-  const f = await contentOpsFixture(t, { allDestinations: true });
+  const f = await contentOpsFixture(t, { allDestinations: true, articleIllustrations: true });
   f.service.productionArtifacts = f.artifacts;
-  f.operations = new AccountOperationsService({ service: f.geoService, clock: f.clock, productionArtifacts: f.artifacts });
+  f.operations = new AccountOperationsService({ service: f.geoService, clock: f.clock, mediaAssets: f.actualAssets, productionArtifacts: f.artifacts });
   const destination = f.service.getDestination(f.destinationIds.linkedin), account = f.service.getAccount(destination.accountId);
   const bytes = Buffer.from("# Exact UI source fixture\nAll source bytes were read inside the isolated test.\n");
   const sourceArtifact = await uploadOpsSource(f, { role: "transcript", mime: "text/markdown", bytes, name: "ui-source.md" });
@@ -295,10 +311,13 @@ test("real isolated backend consumes UI quality, approval and receipt payloads w
   let operation = await f.operations.create({ accountId: account.id, contentId: current.id, type: "publish", executionMode: "browser", actor: "isolated UI executor" });
   operation = await f.operations.approve(operation.id, buildOperationApproval(operation, { ...confirmations, approvedBy: "isolated owner", authorizationNote: "Only this isolated native package, with no live platform request." }, { nativeReviewReady: true }));
   operation = await f.operations.start(operation.id, { actor: "isolated UI executor" });
-  const receipt = buildOperationReceipt(operation, { contentConfirmed: "on", nativePackageConfirmed: "on", [`artifactConfirmed-${sourceArtifact.id}`]: sourceArtifact.sha256, url: `https://www.linkedin.com/posts/${account.handle}_987654321`, publishedAt: "2026-10-25T18:00", verifiedAt: "2026-10-25T18:00", capturedBy: "isolated fixture collector", verifiedBy: "isolated fixture reviewer", dataMode: "imported", verificationMethod: "manual_readback" });
+  const assetConfirmations = Object.fromEntries(operation.editorialSnapshot.assetRefs.map(ref => [`assetConfirmed-${ref.assetId}`, ref.sha256]));
+  const receipt = buildOperationReceipt(operation, { ...assetConfirmations, contentConfirmed: "on", nativePackageConfirmed: "on", [`artifactConfirmed-${sourceArtifact.id}`]: sourceArtifact.sha256, url: `https://www.linkedin.com/posts/${account.handle}_987654321`, publishedAt: "2026-10-25T18:00", verifiedAt: "2026-10-25T18:00", capturedBy: "isolated fixture collector", verifiedBy: "isolated fixture reviewer", dataMode: "imported", verificationMethod: "manual_readback" });
   assert.equal(receipt.publishedAt, OPS_NOW.toISOString());
   assert.equal(receipt.packageHash, row.packageHash);
   assert.deepEqual(receipt.artifactHashes, [{ artifactId: sourceArtifact.id, sha256: sourceArtifact.sha256 }]);
+  assert.deepEqual(receipt.assetHashes, current.assetRefs.map(({ assetId, sha256 }) => ({ assetId, sha256 }))
+    .sort((left, right) => left.assetId.localeCompare(right.assetId)));
   const done = await f.operations.complete(operation.id, { actor: "isolated UI executor", receipt });
   assert.equal(done.status, "completed");
   assert.equal(f.store.snapshot().publications.length, 1);

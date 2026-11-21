@@ -48,6 +48,7 @@ test("content director HTTP routes preserve admin scope, idempotency and job vis
   });
   assert.equal(resolved.response.status, 200);
   assert.equal(resolved.payload.artifactKind, "article");
+  assert.equal(resolved.payload.articleIllustrations.minimum, 3);
   const key = randomUUID();
   const input = {
     intent: "围绕 Agent 产品如何进入真实业务写一篇文章",
@@ -75,6 +76,20 @@ test("content director HTTP routes preserve admin scope, idempotency and job vis
   assert.equal(detail.payload.steps[0].kind, "route.resolve");
   assert.equal(detail.payload.publicationAuthorized, undefined);
   assert.equal(detail.payload.route.publicationAuthorized, false);
+  const illustrationBinding = `/api/content-director/jobs/${created.payload.id}/illustrations`;
+  const receiptId = `AIR-${"a".repeat(24)}`;
+  for (const [body, status, code] of [
+    [{ receiptId, images: [] }, 400, "ARTICLE_ILLUSTRATION_RECEIPT_INVALID"],
+    [{ receiptId }, 409, "ARTICLE_ILLUSTRATION_BINDING_NOT_READY"],
+  ]) {
+    const rejected = await jsonRequest(baseUrl, illustrationBinding, {
+      method: "POST",
+      headers: { "Idempotency-Key": randomUUID(), "If-Match": detail.payload.etag },
+      body: JSON.stringify(body),
+    });
+    assert.equal(rejected.response.status, status);
+    assert.equal(rejected.payload.error.code, code);
+  }
 
   const source = Buffer.from("# Verified author source\n\nExact bytes for the HTTP upload regression.\n");
   const uploadedResponse = await fetch(`${baseUrl}/api/content-director/attachments`, {
