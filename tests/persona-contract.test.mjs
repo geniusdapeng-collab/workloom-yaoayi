@@ -11,6 +11,7 @@ import {
   withYaoAyiPersonaPrompt,
 } from "../src/domain/persona.mjs";
 import { deterministicArticleFindings } from "../src/domain/content-director.mjs";
+import { resolveArticleProsePolicy } from "../src/domain/article-prose-policy.mjs";
 import { ContentDirectorModel } from "../src/services/content-director-model.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -47,6 +48,27 @@ test("server-side persona findings block forbidden voice and claims while accept
     maxCharacters: 800,
     persona: YAO_AYI_PERSONA_CONTRACT,
   }).some((finding) => finding.code.startsWith("PERSONA_")), false);
+});
+
+test("English editorial work can use English first person without changing the legacy default", () => {
+  const english = { language: "en-US" };
+  assert.deepEqual(personaFindings("I tipped the batter onto the griddle and set my cup to one side.", undefined, english), []);
+  assert.deepEqual(personaFindings("We put the griddle away before our guests left.", undefined, english), []);
+  const thirdPerson = personaFindings("Yao prefers the coffee from a US supplier.", undefined, english);
+  assert.ok(thirdPerson.some(({ code }) => code === "PERSONA_FIRST_PERSON_MISSING"));
+  assert.ok(personaFindings("I set a cup on the table.").some(({ code }) => code === "PERSONA_FIRST_PERSON_MISSING"));
+  assert.ok(personaFindings("I said 家人们.", undefined, english).some(({ code }) => code === "PERSONA_FORBIDDEN_TERM"));
+
+  const article = {
+    language: "en-US",
+    title: "Before the cup reaches the table",
+    body: "## At the counter\n\nI tipped the batter onto the griddle and set the cup to one side.",
+  };
+  const stylePolicy = resolveArticleProsePolicy({ artifactKind: "article", language: "en-US", intent: "A courtyard diary" });
+  const findMissingVoice = ({ code }) => code === "PERSONA_FIRST_PERSON_MISSING";
+  const options = { persona: YAO_AYI_PERSONA_CONTRACT };
+  assert.equal(deterministicArticleFindings(article, { ...options, stylePolicy }).some(findMissingVoice), false);
+  assert.equal(deterministicArticleFindings(article, options).some(findMissingVoice), true);
 });
 
 test("Content Director model injects the exact persona into every content and audit scene", async () => {

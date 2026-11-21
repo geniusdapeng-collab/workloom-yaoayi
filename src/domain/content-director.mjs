@@ -1,4 +1,4 @@
-import { isArticleProsePolicyRef } from "./article-prose-policy.mjs";
+import { articleProseLength, isArticleProsePolicyRef } from "./article-prose-policy.mjs";
 import { ApiError } from "./errors.mjs";
 import { hashObject } from "./hash.mjs";
 import { isYaoAyiPersonaContract, personaFindings } from "./persona.mjs";
@@ -93,7 +93,8 @@ export function assertContentDirectorStateIntegrity(state) {
     if (job.batchId && !state.contentBatches.some(row => row.id === job.batchId)) invalid();
     if (job.persona && !isYaoAyiPersonaContract(job.persona)) invalid();
     if (Object.hasOwn(job, "stylePolicy") && (
-      !["article", "article_visual"].includes(job.artifactKind) || job.input?.language !== "zh-CN" ||
+      !["article", "article_visual"].includes(job.artifactKind) ||
+      (job.input?.language !== "zh-CN" && !(job.input?.language === "en-US" && articleProseLength(job.stylePolicy))) ||
       !isArticleProsePolicyRef(job.stylePolicy)
     )) invalid();
     if (!Array.isArray(job.artifacts) || new Set(job.artifacts.map(row => row.name)).size !== job.artifacts.length) invalid();
@@ -176,6 +177,17 @@ export function splitSectionsFromMarkdown(body) {
   });
 }
 
+export function articleTextLength(body, { minCharacters, maxCharacters, stylePolicy } = {}) {
+  const shortLength = articleProseLength(stylePolicy);
+  const strict = Boolean(shortLength) && Number.isSafeInteger(minCharacters) && Number.isSafeInteger(maxCharacters) &&
+    minCharacters >= shortLength.minCharacters && maxCharacters <= shortLength.maxCharacters && minCharacters <= maxCharacters;
+  if (!strict) return { characters: body.replace(/\s+/g, "").length, strict };
+  const text = body
+    .replace(/^#{1,6}[ \t]+[^\r\n]*/gmu, "")
+    .replace(/!\[[^\]\r\n]*\]\([^\r\n)]*\)/gu, "");
+  return { characters: Array.from(text.replace(/\s+/gu, "")).length, strict };
+}
+
 export function deterministicArticleFindings(article, {
   minCharacters,
   maxCharacters,
@@ -183,22 +195,27 @@ export function deterministicArticleFindings(article, {
   mustKeep = [],
   mustAvoid = [],
   persona = null,
+  stylePolicy = null,
 } = {}) {
   const findings = [];
   const body = String(article?.body ?? "");
   const sections = splitSectionsFromMarkdown(body);
-  const characters = body.replace(/\s+/g, "").length;
+  const { characters, strict: strictLength } = articleTextLength(body, { minCharacters, maxCharacters, stylePolicy });
   if (!article?.title?.trim()) findings.push({ severity: "blocker", code: "TITLE_REQUIRED", dimension: "structure", location: "title", message: "文章缺少标题。" });
   if (!body.trim()) findings.push({ severity: "blocker", code: "BODY_REQUIRED", dimension: "structure", location: "body", message: "文章正文为空。" });
   if (sections.length < 3) findings.push({ severity: "blocker", code: "SECTION_COUNT_TOO_LOW", dimension: "structure", location: "body", message: "完整长文至少需要三个二级章节。" });
   if (body.length > 100_000) findings.push({ severity: "blocker", code: "ARTICLE_BODY_LIMIT", dimension: "structure", location: "body", message: "正文超过 100000 字符上限。" });
-  if (minCharacters && characters < minCharacters * 0.8) {
+  if (minCharacters && characters < (strictLength ? minCharacters : minCharacters * 0.8)) {
     findings.push({ severity: "blocker", code: "ARTICLE_TOO_SHORT", dimension: "structure", location: "body",
-      message: `正文约 ${characters} 字符，低于目标下限的 80%（${Math.floor(minCharacters * 0.8)}）。` });
+      message: strictLength
+        ? `正文 ${characters} 个非空白字符，低于目标下限 ${minCharacters}，计标点且不计标题及配图。`
+        : `正文约 ${characters} 字符，低于目标下限的 80%（${Math.floor(minCharacters * 0.8)}）。` });
   }
-  if (maxCharacters && characters > maxCharacters * 1.2) {
+  if (maxCharacters && characters > (strictLength ? maxCharacters : maxCharacters * 1.2)) {
     findings.push({ severity: "major", code: "ARTICLE_TOO_LONG", dimension: "structure", location: "body",
-      message: `正文约 ${characters} 字符，超过目标上限的 120%（${Math.ceil(maxCharacters * 1.2)}）。` });
+      message: strictLength
+        ? `正文 ${characters} 个非空白字符，超过目标上限 ${maxCharacters}，计标点且不计标题及配图。`
+        : `正文约 ${characters} 字符，超过目标上限的 120%（${Math.ceil(maxCharacters * 1.2)}）。` });
   }
   for (const section of sections) {
     if (section.charactersWithoutWhitespace < 120) {
@@ -254,7 +271,9 @@ export function deterministicArticleFindings(article, {
         message: `正文出现了用户明确要求避免的内容：「${String(value).slice(0, 200)}」。` });
     }
   }
-  if (persona) findings.push(...personaFindings(`${article?.title ?? ""}\n${body}`, persona));
+  if (persona) findings.push(...personaFindings(`${article?.title ?? ""}\n${body}`, persona, {
+    language: articleProseLength(stylePolicy) ? article?.language : undefined,
+  }));
   return findings;
 }
 

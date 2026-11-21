@@ -1,6 +1,7 @@
 import { ApiError } from "./errors.mjs";
 import { ARTICLE_ILLUSTRATION_HANDOFF } from "./article-illustration-policy.mjs";
 export { EDITORIAL_VISUAL_REQUIREMENT } from "./article-illustration-policy.mjs";
+import { articleProseLength, resolveArticleProsePolicy } from "./article-prose-policy.mjs";
 import { hashObject } from "./hash.mjs";
 import { requirePublicUrl } from "./public-url.mjs";
 
@@ -323,6 +324,7 @@ function normalizeModelDecision(value) {
 export function resolveContentIntent({
   intent,
   explicitKind,
+  language,
   attachments = [],
   platforms = [],
   allowWebResearch = false,
@@ -364,12 +366,16 @@ export function resolveContentIntent({
   const article = artifactKind === "article" || artifactKind === "article_visual";
   const hasVisual = article || artifactKind === "pure_visual";
   const visualForm = article ? articleVisualForm(text) : null;
-  const normalizedLength = article
-    ? {
-      minCharacters: boundedInteger(targetLength?.minCharacters, "目标最小字数", 500, 100_000, 2000),
-      maxCharacters: boundedInteger(targetLength?.maxCharacters, "目标最大字数", 500, 100_000, 4000),
-    }
-    : null;
+  let normalizedLength = null;
+  if (article) {
+    const prose = resolveArticleProsePolicy({ artifactKind, language: language === "en-US" ? "en-US" : "zh-CN", intent: text });
+    const defaults = articleProseLength(prose);
+    const minCharacters = boundedInteger(targetLength?.minCharacters, "目标最小字数", 500, 100_000, defaults?.minCharacters ?? 2000);
+    // Supplying just a higher minimum opts out of the short preset.
+    const defaultMaximum = defaults && minCharacters <= defaults.maxCharacters ? defaults.maxCharacters : 4000;
+    const maxCharacters = boundedInteger(targetLength?.maxCharacters, "目标最大字数", 500, 100_000, defaultMaximum);
+    normalizedLength = { minCharacters, maxCharacters };
+  }
   if (normalizedLength && normalizedLength.minCharacters > normalizedLength.maxCharacters) {
     throw new ApiError(400, "CONTENT_INTENT_INVALID", "目标最小字数不能大于最大字数。");
   }

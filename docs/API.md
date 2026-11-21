@@ -205,18 +205,23 @@ data is upgraded at server startup as described in
 | POST | `/api/interactions` | Classify and store |
 | POST | `/api/geo/queries` | Add a stable query |
 | POST | `/api/geo/observations` | Record an AI answer sample |
-| POST | `/api/live/generate-content` | Generate content with the current model |
+| POST | `/api/live/generate-content` | Generate other content with the current model; article and image_text requests create a Content Director Job |
 | POST | `/api/live/deepseek/collect` | Run real DeepSeek Search through the unified Chat dispatcher |
 | POST | `/api/live/geoevidence/run` | Run the in-process personal GEO engine |
 | POST | `/api/live/video-edit/cover` | Get cover knowledge and trace hints |
 | POST | `/api/live/media/render` | Build timeline, run post/cover/package, and write output receipts |
 | POST | `/api/live/github/publish` | Publish an approved scheduled item as a GitHub Issue |
-| POST | `/api/geo/engine/articles/generate` | Generate the personal article set |
+| POST | `/api/geo/engine/articles/generate` | Create a Content Director article batch from registered GEO topics |
 | POST | `/api/video-edit/characters/resolve` | Resolve embedded character selection and current local authorization state |
 
 Every `/api/live/*` request must include `"confirm": true`. This prevents a
 dashboard refresh or accidental form submission from spending model tokens or
 writing to an external platform.
+
+The two article handoffs require an administrator and an `Idempotency-Key`.
+HTTP 202 returns job or batch records that can be inspected and started in
+Content Director. Existing GEO research drafts remain readable from
+`GET /api/geo/engine/articles`.
 
 `POST /api/live/media/render` also accepts:
 

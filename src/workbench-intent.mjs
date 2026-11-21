@@ -483,6 +483,7 @@ function clientHandoff(route, claimIds, language) {
         intent: route.intent,
         ...(language ? { language } : {}),
         ...(route.artifactKind ? { explicitKind: route.artifactKind } : {}),
+        ...(route.targetLength ? { targetLength: route.targetLength } : {}),
         ...(route.platforms.length ? { platforms: route.platforms } : {}),
         ...(claimIds.length ? { claimIds } : {}),
       },

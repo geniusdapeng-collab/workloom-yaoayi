@@ -4,7 +4,8 @@ import { hashObject } from "./hash.mjs";
 const id = "yaoayi.article.prose";
 const legacyVersion = "1.0.0";
 const previousCourtyardVersion = "1.1.0";
-const courtyardVersion = "1.2.0";
+const courtyardHeadingsVersion = "1.2.0";
+const articleVersion = "1.3.0";
 const commonRules = [
   "沿用姚阿姨第一人称。用平常能说出口的话，多写实际动作、物件和做事的次序，每段推进一件事。",
   "只用本任务已确认素材和事实。区分亲历、转述与参考图片。没有依据时缩小叙述范围，不补造日期、物候、味道、对话或人物反应。",
@@ -63,24 +64,44 @@ const headingStages = {
   "quality.final": "在冻结正文中复查小标题的指向、区分度和分节位置。核对改过的小标题仍对应本节实际内容，短长和节数服从材料。建议节数本身不作为通过或拒绝的依据。",
 };
 
-const courtyardHeadingCount = Object.freeze({
+const headingCountSuggestion = Object.freeze({
   minimum: 3,
   maximum: 8,
   targetCharactersPerSection: 600,
 });
 
+const shortArticleLength = Object.freeze({ minCharacters: 500, maxCharacters: 800 });
+
+const articleTitleRules = [
+  "主标题用姚阿姨能说出口的一句短话，按任务指定的语言自然表达。先找正文会写到的物件、动作或读者的具体问题。有真实的先后、两件事挨在一起的反差，或一句分寸自然的招呼时，可以挑一点入题。材料只有一个动作或问题时，就写清楚它，不为题目编造现场。",
+  "让主标题给人看见一小幕，不必交代整篇的道理。避开主题标签、操作指令、教程清单、宣传口号和猎奇设问。小标题各说各节的具体事，不复述主标题。",
+  "全文沿着一个清楚的题眼展开。证据只到一件物件时，不替它补写内页内容、结构、摆放位置或发生那天的细节。可写一般观察和带条件的待客话，保留它们的限定。一般知识和其他地方的做法不能写成姚阿姨的亲历。",
+];
+
+const articleTitleStages = {
+  "content.outline": "从已核实的材料挑一处能进入正文的动作、读者的具体问题、时间差或小反差，试拟两三种顺口的说法，只在 title 返回最贴合正文的一句。开头直接接住题眼，末尾落在一个有依据的细节或实用结论上。",
+  "content.section": "首节尽早让主标题中的物件、动作或实际问题露面。沿题眼写下去，分节各有新内容。不要重复交代身世，也不要用多余的解释收尾。主标题与本节小标题分开。",
+  "content.repair": "章节修复继续按章节或段落授权执行。若输入提供 currentTitle 且授权改主标题，只根据现有正文换一句自然有画面的主标题，只返回含 title 的对象。正文、分节和事实保持原样。",
+  "content.audit": "读主标题和实际正文，核对题眼是否在正文兑现、话是否说得出口、有无臆造体验或营销腔。主标题确实需要单独返修时，只用 dimension=expression、location=title、allowedChanges=[\"title\"]。按实际严重程度判断，标题朴素本身不构成问题。",
+  "quality.final": "复核冻结主标题的题眼能否在正文找到依据，读起来是否仍是姚阿姨的口语。不得用参考照片补足未核实的题意。继续核对实际配图。",
+};
+
 const supportedArticles = new Set(["article", "article_visual"]);
+const supportedLanguages = new Set(["zh-CN", "en-US"]);
 const genreSignals = [
-  ["explainer", /说明文|科普文?|教程|指南|知识文章|山货笔记|笔记翻翻|技术文章|产品说明|GEO[\s\S]{0,4}(?:说明|解释|问答)/giu],
-  ["courtyard", /日记|随笔|散文|小院.{0,4}日常|小院记事|小院故事|山里的客人|邻里记事/gu],
-  ["handcraft", /手艺|手工吃食|工序|摊煎饼|手冲咖啡|做煎饼|晒柿饼/gu],
-  ["courtyard", /小院|院子|邻里/gu],
+  ["explainer", /说明文|科普文?|教程|指南|知识文章|山货笔记|笔记翻翻|技术文章|产品说明|GEO[\s\S]{0,4}(?:说明|解释|问答)/giu,
+    /\b(?:explainer|tutorial|guide|how[ -]to|fact sheet|product instructions)\b/giu],
+  ["courtyard", /日记|随笔|散文|小院.{0,4}日常|小院记事|小院故事|山里的客人|邻里记事/gu,
+    /\b(?:diary|personal essay|(?:courtyard|yard) (?:story|note)s?)\b/giu],
+  ["handcraft", /手艺|手工吃食|工序|摊煎饼|手冲咖啡|做煎饼|晒柿饼/gu,
+    /\b(?:handcrafts?|handmade|crafts?|pancake making|pour[ -]over coffee)\b/giu],
+  ["courtyard", /小院|院子|邻里/gu, /\b(?:courtyard|yard|neighbou?rhood)\b/giu],
 ];
 
 const refKeys = ["id", "version", "genre", "sha256"];
 
-function publishedPolicy(version, genre, rules, stageRules = stages, headingCount) {
-  const definition = { commonRules, rules, stages: stageRules, ...(headingCount ? { headingCount } : {}) };
+function publishedPolicy(version, genre, rules, stageRules = stages, options = {}) {
+  const definition = { commonRules, rules, stages: stageRules, ...options };
   const sha256 = hashObject({ id, version, genre, ...definition });
   return Object.freeze({ ref: Object.freeze({ id, version, genre, sha256 }), ...definition });
 }
@@ -91,6 +112,7 @@ function extendStages(base, additions) {
 }
 
 const courtyardStageRules = extendStages(stages, courtyardStages);
+const courtyardHeadingStageRules = extendStages(courtyardStageRules, headingStages);
 
 const registry = Object.freeze({
   // Keep each published version resolvable for jobs that have already frozen it.
@@ -99,22 +121,30 @@ const registry = Object.freeze({
   [previousCourtyardVersion]: Object.freeze({
     courtyard: publishedPolicy(previousCourtyardVersion, "courtyard", courtyardRules, courtyardStageRules),
   }),
-  [courtyardVersion]: Object.freeze({
-    courtyard: publishedPolicy(courtyardVersion, "courtyard", [...courtyardRules, ...headingRules],
-      extendStages(courtyardStageRules, headingStages), courtyardHeadingCount),
+  [courtyardHeadingsVersion]: Object.freeze({
+    courtyard: publishedPolicy(courtyardHeadingsVersion, "courtyard", [...courtyardRules, ...headingRules],
+      courtyardHeadingStageRules, { headingCount: headingCountSuggestion }),
   }),
+  [articleVersion]: Object.freeze(Object.fromEntries(Object.entries(genres).map(([genre, rules]) => {
+    const isCourtyard = genre === "courtyard";
+    return [genre, publishedPolicy(articleVersion, genre,
+      [...(isCourtyard ? courtyardRules : rules), ...headingRules, ...articleTitleRules],
+      extendStages(isCourtyard ? courtyardHeadingStageRules : extendStages(stages, headingStages), articleTitleStages),
+      { headingCount: headingCountSuggestion, defaultLength: shortArticleLength })];
+  }))),
 });
 
 function hasGenreSignal(clauses, signal) {
-  const negated = /(?:不要|不用|不写|不做|不采用|不希望|别写|别做|避免|而非|不是)[^，,。！？!?；;\n]{0,12}$/u;
+  const negated = /(?:(?:不要|不用|不写|不做|不采用|不希望|别写|别做|避免|而非|不是)[^，,。！？!?；;\n]{0,12}|\b(?:don['’]t|do not|not|avoid|instead of)\b[^,.!?;\n]{0,20})$/iu;
   return clauses.some(clause => [...clause.matchAll(signal)].some(match => !negated.test(clause.slice(0, match.index))));
 }
 
 export function resolveArticleProsePolicy({ artifactKind, language, intent } = {}) {
-  if (!supportedArticles.has(artifactKind) || language !== "zh-CN") return null;
-  const clauses = String(intent ?? "").split(/[，,。！？!?；;\n]|而是|改为/u);
-  const genre = genreSignals.find(([, signal]) => hasGenreSignal(clauses, signal))?.[0] ?? "explainer";
-  return registry[genre === "courtyard" ? courtyardVersion : legacyVersion][genre].ref;
+  if (!supportedArticles.has(artifactKind) || !supportedLanguages.has(language)) return null;
+  const clauses = String(intent ?? "").split(/[，,。！？!?；;\n]|而是|改为|\bbut\b/iu);
+  const genre = genreSignals.find(([, chinese, english]) => hasGenreSignal(clauses, chinese) ||
+    (language === "en-US" && hasGenreSignal(clauses, english)))?.[0] ?? "explainer";
+  return registry[articleVersion][genre].ref;
 }
 
 export function isArticleProsePolicyRef(value) {
@@ -124,6 +154,10 @@ export function isArticleProsePolicyRef(value) {
   const versions = Object.hasOwn(registry, value.version) ? registry[value.version] : null;
   const registered = versions && Object.hasOwn(versions, value.genre) ? versions[value.genre].ref : null;
   return registered !== null && refKeys.every(key => value[key] === registered[key]);
+}
+
+export function articleProseLength(policy) {
+  return isArticleProsePolicyRef(policy) ? registry[policy.version][policy.genre].defaultLength ?? null : null;
 }
 
 export function articleProsePrompt(scene, policy, targetLength) {
@@ -138,10 +172,14 @@ export function articleProsePrompt(scene, policy, targetLength) {
     ...published.rules,
     published.stages[scene],
   ];
-  const { minCharacters, maxCharacters } = targetLength ?? {};
-  if (scene === "content.outline" && published.headingCount &&
-      Number.isSafeInteger(minCharacters) && Number.isSafeInteger(maxCharacters) &&
-      minCharacters > 0 && maxCharacters >= minCharacters) {
+  const { minCharacters, maxCharacters } = targetLength ?? published.defaultLength ?? {};
+  const validLength = Number.isSafeInteger(minCharacters) && Number.isSafeInteger(maxCharacters) &&
+    minCharacters > 0 && maxCharacters >= minCharacters;
+  if (validLength && published.defaultLength && minCharacters >= published.defaultLength.minCharacters &&
+      maxCharacters <= published.defaultLength.maxCharacters) {
+    lines.push(`正文须在 ${minCharacters}–${maxCharacters} 个字符之间。计入标点，排除标题、小标题、空白与配图。通常三节，每节至少 120 个非空白字符且至少两段实质正文。正文符合字数与结构时，段落超过两段不构成问题。`);
+  }
+  if (scene === "content.outline" && published.headingCount && validLength) {
     const { minimum, maximum, targetCharactersPerSection } = published.headingCount;
     const midpoint = minCharacters + (maxCharacters - minCharacters) / 2;
     const count = Math.min(maximum, Math.max(minimum, Math.round(midpoint / targetCharactersPerSection)));

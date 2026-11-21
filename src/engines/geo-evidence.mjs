@@ -166,6 +166,10 @@ export class PersonalGeoEngine {
     return this.service.generateArticles(options);
   }
 
+  articleTopics() {
+    return this.service.articleTopics.map(({ id, title }) => ({ id, title }));
+  }
+
   listArticles(limit = 100) {
     return this.store.listArticles(limit);
   }

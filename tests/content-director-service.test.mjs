@@ -246,7 +246,7 @@ async function fixture(t, model = new StubModel(), articleIllustrationVerifier =
   return { directory, store, editorial, mediaAssets, director };
 }
 
-test("new Chinese article Jobs and batch topics freeze the server-selected prose policy", async t => {
+test("new article Jobs and batch topics freeze the server-selected prose policy and language", async t => {
   const f = await fixture(t);
   const article = { intent: "写一篇姚阿姨的小院日记", explicitKind: "article", claimIds: ["C003"] };
   const ctx = context();
@@ -271,10 +271,11 @@ test("new Chinese article Jobs and batch topics freeze the server-selected prose
       { intent: "制作架构图", explicitKind: "pure_visual" },
     ],
   }, context());
-  assert.deepEqual(batch.jobs.map(row => row.stylePolicy?.genre), ["handcraft", "explainer", undefined, undefined]);
+  assert.deepEqual(batch.jobs.map(row => row.stylePolicy?.genre), ["handcraft", "explainer", "courtyard", undefined]);
   const english = batch.jobs[2];
-  const chineseDraft = await f.director.patchBrief(english.id, { language: "zh-CN" }, { ...context(), ifMatch: english.etag });
-  assert.deepEqual(chineseDraft.stylePolicy, job.stylePolicy);
+  assert.deepEqual(english.stylePolicy, resolveArticleProsePolicy({ artifactKind: "article", language: "en-US", intent: article.intent }));
+  await assert.rejects(f.director.patchBrief(english.id, { language: "zh-CN" }, { ...context(), ifMatch: english.etag }),
+    { code: "CONTENT_STYLE_LANGUAGE_CHANGED" });
 });
 
 test("the same style binding reaches scoped repair and is required on the exact frozen approval report", async t => {
@@ -885,6 +886,193 @@ test("unscoped global-length and Chinese section-title findings receive bounded 
       assert.equal(completed.status, "needs_review");
     });
   }
+});
+
+test("exact audit locations recover section and paragraph scopes without interpreting prose as permission", async t => {
+  class ScopedRepairModel extends StubModel {
+    audits = 0;
+    repairs = [];
+    async auditArticle() {
+      const result = await super.auditArticle();
+      if (this.audits++ === 0) {
+        const finding = { severity: "major", dimension: "facts", code: "UNSUPPORTED_EXAMPLE", message: "删去没有根据的例子。" };
+        result.value.findings = [
+          { ...finding, location: "section:problem; paragraph:2-3", allowedChanges: ["只写已有依据。"] },
+          { ...finding, location: "section:system; section:delivery", allowedChanges: ["删去虚构经历。"] },
+        ];
+      }
+      return result;
+    }
+    async repairSection(input) {
+      this.repairs.push(input);
+      const paragraphs = [...input.currentSection.paragraphs];
+      const index = input.section.key === "problem" ? 1 : 0;
+      paragraphs[index] = "这一段只保留能核对的材料。" + paragraphs[index];
+      return { value: { ...input.currentSection, paragraphs }, receipt: modelReceipt(input.section.key) };
+    }
+  }
+  const model = new ScopedRepairModel();
+  const f = await fixture(t, model);
+  const job = await f.director.createJob({
+    intent: "写一篇小院日常随笔",
+    explicitKind: "article",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 1000, maxCharacters: 2600 },
+  }, context());
+  const waiting = await f.director.processJob(job.id);
+  assert.equal(waiting.status, "needs_input");
+  assert.deepEqual(model.repairs.map(input => [input.section.key, input.findings[0].allowedChanges]), [
+    ["problem", ["paragraph:2", "paragraph:3"]],
+    ["system", ["section:1"]],
+    ["delivery", ["section:2"]],
+  ]);
+  assert.deepEqual(model.repairs[0].findings[0].repairNotes, ["只写已有依据。"]);
+  assert.deepEqual(waiting.reports.find(report => report.repairRound === 0).findings[0].allowedChanges, ["只写已有依据。"]);
+});
+
+test("conflicting, ambiguous and out-of-range repair scope remains blocked", async t => {
+  const cases = [
+    ["section:problem", ["section:system"]],
+    ["around section:problem", ["删掉没有依据的句子。"]],
+    ["section:problem; paragraph:2-99", ["删掉没有依据的句子。"]],
+    ["section:problem; paragraph:2-3", ["paragraph:1"]],
+    ["section:problem", ["section:problem; paragraph:1"]],
+    ["title", ["改个主标题。"]],
+  ];
+  for (const [location, allowedChanges] of cases) {
+    await t.test(JSON.stringify([location, allowedChanges]), async child => {
+      const model = new StubModel();
+      const audit = model.auditArticle.bind(model);
+      model.finalAuditArticle = audit;
+      model.auditArticle = async () => {
+        const result = await audit();
+        result.value.findings = [{
+          severity: "major", dimension: "expression", code: "FIXTURE_UNRESOLVED",
+          location, message: "需要修复，但不能沿用不可信范围。", allowedChanges,
+        }];
+        return result;
+      };
+      model.repairSection = () => assert.fail("unsafe scope must never reach section repair");
+      model.repairArticleTitle = () => assert.fail("unsafe scope must never reach title repair");
+      const f = await fixture(child, model);
+      const job = await f.director.createJob({
+        intent: "写一篇小院日常随笔", explicitKind: "article", claimIds: ["C003"],
+        targetLength: { minCharacters: 1000, maxCharacters: 2600 },
+      }, context());
+      const completion = await f.director.processJob(job.id);
+      assert.equal(completion.status, "blocked");
+      assert.ok(completion.findings.some(finding => finding.code === "FIXTURE_UNRESOLVED"));
+      assert.equal(completion.steps.filter(step => step.kind === "article.repair").length, 0);
+    });
+  }
+});
+
+test("a clean re-review cannot clear another finding whose scope was never authorized", async t => {
+  const model = new StubModel();
+  const audit = model.auditArticle.bind(model);
+  let audits = 0;
+  model.auditArticle = async () => {
+    const result = await audit();
+    if (audits++ === 0) {
+      result.value.findings = [
+        { severity: "major", dimension: "facts", code: "REPAIRABLE", location: "section:problem",
+          message: "收紧这一节的事实。", allowedChanges: ["只保留获准事实。"] },
+        { severity: "major", dimension: "facts", code: "UNRESOLVED_SCOPE", location: "section:system",
+          message: "该问题的授权范围与位置冲突。", allowedChanges: ["section:delivery"] },
+      ];
+    }
+    return result;
+  };
+  model.finalAuditArticle = audit;
+  model.repairSection = async input => {
+    assert.equal(input.section.key, "problem");
+    return { value: input.currentSection, receipt: modelReceipt("authorized-section") };
+  };
+  const f = await fixture(t, model);
+  const job = await f.director.createJob({
+    intent: "写一篇小院日常随笔", explicitKind: "article", claimIds: ["C003"],
+    targetLength: { minCharacters: 1000, maxCharacters: 2600 },
+  }, context());
+  const completed = await f.director.processJob(job.id);
+  assert.equal(completed.status, "blocked");
+  assert.equal(completed.steps.filter(step => step.kind === "article.repair").length, 1);
+  assert.ok(completed.findings.some(finding => finding.code === "UNRESOLVED_SCOPE"));
+});
+
+test("an authorized headline-only repair preserves all section text and ties the new headline to both audits", async t => {
+  const model = new StubModel();
+  const audit = model.auditArticle.bind(model);
+  const articles = [];
+  const title = "回执回来，案头那盏灯才熄";
+  model.auditArticle = async input => {
+    articles.push(structuredClone(input.article));
+    const result = await audit();
+    if (articles.length === 1) {
+      result.value.findings = [{
+        severity: "major", dimension: "expression", code: "MAIN_TITLE_TOO_GENERIC",
+        location: "title", message: "主标题像栏目名，改成有实际材料支撑的口吻。", allowedChanges: ["title"],
+      }];
+    }
+    return result;
+  };
+  model.finalAuditArticle = async input => { articles.push(structuredClone(input.article)); return audit(); };
+  model.repairSection = () => assert.fail("headline repair cannot call the section editor");
+  model.repairArticleTitle = async input => {
+    assert.equal(input.currentTitle, articles[0].title);
+    assert.equal(input.article.body, articles[0].body);
+    assert.deepEqual(input.findings[0].allowedChanges, ["title"]);
+    return { value: { title }, receipt: modelReceipt("title-repair") };
+  };
+  const f = await fixture(t, model);
+  const job = await f.director.createJob({
+    intent: "写一篇小院日常随笔", explicitKind: "article", claimIds: ["C003"],
+    targetLength: { minCharacters: 1000, maxCharacters: 2600 },
+  }, context());
+  const completed = await processIllustratedArticle(f.director, job.id, context());
+  assert.equal(completed.status, "needs_review");
+  assert.equal(articles.length, 3);
+  for (const article of articles.slice(1)) {
+    assert.equal(article.title, title);
+    assert.equal(article.body, articles[0].body);
+    assert.deepEqual(article.sections, articles[0].sections);
+  }
+  assert.equal(completed.result.outline.title, title);
+  assert.equal(completed.result.article.title, title);
+  const initial = completed.reports.find(report => report.phase === "quality.review" && report.repairRound === 0);
+  const repaired = completed.reports.find(report => report.phase === "quality.review" && report.repairRound === 1);
+  const final = completed.reports.find(report => report.phase === "quality.final");
+  assert.notEqual(repaired.contentHash, initial.contentHash);
+  assert.equal(final.contentHash, completed.result.contentHash);
+  assert.equal(completed.result.styleAuditReportHash, final.reportHash);
+  assert.equal(completed.steps.find(step => step.kind === "article.repair").output.location, "title");
+  const { bytes } = await f.director.readArtifact(job.id, completed.steps.find(step => step.kind === "article.repair").artifact.name);
+  assert.deepEqual(JSON.parse(bytes), { title });
+});
+
+test("headline-only repair refuses a response that also attempts to replace the body", async t => {
+  const model = new StubModel();
+  const audit = model.auditArticle.bind(model);
+  model.auditArticle = async input => {
+    const result = await audit(input);
+    result.value.findings = [{
+      severity: "major", dimension: "expression", code: "MAIN_TITLE_TOO_GENERIC",
+      location: "title", message: "主标题需要具体些。", allowedChanges: ["title"],
+    }];
+    return result;
+  };
+  model.repairArticleTitle = async () => ({ value: { title: "灯还亮着", body: "尝试改写正文" }, receipt: modelReceipt("invalid-title-repair") });
+  const f = await fixture(t, model);
+  const job = await f.director.createJob({
+    intent: "写一篇小院日常随笔", explicitKind: "article", claimIds: ["C003"],
+    targetLength: { minCharacters: 1000, maxCharacters: 2600 },
+  }, context());
+  await assert.rejects(f.director.processJob(job.id), { code: "ARTICLE_TITLE_REPAIR_INVALID" });
+  const failed = await f.director.getJob(job.id);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.articleDraft ?? null, null);
+  assert.equal(failed.result, null);
+  assert.equal(failed.steps.find(step => step.kind === "article.repair").status, "failed");
+  assert.equal(failed.reports.length, 1);
 });
 
 test("preflight keeps real visual defects and the final audit cannot silently clear them", async t => {

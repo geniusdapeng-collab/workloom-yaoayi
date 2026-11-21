@@ -1,6 +1,59 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveContentIntent } from "../src/domain/content-intent.mjs";
+import { resolveArticleProsePolicy } from "../src/domain/article-prose-policy.mjs";
+import { deterministicArticleFindings } from "../src/domain/content-director.mjs";
+
+test("the short default reaches all new article kinds and preserves explicit length endpoints", () => {
+  const defaultLength = { minCharacters: 500, maxCharacters: 800 };
+  for (const explicitKind of ["article", "article_visual"]) {
+    for (const language of ["zh-CN", "en-US"]) {
+      for (const intent of ["写一篇小院日记", "写一篇做煎饼的手艺文章", "写一篇关于山货的科普文章"]) {
+        assert.deepEqual(resolveContentIntent({ intent, explicitKind, language }).targetLength, defaultLength);
+      }
+    }
+  }
+  const intent = "写一篇小院日记";
+  for (const [targetLength, expected] of [
+    [{ minCharacters: 650 }, { minCharacters: 650, maxCharacters: 800 }],
+    [{ maxCharacters: 750 }, { minCharacters: 500, maxCharacters: 750 }],
+    [{ minCharacters: 1500 }, { minCharacters: 1500, maxCharacters: 4000 }],
+    [{ minCharacters: 2000, maxCharacters: 3000 }, { minCharacters: 2000, maxCharacters: 3000 }],
+  ]) {
+    assert.deepEqual(resolveContentIntent({ intent, targetLength }).targetLength, expected);
+  }
+  assert.throws(() => resolveContentIntent({ intent, targetLength: { minCharacters: 750, maxCharacters: 600 } }), {
+    code: "CONTENT_INTENT_INVALID",
+  });
+  assert.equal(resolveContentIntent({ intent: "画一张咖啡杯照片", explicitKind: "pure_visual" }).targetLength, null);
+});
+
+test("short body rejects 499 and 801 visible characters, with punctuation and without headings or figures", () => {
+  const current = resolveArticleProsePolicy({ artifactKind: "article", language: "zh-CN", intent: "写小院日记" });
+  const legacy = {
+    id: "yaoayi.article.prose",
+    version: "1.2.0",
+    genre: "courtyard",
+    sha256: "ac566312843b15d5dd7ccb2ce63b6ebaad0463de56a87fc066f94dc3c2e23a0f",
+  };
+  const lengthIssues = (characters, stylePolicy) => {
+    const section = (title, letter, count) =>
+      `## ${title}\n\n${letter.repeat(69)}。\n\n${letter.repeat(count - 71)}。\n\n![长图注不应算入](/photo.png)`;
+    const body = [section("窗边的茶杯", "茶", 160), section("有风的树下", "树", 170),
+      section("慢慢把茶放凉", "风", characters - 330)].join("\n\n");
+    return deterministicArticleFindings({ title: "喝一杯茶", body }, {
+      minCharacters: 500, maxCharacters: 800, stylePolicy,
+    }).filter(finding => /^ARTICLE_TOO_(?:SHORT|LONG)$/.test(finding.code));
+  };
+  for (const [count, code] of [[499, "ARTICLE_TOO_SHORT"], [500, null], [800, null], [801, "ARTICLE_TOO_LONG"]]) {
+    const findings = lengthIssues(count, current);
+    assert.deepEqual(findings.map(finding => finding.code), code ? [code] : [], String(count));
+    if (code) assert.match(findings[0].message, new RegExp(`正文 ${count} 个非空白字符`));
+  }
+  assert.deepEqual(lengthIssues(499, legacy), []);
+  assert.deepEqual(lengthIssues(801, legacy), []);
+  assert.deepEqual(lengthIssues(499, null), []);
+});
 
 test("article intent with an embedded question remains article work", () => {
   const route = resolveContentIntent({

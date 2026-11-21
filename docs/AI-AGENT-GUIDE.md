@@ -196,7 +196,9 @@ pm_admin https://yaoayi.example/api/content \
 
 **要求服务调用模型写稿：** 管理员使用 `POST /api/live/generate-content`，例如 `{"confirm":true,"brief":"实际需求与边界","claimIds":["C002"],"platform":"GitHub","contentType":"social_post"}`。仅使用已批准 Claim；调用依赖服务当前有效的模型配置，可能花费模型额度。响应包含 `content` 草稿和 `model` 回执，仍需审核。受限 Agent bearer 不能调用这个入口。
 
-另一条 `POST /api/geo/engine/articles/generate` 是 GEO 引擎的文章草案生成，需 `confirm:true`，支持 `topicIds`、`force`，默认 `dataMode:"draft"`。它按内置选题构建 SQLite 文章草案，**不是调用模型的同义接口，也不自动成为控制面的已审批内容**。读取 `/api/geo/engine/articles` 后审查完整 Markdown，结合真实 Claim 另建控制面内容；`force:true` 会允许同选题再生成，不能当幂等重试。
+文章及图文统一由创作总控生产。`POST /api/live/generate-content` 接到 `contentType:"article"` 或 `"image_text"` 后，用已确认的简报和 Claim 建立创作 Job，需要管理员及 `Idempotency-Key`，返回 HTTP 202。需要执行时调用该 Job 的启动入口。
+
+`POST /api/geo/engine/articles/generate` 用已登记的 GEO 选题创建文章批次，需 `confirm:true` 和 `Idempotency-Key`。可提供 `topicIds`、已批准的 `claimIds` 及明确的 `targetLength`；返回 HTTP 202 和真实批次、Job 记录。旧 SQLite 研究草案仍可从 `GET /api/geo/engine/articles` 读取。
 
 ### 5.3 审核、定稿和排期
 
@@ -551,7 +553,7 @@ GET  /api/content-director/jobs/:id/publication-status
 
 每个 Job 和冻结结果都记录 `persona` 合同：ID、版本、人设文档 SHA-256 与提示词 SHA-256。persona 版本变化会进入内容哈希，旧审批不能覆盖新的人设快照。
 
-新建中文文章与文章配图 Job 另记录服务端选择的 `stylePolicy`。工作台可先回读拟采用的小院记事、手艺或知识解说规则。该规则贯穿提纲、写作、返修和两次 AI 审核，最终由有权审核者核对同一份成稿。 [中文文章文风](CONTENT-DIRECTOR.md#中文文章文风)
+新建文章与图文 Job（`zh-CN`、`en-US`）记录服务端选择的 `stylePolicy`。工作台可先回读拟采用的小院记事、手艺或知识解说规则及默认篇幅。该规则贯穿提纲、写作、返修和两次 AI 审核，最终由有权审核者核对同一份成稿。 [文章文风规范](CONTENT-DIRECTOR.md#中文文章文风)
 
 `article.v1` 逐节 checkpoint，最多定点修复两轮。正文初审通过后，先冻结章节和摘要，再用本机已核实的配图回执绑定至少三张真实、应景且不同的画面。开放许可实拍可由本机视觉设计师和 Compositor 在 AI 自主初审后加工并绑定，逐张注明来源、替代文字、图注及适用的 AI 披露。系统终检与人工最终签收各自绑定整份图文快照。操作见[文章正文配图](CONTENT-DIRECTOR.md#文章正文配图)。视频统一入口只输出到现有原生 Studio/剪辑执行器的 handoff，不自动付费或批准，也不把计划称为成片。最终 Edition 的物化、内容运营计划、官网发布和外部平台发布是不同状态。
 
