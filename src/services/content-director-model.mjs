@@ -269,6 +269,7 @@ export class ContentDirectorModel {
         "Act as an independent professional editor. Read the complete article, brief, claims and research.",
         "Return {assessment,findings:[{severity,dimension,code,location,message,allowedChanges}],coverage:{facts,structure,expression,policy}}.",
         AUDIT_CONTRACT,
+        "For each requested coverage dimension, return checked when reviewed or unverified when the supplied material does not allow review.",
         "This is a text-only preflight before visual planning. Do not report missing visualSpecRefs, missing images or pending visual disclosure as findings; those are evaluated only in final audit.",
         "Do not rewrite the article. Every numeric claim, current version, API or capability must be supported by supplied evidence. A heading without substantive body is a blocker.",
       ].join(" "),
@@ -281,9 +282,13 @@ export class ContentDirectorModel {
       "quality.final",
       [
         "Act as the final independent editor for the complete article and rendered visual package.",
-        "Return {assessment,findings:[{severity,dimension,code,location,message,allowedChanges}],coverage:{facts,structure,expression,policy,technical,visual}}.",
+        'Return a valid JSON object. Exact clean-report example: {"assessment":"已完成终审。","findings":[],"coverage":{"facts":"checked","structure":"checked","expression":"checked","policy":"checked","technical":"checked","visual":"checked"}}.',
+        'For each finding use exactly severity, dimension, code, location, message, allowedChanges. Example: {"severity":"major","dimension":"disclosure","code":"DISCLOSURE_MISSING","location":"fig-2","message":"缺少必要说明。","allowedChanges":[]}.',
         AUDIT_CONTRACT,
         "Evaluate every caption and visual against the article and supplied data; never approve an unsupported number, changed claim, empty section or unreadable visual. Do not rewrite the package.",
+        "The visualContract is the authoritative current visual scope. Diagrams are required only if listed in its requiredDiagramKinds. Draft visual prompts mentioned inside the brief are historical context and do not create an extra requirement.",
+        "editorial_illustration is an editorial asset placement kind, not a statement of media origin. Use each visualReview.mediaSource and verified attribution to distinguish licensed reference photography, owner-supplied images, and AI-generated illustrations. A licensed photo can depict a real named technique or location from its reviewed source; ensure it is not represented as this article's actual person, site or event. AI-generated media must be clearly disclosed.",
+        "The reader sees both the prose caption and the separately displayed creditLine and attribution links carried on the same image block. Evaluate all of these visible fields together, including license, author, source and changes. The same license can continue to cover an edited BY-SA photo without changing the article's license.",
       ].join(" "),
       input,
       { final: true },
@@ -293,7 +298,7 @@ export class ContentDirectorModel {
   async planVisuals(input) {
     return this.#json(
       "visual.plan",
-      "Plan only diagrams that materially improve understanding of the article. Use architecture or flow with nodes+edges, chart with data, or infographic with items. Return {visuals:[...]} in the exact shape required by the supplied VisualSpec contract. Every visual must include title, alt, caption and claimIds. Labels must remain short enough to render without overflow. Never invent numeric data. Prefer editable technical diagrams over decorative images. Maximum 4 visuals.",
+      "Plan only diagrams that materially improve understanding. Use architecture or flow with nodes+edges, chart with data, or infographic with items. When requestedKinds is supplied, include each specified kind and use only those kinds. Return {visuals:[...]} in the exact shape required by the supplied VisualSpec contract. Every visual must include title, alt, caption and claimIds. Labels must remain short enough to render without overflow. Never invent numeric data. Maximum 4 visuals.",
       input,
     );
   }

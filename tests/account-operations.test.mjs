@@ -39,7 +39,7 @@ async function scheduled(service) {
   await service.approveClaim("C003", { approvedBy: "姚阿姨", publicLevel: "private" });
   const content = await service.createContent({
     title: "单元测试中的运营草稿", body: "我看这段内容只验证运营动作的审批、回执和持久化，不是线上发布。",
-    claimIds: ["C003"], platforms: ["GitHub"], owner: "unit-test operator",
+    contentType: "social_post", claimIds: ["C003"], platforms: ["GitHub"], owner: "unit-test operator",
   });
   for (const target of ["fact_check", "approved", "scheduled"]) {
     await service.transitionContent(content.id, { target, actor: "姚阿姨", approvedBy: "姚阿姨" });
@@ -156,9 +156,42 @@ test("publication approval cannot bypass content scheduling and Claim expiry is 
     assert.equal(operations.list()[0].status, "in_progress");
   });
   await withServices(async ({ service, operations }) => {
-    const content = await service.createContent({ title: "观点", body: "我认为个人观点用于单测。", opinion: true, platforms: ["GitHub"] });
+    const content = await service.createContent({ title: "观点", body: "我认为个人观点用于单测。", contentType: "opinion", platforms: ["GitHub"] });
     const row = await operations.create({ accountId: "github", type: "publish", contentId: content.id, actor: "operator" });
     await assert.rejects(operations.approve(row.id, { approvedBy: "姚阿姨", authorizationNote: "批准发布。" }), (error) => error.code === "PUBLICATION_BLOCKED" && error.details.findings.some((item) => item.code === "CONTENT_NOT_SCHEDULED"));
+  });
+});
+
+test("legacy article drafts and pre-existing schedules cannot approve or publish without illustrations", async () => {
+  await withServices(async ({ store, service, operations }) => {
+    await service.approveClaim("C003", { approvedBy: "姚阿姨", publicLevel: "private" });
+    const content = await service.createContent({
+      title: "小院里的旧文章",
+      body: "我先把小院今天真实发生的事整理成一份草稿。",
+      contentType: "article",
+      claimIds: ["C003"],
+      platforms: ["GitHub"],
+    });
+    await service.transitionContent(content.id, { target: "fact_check", actor: "姚阿姨" });
+    await assert.rejects(
+      service.transitionContent(content.id, { target: "approved", actor: "姚阿姨", approvedBy: "姚阿姨" }),
+      { code: "ARTICLE_ILLUSTRATIONS_REQUIRED" },
+    );
+    await store.mutate({ type: "fixture.legacy_article_schedule", actor: "isolated reviewer" }, state => {
+      state.content.find(row => row.id === content.id).status = "scheduled";
+    });
+    const action = await operations.create({
+      accountId: "github", type: "publish", contentId: content.id, actor: "unit-test operator",
+    });
+    await assert.rejects(
+      operations.approve(action.id, { approvedBy: "姚阿姨", authorizationNote: "测试旧文章的发布围栏。" }),
+      { code: "ARTICLE_ILLUSTRATIONS_REQUIRED" },
+    );
+    await assert.rejects(service.recordPublication({
+      contentId: content.id, accountId: "github", actor: "unit-test operator", receipt: receipt(),
+    }), { code: "ARTICLE_ILLUSTRATIONS_REQUIRED" });
+    assert.equal(operations.list()[0].status, "draft");
+    assert.deepEqual(store.snapshot().publications, []);
   });
 });
 
@@ -367,6 +400,10 @@ test("retry recovers a persisted publication when the second ledger write failed
     await assert.rejects(operations.complete(row.id, { actor: "operator", receipt: receipt() }), { code: "EIO" });
     assert.equal(store.snapshot().publications.length, 1);
     assert.equal(operations.list()[0].status, "in_progress");
+    // A receipt already recorded before the article gate must still close its original action.
+    await store.mutate({ type: "fixture.legacy_article_receipt", actor: "isolated reviewer" }, state => {
+      state.content.find(content => content.id === row.contentId).contentType = "article";
+    });
     await assert.rejects(operations.fail(row.id, { actor: "operator", reason: "不得标记已发布失败" }), { code: "PUBLICATION_ALREADY_RECORDED" });
     const completed = await operations.complete(row.id, { actor: "operator", receipt: receipt() });
     assert.equal(completed.status, "completed");

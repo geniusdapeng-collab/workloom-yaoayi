@@ -25,7 +25,7 @@ async function external(t, { assets = false, visibility = "public" } = {}) {
       mime: "image/png", kind: "image", size: 67, status: "reviewed", review: { rightsConfirmed: true, privacyConfirmed: true } }));
     assetRefs.push({ assetId: "MA-external-image", sha256, role: "image", alt: "Synthetic unit image", caption: "Synthetic unit caption" });
   }
-  const created = await createEditionVariant(f, { destinationId: destination.id, format: assets ? "image_text" : "article", assetRefs });
+  const created = await createEditionVariant(f, { destinationId: destination.id, format: assets ? "image_text" : "article", ...(assets ? { assetRefs } : {}) });
   const variant = await scheduleVariant(f, created.variant);
   return { ...f, ...created, variant, account, destination };
 }
@@ -198,7 +198,7 @@ test("a result URL already in a different manual ledger cannot be used for compl
 test("legacy text-only actions also reconcile exact old approval without manufacturing v2 metadata or changing hashes", async t => {
   const f = await editorialFixture(t);
   await f.geoService.approveClaim("C003", { approvedBy: "isolated reviewer", publicLevel: "private" });
-  const content = await f.geoService.createContent({ title: "Legacy isolated article", body: "我看，This is a complete legacy isolated body.", claimIds: ["C003"], platforms: ["GitHub"], owner: "isolated reviewer" });
+  const content = await f.geoService.createContent({ title: "Legacy isolated post", contentType: "social_post", body: "我看，This is a complete legacy isolated body.", claimIds: ["C003"], platforms: ["GitHub"], owner: "isolated reviewer" });
   for (const target of ["fact_check", "approved", "scheduled"]) await f.geoService.transitionContent(content.id, { target, actor: "isolated reviewer" });
   let operation = await f.operations.create({ accountId: "github", contentId: content.id, type: "publish", actor: "isolated operator" });
   operation = await f.operations.approve(operation.id, { approvedBy: "isolated reviewer", authorizationNote: "Synthetic legacy authorization." });
@@ -221,7 +221,7 @@ test("new completion receipts cannot predate original authorization for v2, lega
       f = await editorialFixture(child);
       if (kind === "legacy") {
         await f.geoService.approveClaim("C003", { approvedBy: "isolated reviewer", publicLevel: "private" });
-        const content = await f.geoService.createContent({ title: "Chronology legacy unit", body: "我看，This is a complete isolated chronology unit body.", claimIds: ["C003"], platforms: ["GitHub"] });
+        const content = await f.geoService.createContent({ title: "Chronology legacy unit", contentType: "social_post", body: "我看，This is a complete isolated chronology unit body.", claimIds: ["C003"], platforms: ["GitHub"] });
         for (const target of ["fact_check", "approved", "scheduled"]) await f.geoService.transitionContent(content.id, { target, actor: "isolated reviewer" });
         operation = await f.operations.create({ accountId: "github", contentId: content.id, type: "publish", actor: "isolated operator" });
       } else operation = await f.operations.create({ accountId: "github", type: "reply", replyText: "A complete isolated unit reply.",
@@ -243,9 +243,12 @@ test("the exact receipt of an already-completed historical record remains an ide
   const f = await external(t), operation = await begin(f);
   const done = await f.operations.complete(operation.id, { actor: "isolated operator", receipt: receipt(operation) });
   const oldSource = receipt(operation, { publishedAt: "2025-01-01T00:00:00.000Z" });
-  const normalized = { ...oldSource, contentHash: operation.contentHash }, receiptHash = hashObject(normalized);
+  const { receiptHash: completionHash, recordedAt, recordedBy, ...canonical } = done.receipt;
+  assert.equal(hashObject(canonical), completionHash);
+  const normalized = { ...canonical, publishedAt: oldSource.publishedAt };
+  const receiptHash = hashObject(normalized);
   await f.store.mutate({ type: "unit.preexisting-legacy-chronology-record", actor: "test" }, state => {
-    state.accountOperations[0].receipt = { ...normalized, receiptHash, recordedAt: done.receipt.recordedAt, recordedBy: done.receipt.recordedBy };
+    state.accountOperations[0].receipt = { ...normalized, receiptHash, recordedAt, recordedBy };
     state.publications[0].receiptHash = receiptHash; state.publications[0].publishedAt = normalized.publishedAt;
   });
   const before = f.store.snapshot(), repeated = await f.operations.complete(operation.id, { actor: "isolated operator", receipt: oldSource });

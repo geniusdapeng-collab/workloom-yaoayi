@@ -24,9 +24,9 @@ test("validated native report hash arrays cannot randomly become phone findings 
   assert.throws(() => editorialInput({ body: "Contact 13800138000" }, ["body"]), { code: "EDITORIAL_SENSITIVE_INPUT" });
 });
 async function fixture(t) {
-  const f = await contentOpsFixture(t);
+  const f = await contentOpsFixture(t, { articleIllustrations: true });
   f.service.productionArtifacts = f.artifacts;
-  f.operations = new AccountOperationsService({ service: f.geoService, clock: f.clock, productionArtifacts: f.artifacts });
+  f.operations = new AccountOperationsService({ service: f.geoService, clock: f.clock, mediaAssets: f.actualAssets, productionArtifacts: f.artifacts });
   return f;
 }
 async function linkedin(f) {
@@ -60,7 +60,8 @@ async function schedule(f, variant) {
 function isolatedReceipt(operation, patch = {}) {
   return { url: "https://www.linkedin.com/posts/isolated-unit-test_987654321", publishedAt: OPS_NOW.toISOString(), capturedBy: "isolated operator",
     dataMode: "imported", verificationMethod: "manual_readback", verifiedAt: OPS_NOW.toISOString(), verifiedBy: "isolated reviewer",
-    editorialSnapshotHash: operation.editorialSnapshotHash, assetHashes: [], packageHash: operation.packageHash,
+    editorialSnapshotHash: operation.editorialSnapshotHash,
+    assetHashes: operation.editorialSnapshot.assetRefs.map(({ assetId, sha256 }) => ({ assetId, sha256 })), packageHash: operation.packageHash,
     reviewSnapshotHash: operation.reviewSnapshotHash, artifactHashes: operation.editorialSnapshot.publicationPackage.artifactRefs.map(row => ({ artifactId: row.id, sha256: row.sha256 })), ...patch };
 }
 
@@ -71,6 +72,9 @@ test("a checked native package materializes once as a draft and preserves every 
   await assert.rejects(materialize(f, row, { ...ctx, method: "worker" }), { code: "AGENT_SCOPE_DENIED" });
   const created = await materialize(f, row, ctx), after = f.store.snapshot();
   assert.equal(created.snapshotSchema, EDITORIAL_NATIVE_SCHEMA); assert.equal(created.status, "draft"); assert.equal(created.approval, null);
+  const mother = f.service.getEdition(f.editionId);
+  assert.deepEqual(created.assetRefs, mother.assetRefs);
+  assert.deepEqual(created.blocks.filter(block => block.type === "image"), mother.blocks.filter(block => block.type === "image"));
   assert.equal(created.packageHash, row.packageHash); assert.equal(created.reviewSnapshotHash, row.reviewSnapshotHash);
   assert.deepEqual(created.publicationPackage, row.package); assert.deepEqual(after.content.slice(0, original.length), original);
   assert.deepEqual(await materialize(f, row, ctx), created);
@@ -177,7 +181,7 @@ test("native historical-result reconciliation retains original approval, package
 test("native website publication keeps public approval separate and takes an actual full v3 backup before activation", async t => {
   const f = await fixture(t), { job } = await createOpsJob(f); await finishTextOpsJob(f, job.id);
   const row = candidate(f, job.id), variant = await schedule(f, await materialize(f, row));
-  f.service.beforeActivation = createEditorialBackup({ store: f.store, productionArtifacts: f.artifacts, clock: f.clock });
+  f.service.beforeActivation = createEditorialBackup({ store: f.store, mediaAssets: f.actualAssets, productionArtifacts: f.artifacts, clock: f.clock });
   let release = await f.service.createRelease({ contentId: variant.id, slug: "isolated-native-publication" }, context(variant));
   assert.equal(release.status, "draft"); assert.equal(release.publicApproval, null);
   assert.equal(release.publicSnapshot.nativePackageHash, row.packageHash); assert.equal(release.publicSnapshot.reviewSnapshotHash, row.reviewSnapshotHash);

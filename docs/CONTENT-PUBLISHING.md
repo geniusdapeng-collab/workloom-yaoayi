@@ -58,7 +58,7 @@ P0 是完整正文、不可变修订、独立渠道稿、精确审核、真实�
 | GET | `/api/editions/:id` | 完整原文与修订／翻译关系 |
 | POST | `/api/editions/:id/variants` | 新建 `{destinationId,title?,summary?,body?,blocks?,assetRefs?,adaptationNote?,supersedesContentId?}`；使用原文 ETag |
 | GET | `/api/editorial/variants/:id` | 完整独立渠道稿及 ETag |
-| POST | `/api/content/:id/transition` | v2 稿按 `draft→fact_check→approved→scheduled`；批准另需 `reviewed:true,snapshotHash` |
+| POST | `/api/content/:id/transition` | v2 稿提交 `fact_check` 后，服务器以 AI 检查同一份标题、正文、结构、图注和可引用证据。初审回执通过后，管理员可提交 `approved`、`reviewed:true` 和精确的 `snapshotHash`。排期仍需单独确认。 |
 | GET／POST | `/api/website/releases` | 历史列表；创建 `{contentId,slug}`，使用内容 ETag |
 | GET | `/api/website/releases/:id` | 私有候选、审批和回执 |
 | POST | `/api/website/releases/:id/approve` | `{reviewed:true,snapshotHash,authorizationNote}`；绑定完整公开快照 |
@@ -66,6 +66,8 @@ P0 是完整正文、不可变修订、独立渠道稿、精确审核、真实�
 | POST | `/api/website/releases/:id/verify` | `{confirm:true}`；触发服务端真实回读，不能提供客户端 proof |
 | POST | `/api/website/releases/:id/withdraw` | `{reason}`；保留历史，停用当前路由 |
 | GET | `/admin/preview/:releaseId` | 管理员私有预览，`noindex,no-store`；媒体仍走认证字节地址 |
+
+渠道稿 AI 初审显示问题位置、处理意见和检查结论。检查绑定稿件快照、已核验的公开事实依据和实际模型响应。重大问题、未覆盖维度、模型失联或用量回执缺失均无法进入最终批准。已在待审状态的旧稿可重新提交 `fact_check`。最终批准由管理员实际核对完整正文和媒体，针对这一版本签署。
 
 目的地 `locator` 为结构化对象：官网 `{origin}`；主页／页面／仓库／社区使用 `{url}`；Discord 使用 `{serverId,channelId,threadId?}`；技术作品目的地还需要 `artifactKind`。目录中的目的地类型必须与实际平台匹配，不能仅填一个平台名称就代替具体发布位置。
 

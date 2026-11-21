@@ -7,7 +7,8 @@ import { AI_ACTIONS, OPS_VERSION, SHA256, closed, text, integer, list, id, sha, 
 import { validateAdaptationPlan, validateRefShape } from "../domain/content-ops-plan.mjs";
 import { compileContentOpsPlan } from "../domain/content-ops-compiler.mjs";
 import { normalizeBudget, normalizePricing, reserveBudget, budgetTotals } from "../domain/content-ops-budget.mjs";
-import { FINAL_CHECKER_VERSION, candidateCheckContext, qualityTextKeys, assertCandidateCurrentBindings, validateCandidateForReview } from "../domain/content-ops-quality.mjs";
+import { FINAL_CHECKER_VERSION, candidateCheckContext, qualityTextKeys, assertCandidateAiMediaReview, assertCandidateCurrentBindings, validateCandidateForReview } from "../domain/content-ops-quality.mjs";
+import { collectArticleIllustrationRefs } from "../domain/editorial.mjs";
 
 const entity = row => ({ ...structuredClone(row), etag: contentOpsEtag(row), ref: contentOpsRef(row) });
 const uid = prefix => `${prefix}-${randomBytes(12).toString("hex")}`;
@@ -27,6 +28,39 @@ function validatePolicy(policy) {
   if (!["ai_assisted_draft", "author_led_editor_assist", "human_original_copyedit", "human_only", "ineligible"].includes(policy.creationMode) || !["prepare_only", "manual_only", "separately_authorized", "ineligible"].includes(policy.deliveryMode) || typeof policy.requiresAuthorContribution !== "boolean") fail(400, "ADAPTATION_PLAN_INVALID", "规则政策轴无效。");
   list(policy.allowedAiActions, "allowedAiActions", 6).forEach(action => { if (!AI_ACTIONS.includes(action)) fail(400, "ADAPTATION_PLAN_INVALID", "规则 AI 动作无效。"); });
   list(policy.requiredConditions, "requiredConditions", 100).forEach(condition => text(condition, "condition", 500));
+}
+
+function inheritArticleMedia(state, sourceEditions, locale, mediaRefs) {
+  const knownIds = new Set(mediaRefs.map(ref => ref.assetId));
+  const knownHashes = new Set(mediaRefs.map(ref => ref.sha256));
+  const inherited = [];
+  for (const edition of sourceEditions) {
+    const allowed = new Map(collectArticleIllustrationRefs(state, edition).map(ref => [ref.assetId, ref]));
+    for (const [index, block] of edition.blocks.entries()) {
+      const ref = block.type === "image" ? allowed.get(block.assetId) : undefined;
+      if (!ref || knownIds.has(ref.assetId) || knownHashes.has(ref.sha256)) continue;
+      const { alt, caption } = block;
+      const position = index / Math.max(1, edition.blocks.length - 1);
+      mediaRefs.push({ ...ref, alt, caption, locale });
+      inherited.push({ block, position });
+      knownIds.add(ref.assetId);
+      knownHashes.add(ref.sha256);
+    }
+  }
+  return inherited;
+}
+
+function placeInheritedArticleMedia(blocks, images) {
+  const placedIds = new Set(blocks.filter(block => block.type === "image").map(block => block.assetId));
+  const after = new Map();
+  for (const { block, position } of images) {
+    if (placedIds.has(block.assetId)) continue;
+    const index = Math.round(position * (blocks.length - 1));
+    const group = after.get(index) ?? [];
+    group.push(block);
+    after.set(index, group);
+  }
+  return blocks.flatMap((block, index) => [block, ...(after.get(index) ?? [])]);
 }
 
 export class ContentOpsService {
@@ -61,7 +95,20 @@ export class ContentOpsService {
     const tasks = state.productionTaskBlueprints.filter(row => row.jobId === job.id).map(task => ({ ...task, id: task.taskId, status: this.taskStatus(state, task) }));
     return { ...entity(job), targets: state.contentOpsTargetRuns.filter(row => row.jobId === job.id), tasks, attempts: state.productionTaskAttempts.filter(row => row.jobId === job.id), reservations: state.modelBudgetReservations.filter(row => row.jobId === job.id), artifacts: state.productionArtifacts.filter(row => tasks.some(task => task.taskId === row.taskId)), candidates: state.nativeCandidatePackages.filter(row => row.jobId === job.id), reports: state.contentQualityReports.filter(row => row.jobId === job.id), budgetTotals: job.budgetAuthorizationId ? budgetTotals(state, job.budgetAuthorizationId) : null };
   }
-  getCandidate(candidateId, ctx) { assertAdmin(ctx); const state = this.state(), candidate = record(state.nativeCandidatePackages, candidateId, "CANDIDATE_NOT_FOUND"); return { ...entity(candidate), requiredCoverage: { textKeys: qualityTextKeys(candidate.package), artifactHashes: [...new Set(candidate.package.artifactRefs.map(ref => ref.sha256))] }, reports: state.contentQualityReports.filter(row => row.candidateId === candidateId) }; }
+  getCandidate(candidateId, ctx) {
+    assertAdmin(ctx);
+    const state = this.state(), candidate = record(state.nativeCandidatePackages, candidateId, "CANDIDATE_NOT_FOUND");
+    const acceptance = state.contentOpsRequests.findLast(request => request.result?.candidateId === candidateId
+      && request.result?.qualityReportHash && request.result?.approval?.snapshotHash === request.result?.snapshotHash)?.result;
+    return {
+      ...entity(candidate),
+      requiredCoverage: { textKeys: qualityTextKeys(candidate.package), artifactHashes: [...new Set(candidate.package.artifactRefs.map(ref => ref.sha256))] },
+      reports: state.contentQualityReports.filter(row => row.candidateId === candidateId),
+      ...(candidate.qualityReportHashes.includes(acceptance?.qualityReportHash) ? {
+        finalAcceptance: { contentId: acceptance.id, snapshotHash: acceptance.snapshotHash, qualityReportHash: acceptance.qualityReportHash },
+      } : {}),
+    };
+  }
   planTemplate(input, ctx) {
     assertAdmin(ctx); closed(input, ["storyId", "editionId", "motherEditionIds", "targets", "goal", "budgetAuthorizationId", "sourceArtifactIds", "nativeInputs"], ["storyId", "targets", "goal", "budgetAuthorizationId"]);
     const state = this.state(), story = record(state.stories, input.storyId), editionIds = input.motherEditionIds ?? (input.editionId ? [input.editionId] : []), editions = list(editionIds, "motherEditionIds", 12, 1).map(value => record(state.editions, value));
@@ -420,7 +467,11 @@ export class ContentOpsService {
         } else {
           let poster = false; for (const entry of media) { const role = entry.artifact.mime === "video/mp4" ? "video" : entry.artifact.mime === "text/vtt" ? "subtitle" : target.nativeForm === "video" && !poster ? "poster" : "image"; if (role === "poster") poster = true; mediaFor(entry, role); }
         }
-        const orderedBlocks = this.normalizeBlocks(polish.blocks, polish.body, orderedMediaRefs);
+        const inherited = target.nativeForm === "article"
+          ? inheritArticleMedia(state, resolved.data.sourceEditions, target.locale, orderedMediaRefs)
+          : [];
+        const blocks = this.normalizeBlocks(polish.blocks, polish.body, orderedMediaRefs);
+        const orderedBlocks = inherited.length ? placeInheritedArticleMedia(blocks, inherited) : blocks;
         const neutralTask = state.productionTaskBlueprints.find(row => run.taskIds.includes(row.taskId) && row.kind === "format.transform");
         let neutralTransformRef = null, lineageHash = null;
         if (neutralTask) {
@@ -506,11 +557,84 @@ export class ContentOpsService {
     else { candidate.status = "needs_input"; candidate.qualityReportHashes = []; candidate.reviewEnvelope = null; candidate.reviewSnapshotHash = null; record(state.contentOpsTargetRuns, candidate.targetRunId).status = "needs_input"; }
     return report;
   }
-  async submitQualityReport(candidateId, input, ctx) {
+  async submitQualityReport(candidateId, input, ctx, acceptance = null) {
     assertAdmin(ctx); closed(input, ["checkedPackageHash", "packageHash", "checkContextHash", "checkerVersion", "findings", "semanticFindings", "coverage", "mediaEvidence", "assessment", "reviewed"], ["coverage", "mediaEvidence", "assessment", "reviewed"]);
     if (input.reviewed !== true || input.checkerVersion && input.checkerVersion !== FINAL_CHECKER_VERSION) fail(422, "QUALITY_RECHECK_REQUIRED", "人工独立检查需明确完整审阅与固定版本。");
-    const snapshot = this.state(), candidate = record(snapshot.nativeCandidatePackages, candidateId); if (this.artifactStore) await this.artifactStore.verifyReferences(candidate.package.artifactRefs, { state: snapshot, reviewed: true });
-    return this.write(`quality_final_completed:${candidateId}`, input, ctx, (state, { now }) => { const current = record(state.nativeCandidatePackages, candidateId); assertMatch(current, ctx.ifMatch); const report = this.recordQualityReport(state, candidateId, input, ctx, now); this.refreshJob(state, record(state.contentOpsJobs, current.jobId)); return entity(report); });
+    const snapshot = this.state(), candidate = record(snapshot.nativeCandidatePackages, candidateId);
+    if (acceptance && typeof this.artifactStore?.verifyReferences !== "function") fail(503, "NATIVE_ARTIFACT_VERIFICATION_UNAVAILABLE", "最终验收需要核对真实附件字节。");
+    if (this.artifactStore) await this.artifactStore.verifyReferences(candidate.package.artifactRefs, { state: snapshot, reviewed: true });
+    const scope = acceptance ? `quality_final_acceptance:${candidateId}` : `quality_final_completed:${candidateId}`;
+    return this.write(scope, acceptance ?? input, ctx, (state, { now, payload }) => {
+      const current = record(state.nativeCandidatePackages, candidateId);
+      assertMatch(current, ctx.ifMatch);
+      const job = record(state.contentOpsJobs, current.jobId);
+      if (acceptance) {
+        if (input.checkedPackageHash !== current.packageHash || input.checkContextHash !== current.checkContextHash
+          || ["cancelled", "deadline_exceeded"].includes(job.status)) fail(409, "QUALITY_REPORT_STALE", "最终验收须对应当前有效成品及完整检查上下文。");
+        const aiReport = assertCandidateAiMediaReview(state, current, acceptance.aiReportHash);
+        payload.aiReportHash = aiReport.reportHash;
+      }
+      const report = this.recordQualityReport(state, candidateId, input, ctx, now);
+      if (acceptance && report.status !== "passed") fail(422, "QUALITY_RECHECK_REQUIRED", "最终验收仍有待处理问题或未完整覆盖的附件。");
+      this.refreshJob(state, job);
+      return entity(report);
+    });
+  }
+
+  async acceptCandidate(candidateId, input, ctx, editorial) {
+    assertAdmin(ctx);
+    const withMediaReview = input && Object.hasOwn(input, "review");
+    closed(input, withMediaReview ? ["aiReportHash", "accepted", "review"] : ["aiReportHash", "accepted", "packageHash", "checkContextHash"]);
+    sha(input.aiReportHash);
+    if (!withMediaReview) {
+      sha(input.packageHash);
+      sha(input.checkContextHash);
+    }
+    if (input.accepted !== true) fail(422, "EXACT_EDITORIAL_REVIEW_REQUIRED", "最终验收需要明确确认已核对这份完整原生包。");
+    if (!editorial) fail(503, "EDITORIAL_SERVICE_UNAVAILABLE", "编辑服务未就绪。");
+    const actor = text(ctx.actor, "actor", 120);
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(ctx.idempotencyKey ?? "")) fail(400, "IDEMPOTENCY_KEY_REQUIRED", "最终验收须提供幂等键。");
+    const scope = `candidate_final_accepted:${candidateId}`;
+    const keyHash = hashObject({ actor, scope, key: ctx.idempotencyKey });
+    const existing = this.state().contentOpsRequests.find(row => row.keyHash === keyHash);
+    if (existing) {
+      if (existing.requestHash !== hashObject(input)) fail(409, "IDEMPOTENCY_CONFLICT", "幂等键已用于不同请求。");
+      return existing.result;
+    }
+    const child = (step, ifMatch) => ({ ...ctx, ifMatch,
+      idempotencyKey: hashObject({ keyHash, step }) });
+    const report = withMediaReview
+      ? await this.submitQualityReport(candidateId, input.review, child("quality", ctx.ifMatch), input)
+      : await this.write(`quality_final_acceptance:${candidateId}`, input, child("quality", ctx.ifMatch), (state, { now, payload }) => {
+          const current = record(state.nativeCandidatePackages, candidateId);
+          assertMatch(current, ctx.ifMatch);
+          const job = record(state.contentOpsJobs, current.jobId);
+          if (input.packageHash !== current.packageHash || input.checkContextHash !== current.checkContextHash
+            || ["cancelled", "deadline_exceeded"].includes(job.status)) fail(409, "QUALITY_REPORT_STALE", "最终验收须对应当前有效成品及完整检查上下文。");
+          const ready = validateCandidateForReview(state, current, { qualityReportHashes: [input.aiReportHash], now });
+          const aiReport = ready.reports[0];
+          if (aiReport.execution?.method !== "checker") fail(422, "QUALITY_RECHECK_REQUIRED", "此入口需要同一成品已通过的独立 AI 终检。");
+          payload.aiReportHash = aiReport.reportHash;
+          return entity(aiReport);
+        });
+    const candidate = this.getCandidate(candidateId, ctx);
+    if (!candidate.qualityReportHashes.includes(report.reportHash) || report.status !== "passed") {
+      fail(409, "QUALITY_REPORT_STALE", "成品已有新的终检结果，请核对当前版本。");
+    }
+    const draft = await editorial.materializeCandidate(candidateId, {
+      packageHash: candidate.packageHash,
+      qualityReportHashes: [report.reportHash],
+      reviewSnapshotHash: candidate.reviewSnapshotHash,
+    }, child("materialize", candidate.etag));
+    const pending = await editorial.transitionVariant(draft.id, { target: "fact_check" }, child("prepare-final", draft.etag));
+    const accepted = await editorial.transitionVariant(draft.id, {
+      target: "approved", reviewed: true, snapshotHash: pending.snapshotHash,
+      reviewSnapshotHash: pending.reviewSnapshotHash, note: "最终验收已核对完整原生包和实际附件。",
+    }, child("approve", pending.etag));
+    return this.write(scope, input, ctx, (_state, { payload }) => {
+      Object.assign(payload, { candidateId, aiReportHash: input.aiReportHash, reportHash: report.reportHash, contentId: accepted.id });
+      return { ...accepted, aiReportHash: input.aiReportHash, qualityReportHash: report.reportHash };
+    });
   }
   refreshJob(state, job) {
     if (["cancelled", "deadline_exceeded"].includes(job.status)) return;

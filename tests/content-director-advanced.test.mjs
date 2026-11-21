@@ -13,7 +13,9 @@ import { createEditorialBackup } from "../src/services/editorial-backup.mjs";
 import { GeoOsService } from "../src/services/geo-os-service.mjs";
 import { EditorialService } from "../src/services/editorial-service.mjs";
 import { ContentDirectorService } from "../src/services/content-director-service.mjs";
+import { MediaAssets } from "../src/services/media-assets.mjs";
 import { createContentVideoHandoff } from "../src/video-runtime/content-video-router.mjs";
+import { bindFixtureArticleIllustrations, fixtureArticleIllustrationVerifier, processIllustratedArticle } from "./article-illustration-fixture.mjs";
 
 const RECEIPT = {
   requestedModel: "advanced-fixture",
@@ -155,11 +157,15 @@ async function fixture(t, model, { autoStart = false, contentOps = null, mode = 
   const geo = new GeoOsService({ store });
   await geo.approveClaim("C003", { approvedBy: "advanced fixture reviewer", publicLevel: "private" });
   const editorial = new EditorialService({ store, geoService: geo, publicOrigin: "https://pengmanager.com" });
+  const mediaAssets = new MediaAssets({ store });
+  await mediaAssets.initialize();
   const director = new ContentDirectorService({
     store,
     model,
     editorial,
+    mediaAssets,
     contentOps,
+    articleIllustrationVerifier: fixtureArticleIllustrationVerifier,
     artifactRoot: join(directory, "content-director"),
     autoStart,
     mode,
@@ -199,7 +205,7 @@ test("real uploaded markdown is hashed, persisted and bound into the Job", async
     targetLength: { minCharacters: 500, maxCharacters: 1200 },
   }, context());
   assert.equal(job.input.attachments[0].sha256, uploaded.sha256);
-  const completed = await f.director.processJob(job.id);
+  const completed = await processIllustratedArticle(f.director, job.id, context());
   assert.equal(completed.status, "needs_review");
   assert.equal(completed.steps.some(step => step.kind === "attachment.ingest"), true);
 });
@@ -224,7 +230,15 @@ test("batch scheduler stays at two active Jobs and isolates one model failure", 
     },
   }, context());
   assert.equal(batch.jobs.length, 4);
-  await waitFor(() => f.director.getBatch(batch.id).jobs.every(job => ["needs_review", "failed", "blocked"].includes(job.status)));
+  const draftedBatch = await waitFor(() => {
+    const current = f.director.getBatch(batch.id);
+    return current.jobs.every(job => ["needs_input", "failed", "blocked"].includes(job.status)) && current;
+  }, 30_000);
+  for (const row of draftedBatch.jobs.filter(job => job.status === "needs_input")) {
+    const waiting = await f.director.getJob(row.id);
+    await bindFixtureArticleIllustrations(f.director, waiting, context());
+  }
+  await waitFor(() => f.director.getBatch(batch.id).jobs.every(job => ["needs_review", "failed", "blocked"].includes(job.status)), 30_000);
   const finalBatch = f.director.getBatch(batch.id);
   assert.equal(finalBatch.jobs.filter(job => job.status === "needs_review").length, 3);
   assert.equal(finalBatch.jobs.filter(job => job.status === "failed").length, 1);
@@ -253,6 +267,11 @@ test("pause keeps the completed section checkpoint and resume finishes without a
     throw new Error(`${error.message}: ${row.status} pauseRequested=${row.pauseRequested} error=${JSON.stringify(row.error)}`, { cause: error });
   });
   await f.director.resumeJob(job.id, context({ ifMatch: paused.etag }));
+  const waiting = await waitFor(async () => {
+    const row = await f.director.getJob(job.id);
+    return row.editorialIllustration?.status === "waiting_for_images" ? row : null;
+  });
+  await bindFixtureArticleIllustrations(f.director, waiting, context());
   const completed = await waitFor(async () => {
     const row = await f.director.getJob(job.id);
     return row.status === "needs_review" ? row : null;
@@ -289,7 +308,7 @@ test("Brief edits and a manually frozen outline use exact ETags and drive the fi
   };
   const frozen = await f.director.freezeOutline(job.id, { outline }, context({ ifMatch: patched.etag }));
   assert.equal(frozen.outlineRef.hash, (await import("../src/domain/hash.mjs")).hashObject(outline));
-  const completed = await f.director.processJob(job.id);
+  const completed = await processIllustratedArticle(f.director, job.id, context());
   assert.deepEqual(completed.result.article.sections.map(section => section.key), ["authority", "evidence", "receipt"]);
   assert.equal(completed.result.findings.some(finding => finding.code === "MUST_KEEP_MISSING"), false);
 });
@@ -303,7 +322,7 @@ test("model blocker triggers a bounded repair and a fresh final audit", async t 
     claimIds: ["C003"],
     targetLength: { minCharacters: 500, maxCharacters: 1200 },
   }, context());
-  const result = await f.director.processJob(job.id);
+  const result = await processIllustratedArticle(f.director, job.id, context());
   assert.equal(result.status, "needs_review");
   assert.equal(result.steps.some(step => step.kind === "article.repair"), true);
   assert.equal(f.store.snapshot().contentRepairAttempts.length, 1);
@@ -314,20 +333,29 @@ test("an approved visual package can be reordered without overwriting the previo
   const model = new AdvancedModel();
   const f = await fixture(t, model);
   const job = await f.director.createJob({
-    intent: "写一篇内容系统文章，并配两张可编辑图",
+    intent: "写一篇内容系统文章，并配一张架构图和一张信息图",
     explicitKind: "article_visual",
     claimIds: ["C003"],
     targetLength: { minCharacters: 500, maxCharacters: 1200 },
     enableVisuals: true,
   }, context());
-  const first = await f.director.processJob(job.id);
-  assert.equal(first.result.visuals.length, 2);
-  const ids = first.result.visuals.map(row => row.id);
+  const first = await processIllustratedArticle(f.director, job.id, context());
+  const images = first.result.visuals.filter(row => row.spec.kind === "editorial_illustration");
+  const diagrams = first.result.visuals.filter(row => row.spec.kind !== "editorial_illustration");
+  assert.equal(images.length, 3);
+  assert.equal(diagrams.length, 2);
+  const ids = diagrams.map(row => row.id);
+  const orderedVisualIds = [...images.map(row => row.id), ...ids.toReversed()];
+  await assert.rejects(f.director.reviseVisuals(job.id, {
+    orderedVisualIds,
+    updates: [{ visualId: images[0].id, spec: diagrams[0].spec }],
+  }, context({ ifMatch: first.etag })), { code: "ARTICLE_ILLUSTRATION_IMMUTABLE" });
   const revised = await f.director.reviseVisuals(job.id, {
-    orderedVisualIds: [...ids].reverse(),
+    orderedVisualIds,
     updates: [],
   }, context({ ifMatch: first.etag }));
-  assert.deepEqual(revised.result.visuals.map(row => row.id), [...ids].reverse());
+  assert.deepEqual(revised.result.visuals.filter(row => row.spec.kind === "editorial_illustration").map(row => row.id), images.map(row => row.id));
+  assert.deepEqual(revised.result.visuals.filter(row => row.spec.kind !== "editorial_illustration").map(row => row.id), ids.toReversed());
   assert.notEqual(revised.result.contentHash, first.result.contentHash);
   assert.equal(revised.status, "needs_review");
   assert.equal(f.store.snapshot().contentDirectorRevisions.some(row => row.kind === "visuals"), true);
@@ -380,7 +408,7 @@ test("completed Edition can be handed to the existing content-ops planner withou
     claimIds: ["C003"],
     targetLength: { minCharacters: 500, maxCharacters: 1200 },
   }, context());
-  const reviewed = await f.director.processJob(job.id);
+  const reviewed = await processIllustratedArticle(f.director, job.id, context());
   const approved = await f.director.approveJob(job.id, {
     reviewed: true,
     contentHash: reviewed.result.contentHash,
@@ -388,6 +416,8 @@ test("completed Edition can be handed to the existing content-ops planner withou
   }, context({ ifMatch: reviewed.etag }));
   const materialized = await f.director.materializeEdition(job.id, {
     contentHash: approved.result.contentHash,
+    visualRightsConfirmed: true,
+    visualRightsNote: "Isolated fixture reviewed for rights and privacy.",
   }, context({ ifMatch: approved.etag }));
   assert.ok(materialized.edition.id);
   const completed = await f.director.getJob(job.id);

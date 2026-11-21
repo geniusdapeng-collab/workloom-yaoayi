@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 — 2026-11-21
+
+- Require at least three distinct reviewed inline article photographs or illustrations before final acceptance and publication.
+- Find openly licensed real photography on Wikimedia Commons, preserve exact provenance and visible attribution, and support the native visual designer and Compositor workflow with verified local outputs.
+- Run AI preliminary reviews against exact source, content and preparation snapshots. Keep one human final acceptance for each complete native delivery and retain distinct external action authorization.
+- Preserve historical content and report bytes when rebinding a draft or reading an already published snapshot.
+
 ## 2026-11-19 — Cross-client persona enforcement and QoderWork
 
 - Make Yao Ayi persona v1.0.1 a server-enforced content contract shared by

@@ -10,7 +10,7 @@
   "sourceFileCount": 3650,
   "sourceBytes": 336706560,
   "snapshot": "upstreams/workloom-video-edit.snapshot.json",
-  "snapshotSha256": "a7d878d15dadb450f40664325491ab5cf65ff8b2283c6ab38e005c9f974ddb4b",
+  "snapshotSha256": "f1603f5763b984cdcff69a8dfee5476e16e5a3c8a04a5d0679700e066fd0e7b7",
   "capabilityCatalog": "engines/video-edit/pengmanager-capabilities.json",
   "capabilities": [
     "ai-video-generation",
@@ -106,6 +106,14 @@
       "receipt": "upstreams/marketing-evidence-and-risk-feedback.target-overlay.json",
       "receiptSha256": "9d394a165cc4a0a82e5fc511e72216fb8cebece0f6d3ded7d6ecec6ce65b07b3",
       "scope": "G1 preserves complete source evidence and uses the model token budget; G3 and PRD policy tags use product, cast, actions and approved claims from the current contract rather than a fixed film; model-authored tag annotations are removed; discovery deadlines cancel live requests; subtitle timing/style, cover rights, competitor isolation and character presentation boundaries are deterministic; unknown evidence and structures fail closed.",
+      "upstreamUpgradeClaimed": false,
+      "wholeEngineUpgradeClaimed": false
+    },
+    {
+      "id": "yaoayi-article-visual-preflight",
+      "receipt": "upstreams/yaoayi-article-visual-preflight.target-overlay.json",
+      "receiptSha256": "e738436e9bb4fcc6a1e843b9e660d0f37f2ec4237e03a0937b621712a92439b9",
+      "scope": "Yao Ayi article illustration preparation: a trusted host can record independent model-backed review of the exact local compositor recipe and open-license asset before low-risk composition. Hard blocks and final delivery authorizations are retained.",
       "upstreamUpgradeClaimed": false,
       "wholeEngineUpgradeClaimed": false
     }

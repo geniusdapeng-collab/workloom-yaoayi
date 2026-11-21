@@ -217,6 +217,12 @@ node scripts/editorial-data.mjs plan-content-ops \
 v3 接受新写入后，旧二进制应拒绝该状态。不能用降级代码、删除新集合或清空未知预留来回滚；
 保留真实完整快照并向前修复。
 
+### 原生成品最终验收
+
+独立 AI 已核对同一份冻结包后，工作台呈现一次最终验收。负责人核对完整成品并签收。AI 终检无法覆盖实际媒体内容时，负责人在同次验收逐份读取或播放附件并记录依据。
+
+`POST /api/content-ops/candidates/:id/final-acceptance` 接受 `{accepted:true,aiReportHash,packageHash,checkContextHash}`。需要逐项媒体补核时，提交 `{accepted:true,aiReportHash,review}`，其中 `review` 携带包和检查上下文摘要与逐文件证据。两个入口均需要候选的 `If-Match` 和 `Idempotency-Key`。终检缺失、有未解决的重大问题、模型没有实际运行，或执行人参与过生成时均会阻止验收。验收建立私有的已批准版本；外发继续使用原授权流程。网络中断后使用原请求键恢复。
+
 ## 接口与故障处理
 
 管理员接口位于 `/api/content-ops/*`，独立工位位于 `/api/content-ops/worker/*`。

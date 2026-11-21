@@ -18,7 +18,7 @@ const WORDS = Object.freeze({
     transcript: "文稿", chapters: "章节", toc: "本文目录", noTranscript: "暂时没有可公开的文稿。",
     videoLoading: "正在准备视频。下方文稿可直接阅读。", videoBuffering: "正在缓冲视频…", videoError: "视频暂时无法播放，你仍可阅读下方文稿。",
     videoUnavailable: "视频目前不可用，文稿保留在下方。", retryVideo: "重试播放", seekReady: "已定位到这一节，点击播放器继续。",
-    enlarge: "放大图片", imageUnavailable: "图片暂时无法加载，图注与说明仍可阅读。", retryImage: "重试图片", close: "关闭", previous: "上一张", next: "下一张", imageCount: "图片",
+    enlarge: "放大图片", imageUnavailable: "图片暂时无法加载，图注与说明仍可阅读。", retryImage: "重试图片", close: "关闭", previous: "上一张", next: "下一张", imageCount: "图片", imageCredit: "照片署名",
     noEnglish: "暂无英文版。", noChinese: "暂无中文版。", translationNote: "你仍在阅读这篇内容的原文，没有切换到其他主题。",
     keepReading: "继续阅读原文", browseOther: "浏览另一语言的内容库", languageLabel: "阅读语言", original: "原文版本",
     aboutTitle: "关于姚阿姨", aboutCopy: "这里是姚阿姨与沂蒙山咖啡小院的长期图文入口。先从具体的人、物件、季节和手写笔记讲起，再把山货的来处、吃法、品质和边界说清楚。",
@@ -43,7 +43,7 @@ const WORDS = Object.freeze({
     transcript: "Transcript", chapters: "Chapters", toc: "On this page", noTranscript: "No public transcript is available yet.",
     videoLoading: "Preparing the video. The transcript is readable below.", videoBuffering: "Buffering video…", videoError: "The video is temporarily unavailable. You can still read the transcript below.",
     videoUnavailable: "The video is currently unavailable. The transcript remains below.", retryVideo: "Retry video", seekReady: "Chapter selected. Press play to continue.",
-    enlarge: "Enlarge image", imageUnavailable: "The image could not be loaded. Its caption remains readable.", retryImage: "Retry image", close: "Close", previous: "Previous image", next: "Next image", imageCount: "Image",
+    enlarge: "Enlarge image", imageUnavailable: "The image could not be loaded. Its caption remains readable.", retryImage: "Retry image", close: "Close", previous: "Previous image", next: "Next image", imageCount: "Image", imageCredit: "Photo credit",
     noEnglish: "No English edition yet.", noChinese: "No Chinese edition yet.", translationNote: "You are still reading the original of this piece; no other topic has been substituted.",
     keepReading: "Keep reading the original", browseOther: "Browse the other language’s journal", languageLabel: "Reading language", original: "Original edition",
     aboutTitle: "About Yao Ayi", aboutCopy: "This is the lasting home for Yao Ayi and the Yimeng Mountain coffee courtyard: specific people, objects, seasons and handwritten notes, followed by clear sourcing and honest limits.",
@@ -257,10 +257,21 @@ function bodyBlocks(detail) {
   return Array.isArray(detail.blocks) && detail.blocks.length ? detail.blocks : String(detail.body || "").split(/\n\s*\n/).filter(Boolean).map(text => ({ type: "paragraph", text }));
 }
 
+function imageAttribution(attribution, label) {
+  const source = safePublicUrl(attribution?.landingUrl, { relative: false });
+  const license = safePublicUrl(attribution?.licenseUrl, { relative: false });
+  if (!source?.startsWith("https://") || !license?.startsWith("https://creativecommons.org/")
+      || !attribution.credit || !attribution.licenseId) return "";
+  const link = (url, title) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>`;
+  return `<small class="figure-credit">${escapeHtml(label)} · ${escapeHtml(attribution.credit)} · ${link(source, attribution.title || "↗")}`
+    + ` · ${link(license, attribution.licenseId)}${attribution.modifications ? ` · ${escapeHtml(attribution.modifications)}` : ""}</small>`;
+}
+
 function imageFigure(asset, index, w, { numbered = false } = {}) {
   const caption = String(asset.caption || "");
   const alt = String(asset.alt || caption || "");
-  return `<figure class="piece-figure" data-piece-image="${escapeHtml(asset.assetId || asset.id)}"><button class="figure-zoom" type="button" data-enlarge-image data-image-src="${escapeHtml(asset.url)}" data-image-alt="${escapeHtml(alt)}" data-image-caption="${escapeHtml(caption)}" aria-label="${escapeHtml(`${w.enlarge}${caption ? ` · ${caption}` : ""}`)}"><img src="${escapeHtml(asset.url)}" alt="${escapeHtml(alt)}" loading="lazy" /><span class="zoom-label" aria-hidden="true">${w.enlarge} ↗</span></button><p class="image-fallback" role="status" hidden>${w.imageUnavailable} <button type="button" data-retry-image>${w.retryImage}</button></p>${caption || numbered ? `<figcaption>${numbered ? `<span class="figure-number">${String(index + 1).padStart(2, "0")}</span>` : ""}${escapeHtml(caption || alt)}</figcaption>` : ""}</figure>`;
+  const credit = imageAttribution(asset.attribution, w.imageCredit || "Photo credit");
+  return `<figure class="piece-figure" data-piece-image="${escapeHtml(asset.assetId || asset.id)}"><button class="figure-zoom" type="button" data-enlarge-image data-image-src="${escapeHtml(asset.url)}" data-image-alt="${escapeHtml(alt)}" data-image-caption="${escapeHtml(caption)}" aria-label="${escapeHtml(`${w.enlarge}${caption ? ` · ${caption}` : ""}`)}"><img src="${escapeHtml(asset.url)}" alt="${escapeHtml(alt)}" loading="lazy" /><span class="zoom-label" aria-hidden="true">${w.enlarge} ↗</span></button><p class="image-fallback" role="status" hidden>${w.imageUnavailable} <button type="button" data-retry-image>${w.retryImage}</button></p>${caption || numbered || credit ? `<figcaption>${numbered ? `<span class="figure-number">${String(index + 1).padStart(2, "0")}</span>` : ""}<span>${escapeHtml(caption || alt)}${credit}</span></figcaption>` : ""}</figure>`;
 }
 
 function renderVideoPlayer(video, poster, assets, lang) {

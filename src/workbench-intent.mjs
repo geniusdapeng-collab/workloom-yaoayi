@@ -268,7 +268,51 @@ function contentDirectorStages(route, claimIds) {
       completionEvidence: "不可变 Edition/产物 ID、完整文件和 SHA-256",
     }),
   ];
-  if (VISUAL_KINDS.has(route.artifactKind)) {
+  if (route.articleIllustrations) {
+    const design = route.articleIllustrations;
+    const produce = stages.find(stage => stage.id === "produce");
+    produce.title = "生产并冻结初审通过的正文";
+    produce.completionEvidence = "原 Job 的正文快照、章节与配图请求标识";
+    const sourcesStage = task({
+      id: "editorial-photo-sources",
+      title: "从已授权原片和开放图库选择应景素材",
+      executor: design.executor,
+      dependsOn: ["produce"],
+      entry: { kind: "cli", command: design.sourceFinderCli },
+      requirements: [
+        "依据冻结正文为每张图选场景与章节。检索只发送公开物件、手艺和地区词。",
+        "优先真实摄影，逐图核对原始文件页、使用及编辑许可和是否含肖像。",
+        "需要补充示意画面时，可调用获准的工作台生图能力，图注明确标注。",
+      ],
+      completionEvidence: "每张选图的原始成品、来源、署名、许可及选用理由",
+    });
+    const designStage = task({
+      id: "editorial-design",
+      title: `交由视觉设计师制作至少 ${design.minimum} 张应景配图`,
+      executor: design.executor,
+      dependsOn: ["editorial-photo-sources"],
+      entry: { kind: "native-tool", tool: design.composeTool, verify: design.verifyTool, command: design.preparationCli },
+      requirements: design.requires,
+      completionEvidence: "实际成品、来源与权利、逐图场景审阅、对应章节和实际字节哈希",
+    });
+    const bindingStage = task({
+      id: "visual-package",
+      title: "绑定配图回执并继续终审",
+      executor: "content-director",
+      dependsOn: ["editorial-design"],
+      entry: {
+        kind: "http",
+        method: "POST",
+        path: "/api/content-director/jobs/:id/illustrations",
+        requires: ["administrator-session", "Idempotency-Key", "If-Match"],
+      },
+      requirements: ["同一 Job、正文摘要、配图回执、用途和图片字节"],
+      completionEvidence: "至少三张已核验的正文图片、终审报告与新的完整内容快照",
+    });
+    stages.splice(stages.findIndex(stage => stage.id === "human-review"), 0, sourcesStage, designStage, bindingStage);
+    const review = stages.find(stage => stage.id === "human-review");
+    review.dependsOn = ["visual-package"];
+  } else if (VISUAL_KINDS.has(route.artifactKind)) {
     const visual = task({
       id: "visual-package",
       title: "核对可编辑视觉包",
@@ -278,8 +322,8 @@ function contentDirectorStages(route, claimIds) {
       requirements: ["规范视觉 JSON、SVG、PNG、alt、caption 与哈希"],
       completionEvidence: "视觉包全部文件、实际渲染结果与可编辑源",
     });
-    stages.splice(stages.findIndex((stage) => stage.id === "create-content-job") + 1, 0, visual);
-    const review = stages.find((stage) => stage.id === "human-review");
+    stages.splice(stages.findIndex(stage => stage.id === "create-content-job") + 1, 0, visual);
+    const review = stages.find(stage => stage.id === "human-review");
     review.dependsOn = ["produce", "visual-package"];
   }
   return stages;
@@ -465,6 +509,10 @@ function clientHandoff(route, claimIds) {
       resolve: "POST /api/content-director/resolve-intent",
       create: "POST /api/content-director/jobs",
       start: "POST /api/content-director/jobs/:id/start",
+      ...(route.articleIllustrations ? {
+        editorialVisual: route.articleIllustrations,
+        bindIllustrations: "POST /api/content-director/jobs/:id/illustrations",
+      } : {}),
       review: "POST /api/content-director/jobs/:id/final-review",
       materialize: "POST /api/content-director/jobs/:id/materialize-edition",
     },
@@ -487,6 +535,7 @@ function deliveryContract(route, wantsDelivery, wantsPublication) {
       "不可变 Edition/产物文件",
       "每个文件的 SHA-256",
     ];
+  if (route.articleIllustrations) expected.push("至少三张真实应景的正文图片、配图回执和逐图视觉审阅");
   if (wantsPublication) expected.push("单账号外发授权、平台 URL 与实际回读回执");
   return {
     requested: wantsDelivery || wantsPublication,

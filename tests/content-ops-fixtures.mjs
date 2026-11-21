@@ -18,11 +18,11 @@ export const FIXTURE_PRICING = Object.freeze({ provider: "isolated_fixture", mod
 // These fixtures create real private state files, real full backups and the
 // actual additive migration. Model results remain explicitly isolated test
 // doubles. They neither contact a supplier nor establish a live price/output.
-export async function contentOpsFixture(t, { allDestinations = false } = {}) {
+export async function contentOpsFixture(t, { allDestinations = false, articleIllustrations = false } = {}) {
   const f = await editorialFixture(t); let now = new Date(OPS_NOW);
-  await readyWebsite(f); const { story, edition } = await createEditionVariant(f);
+  await readyWebsite(f); const { story, edition } = await createEditionVariant(f, articleIllustrations ? {} : { assetRefs: [] });
   const artifacts = new ProductionArtifacts({ store: f.store }); await artifacts.initialize();
-  const backup = createEditorialBackup({ store: f.store, productionArtifacts: artifacts, clock: () => new Date(now) });
+  const backup = createEditorialBackup({ store: f.store, mediaAssets: f.actualAssets, productionArtifacts: artifacts, clock: () => new Date(now) });
   await migrateContentOpsState(f.store, { clock: () => new Date(now), beforeMigration: () => backup.captureCurrent() });
   const bindings = await contentOpsAdapterBindings(), ops = new ContentOpsService({ store: f.store, artifactStore: artifacts, clock: () => new Date(now), adapterBindings: bindings });
   Object.assign(f, { ops, artifacts, bindings, backup, storyId: story.id, editionId: edition.id, clock: () => new Date(now), advance: milliseconds => { now = new Date(now.getTime() + milliseconds); } });

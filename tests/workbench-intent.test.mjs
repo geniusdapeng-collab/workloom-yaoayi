@@ -31,13 +31,43 @@ test("article intent reuses the existing route and exposes approval and delivery
   assert.ok(planned.stages.some((stage) => stage.id === "create-content-job" && stage.executor === "administrator-session"));
   assert.ok(planned.stages.some((stage) => stage.id === "visual-package"));
   const review = planned.stages.find((stage) => stage.id === "human-review");
-  assert.deepEqual(review.dependsOn, ["produce", "visual-package"]);
+  assert.deepEqual(review.dependsOn, ["visual-package"]);
+  assert.equal(planned.route.articleIllustrations.minimum, 3);
   assert.ok(planned.stages.some((stage) => stage.id === "materialize"));
   assert.equal(planned.stages.some((stage) => stage.id === "publication"), false);
   assert.ok(planned.authorizationGates.some((gate) => gate.id === "no-self-approval"));
   assert.ok(planned.authorizationGates.some((gate) => gate.id === "persona-contract"));
   assert.equal(planned.delivery.status, "not_started");
   assert.match(planned.planHash, /^[a-f0-9]{64}$/);
+});
+
+test("the workbench plans three editorial images after the draft and before human review", () => {
+  const planned = planWorkbenchIntent({
+    intent: "写一篇小院秋日生活文章",
+    claimIds: ["C001"],
+  });
+  assert.equal(planned.status, "planned");
+  assert.equal(planned.route.articleIllustrations.minimum, 3);
+  assert.equal(planned.handoff.production.bindIllustrations, "POST /api/content-director/jobs/:id/illustrations");
+  const sourceSearch = planned.stages.find(stage => stage.id === "editorial-photo-sources");
+  const design = planned.stages.find(stage => stage.id === "editorial-design");
+  const binding = planned.stages.find(stage => stage.id === "visual-package");
+  const produce = planned.stages.find(stage => stage.id === "produce");
+  const review = planned.stages.find(stage => stage.id === "human-review");
+  assert.deepEqual(produce.dependsOn, ["create-content-job"]);
+  assert.equal(design.executor, "visual-designer");
+  assert.equal(design.entry.tool, "visualwrite.compose");
+  assert.equal(design.entry.verify, "visualread.verify");
+  assert.deepEqual(sourceSearch.dependsOn, [produce.id]);
+  assert.equal(sourceSearch.entry.kind, "cli");
+  assert.match(sourceSearch.entry.command, /scripts\/article-photo-sources\.mjs/u);
+  assert.deepEqual(design.dependsOn, [sourceSearch.id]);
+  assert.equal(binding.status, "pending");
+  assert.deepEqual(binding.dependsOn, [design.id]);
+  assert.equal(binding.entry.path, "/api/content-director/jobs/:id/illustrations");
+  assert.deepEqual(review.dependsOn, [binding.id]);
+  assert.equal(planned.providerCallsPerformed, false);
+  assert.equal(planned.productionVerified, false);
 });
 
 test("video intent preserves the original sentence and enters the existing native workflow", () => {

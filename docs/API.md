@@ -464,6 +464,7 @@ No endpoint executes commands, arbitrary paths or remote downloads from a plan.
 | POST | `/api/content-ops/artifacts/:id/import-media` | Exact ART If-Match and sha256; imports identical private bytes, leaves MED rights review separate |
 | GET | `/api/content-ops/candidates/:id` | Complete immutable package, reports, review envelope and requiredCoverage.textKeys/artifactHashes for all native outputs/pages/images/files/settings/disclosures |
 | POST | `/api/content-ops/candidates/:id/quality-reports` | Exact candidate If-Match; explicit independent administrator review, full text/attachment coverage and evidence |
+| POST | `/api/content-ops/candidates/:id/final-acceptance` | Administrator exact-package acceptance, candidate If-Match and idempotency key. Requires an independent AI final report for the exact package, plus full media evidence when the model could only verify file bytes. Creates and approves the exact private version. External publication requires separate authorization. |
 | POST | `/api/content-ops/candidates/:id/materialize` | Exact candidate If-Match and packageHash/qualityReportHashes/reviewSnapshotHash; creates a private draft, never approves |
 | POST | `/api/content-ops/jobs/:id/usage/:reservationId/reconcile` | Exact Job If-Match; itemized actual usage/billing evidence for original attempt/request; no execution retry |
 | POST | `/api/content-ops/style-memory-candidates` | Scoped genuine before/after human revision evidence |

@@ -217,10 +217,35 @@ export function buildHumanQualityReview(candidate, fields) {
   return { checkedPackageHash: candidate.packageHash, checkContextHash: candidate.checkContextHash, checkerVersion: "pengmanager.independent-checker/v1", findings, coverage: { textKeys: [...new Set([...nativeTextReviewKeys(pkg), ...array(candidate.requiredCoverage?.textKeys)])], artifactHashes: [...new Set(nativeArtifactReferences(candidate).map(ref => ref.sha256))], semantic: "checked", artistic: "checked" }, mediaEvidence, assessment, reviewed: true };
 }
 
+function passedAiReview(candidate) {
+  const report = array(candidate.reports).at(-1);
+  return report?.execution?.method === "checker" && candidateReviewReady(candidate, [report]) ? report : null;
+}
+
+function pendingAiMediaReview(candidate) {
+  const report = array(candidate.reports).at(-1);
+  return report?.execution?.method === "checker" && report.dimensions?.deterministic === "passed"
+    && report.dimensions?.semantic === "passed" && report.dimensions?.media === "unverified"
+    && array(report.mediaEvidence).length && !array(report.semanticFindings).some(finding => ["blocker", "major"].includes(finding.severity))
+    ? report : null;
+}
+
 export function renderHumanQualityReview(candidate = {}, artifacts = [], { sources = [] } = {}) {
+  if (candidate.finalAcceptance) return `<p class="co-muted">最终验收已完成。已批准的渠道稿 ${html(candidate.finalAcceptance.contentId)} 可在编辑出版中查看。</p>`;
+  const aiReview = pendingAiMediaReview(candidate);
   const references = nativeArtifactReferences(candidate);
   const metadataReady = references.every(ref => artifacts.some(row => artifactMatchesReference(row, ref))) && array(nativePublicationPackage(candidate)?.sourceEditionRefs).every(ref => sources.some(row => sourceMatchesReference(row, ref)));
-  return `<details class="co-panel"><summary>独立人工最终检查（对无法由机器完整核对的媒体 / 表达逐项留证）</summary><p class="co-muted">请先完整阅读上方冻结包、来源差异、全文和每份真实文件。此表只记录独立终检，不能修改成品或批准发布；服务端会重算报告、四个维度与全部覆盖，未核实或未解决的严重问题不会放行。</p>${form("quality-review", candidate.id, candidate.etag)}${check("independent", "我独立于本包的起草、生成与最终润色上下文，具有本次实际检查权限。")} ${check("fullText", "我已逐项阅读最终标题、导语、全文、所有正文块、串文、章节、原生输出、文档页、图序、文件、设置、披露与全部来源限定。")} ${check("semantic", "我已独立核对事实、身份、数字、证据、翻译、必要限定与目的地规则，问题均在下方明示。")} ${check("artistic", "我已按这份最终成品实际核对可读 / 可听性、视觉层次、表达与叙事节奏；没有把技术闸当艺术检查。")} ${references.map(ref => `<fieldset class="co-choice"><legend>${html(ref.role || "真实附件")} · ${html(ref.artifactId)}</legend><label class="co-check"><input type="checkbox" name="qualityArtifact-${html(ref.artifactId)}" value="${html(ref.sha256)}" required /><span>我已完整实际读取 / 播放这份准确文件的全部内容；未覆盖片段不能勾选。<br /><code>${html(ref.sha256)}</code></span></label><label><span>实际完整检查方法</span><select name="qualityMethod-${html(ref.artifactId)}" required><option value="">选择已完成的方法</option><option value="human_full_read">独立人类完整阅读</option><option value="human_full_playback">独立人类完整播放画面、音轨与字幕</option></select></label><label><span>具体覆盖与检查依据</span><textarea name="qualityNote-${html(ref.artifactId)}" required minlength="8" maxlength="4000" rows="3" placeholder="写明实际查看的全部页 / 单元格 / 时间段、音轨字幕与检查要点；不编造运行或播放。"></textarea></label></fieldset>`).join("")}<label><span>全部问题 findings JSON（未发现问题时用 []；严重问题保持未解决）</span><textarea name="findings" rows="6" spellcheck="false">[]</textarea></label><p class="co-muted">每项字段：severity（blocker / major / minor / suggestion）、dimension（facts / policy / structure / disclosure / media / expression）、code、message、location；仅实际完成修正后才可附 resolved:true。</p><label><span>实际独立结论、依据与未覆盖局限</span><textarea name="assessment" required minlength="8" maxlength="20000" rows="4"></textarea></label>${check("reviewed", "上述阅读、播放与检查确实完成，只提交这一准确 packageHash 和 checkContextHash 的独立记录，不替代人工内容批准或发布授权。")} ${feedback()}<button class="ghost-button" type="submit"${metadataReady && candidate.etag ? "" : " disabled"}>保存真实独立终检记录</button>${!metadataReady ? '<p class="co-warning">真实附件元数据或准确来源母版尚未完整读取，不能签署整包覆盖。请先重新读取完整候选。</p>' : ""}</form></details>`;
+  if (passedAiReview(candidate)) {
+    return `<section class="co-panel"><h4>最终验收并批准此版本</h4><p class="co-muted">独立 AI 已完成这一精确成品的终检。请核对完整正文、顺序和附件后签收。</p>
+      ${form("final-acceptance", candidate.id, candidate.etag)}${nativeReviewConfirmationFields(candidate)}
+      ${check("reviewed", "我已完整核对并接受这次展示的准确渠道成品。")}${feedback()}
+      <button class="primary-button" type="submit"${metadataReady && candidate.etag ? "" : " disabled"}>验收并批准</button></form></section>`;
+  }
+  return `<details class="co-panel"><summary>${aiReview ? "最终验收并批准此版本" : "独立人工最终检查"}</summary><p class="co-muted">${aiReview
+    ? "独立 AI 已核对这份冻结包的全文与事实。请核对完整成品和逐份真实附件。本次提交会保存实际媒体核对记录，并批准这个精确渠道版本。"
+    : "请先完整阅读上方冻结包、来源差异、全文和每份真实文件。此表保存独立终检记录，未核实的维度和未解决的严重问题会阻止建稿。"}</p>${form(aiReview ? "final-acceptance" : "quality-review", candidate.id, candidate.etag)}${check("independent", "我独立于本包的起草、生成与最终润色上下文，具有本次实际检查权限。")} ${check("fullText", "我已逐项阅读最终标题、导语、全文、所有正文块、串文、章节、原生输出、文档页、图序、文件、设置、披露与全部来源限定。")} ${check("semantic", "我已独立核对事实、身份、数字、证据、翻译、必要限定与目的地规则，问题均在下方明示。")} ${check("artistic", "我已按这份最终成品实际核对可读 / 可听性、视觉层次、表达与叙事节奏；没有把技术闸当艺术检查。")} ${references.map(ref => `<fieldset class="co-choice"><legend>${html(ref.role || "真实附件")} · ${html(ref.artifactId)}</legend><label class="co-check"><input type="checkbox" name="qualityArtifact-${html(ref.artifactId)}" value="${html(ref.sha256)}" required /><span>我已完整实际读取 / 播放这份准确文件的全部内容；未覆盖片段不能勾选。<br /><code>${html(ref.sha256)}</code></span></label><label><span>实际完整检查方法</span><select name="qualityMethod-${html(ref.artifactId)}" required><option value="">选择已完成的方法</option><option value="human_full_read">独立人类完整阅读</option><option value="human_full_playback">独立人类完整播放画面、音轨与字幕</option></select></label><label><span>具体覆盖与检查依据</span><textarea name="qualityNote-${html(ref.artifactId)}" required minlength="8" maxlength="4000" rows="3" placeholder="写明实际查看的全部页 / 单元格 / 时间段、音轨字幕与检查要点；不编造运行或播放。"></textarea></label></fieldset>`).join("")}<label><span>全部问题 findings JSON（未发现问题时用 []；严重问题保持未解决）</span><textarea name="findings" rows="6" spellcheck="false">[]</textarea></label><p class="co-muted">每项字段：severity（blocker / major / minor / suggestion）、dimension（facts / policy / structure / disclosure / media / expression）、code、message、location；仅实际完成修正后才可附 resolved:true。</p><label><span>实际独立结论、依据与未覆盖局限</span><textarea name="assessment" required minlength="8" maxlength="20000" rows="4"></textarea></label>${check("reviewed", aiReview
+    ? "我已核对这份完整成品和全部真实附件。我接受并批准本次展示的准确渠道版本。"
+    : "上述阅读、播放与检查确实完成，只为当前成品提交独立检查记录。")} ${feedback()}<button class="ghost-button" type="submit"${metadataReady && candidate.etag ? "" : " disabled"}>${aiReview ? "验收并批准" : "保存真实独立终检记录"}</button>${!metadataReady ? '<p class="co-warning">真实附件元数据或准确来源母版尚未完整读取，不能签署整包覆盖。请先重新读取完整候选。</p>' : ""}</form></details>`;
 }
 
 export function buildUsageReconciliation(reservation, fields, { evidenceSha256 = "" } = {}) {
@@ -319,7 +344,7 @@ export function renderNativeCandidate(candidate = {}, { artifacts = [], reports 
   const acceptedHashes = reviewReportHashes(candidate);
   const acceptedReports = acceptedHashes.length ? reportRows.filter(row => acceptedHashes.includes(row.reportHash)) : reportRows;
   const ready = candidateReviewReady(candidate, acceptedReports) && (!acceptedHashes.length || acceptedReports.length === acceptedHashes.length) && referenced.every(ref => !ref.previewError) && sourceReady;
-  return `<article class="co-candidate" data-candidate-id="${html(candidate.id)}"><header class="co-card-heading"><div><p class="eyebrow">${html(FORMS[pack.nativeForm] || pack.nativeForm)} · ${html(pack.locale)} · ${html(pack.platformId)}</p><h3>${html(pack.title || "无标题")}</h3><p>${html(candidate.id)} · ${html(candidate.targetKey || pack.targetKey)}</p></div>${chip(candidate.status)}</header>${pack.summary ? `<p class="co-summary">${html(pack.summary)}</p>` : ""}<h4>完整正文</h4><pre class="co-body" lang="${pack.locale === "en-US" ? "en" : "zh-CN"}">${html(pack.body || "")}</pre>${blocks.length ? `<details open><summary>有序正文结构（${blocks.length} 项）</summary><ol class="co-ordered">${blocks.map(block => `<li><strong>${html(block.type || block.key || "内容项")}</strong><pre>${html(block.text || block.body || (block.items ? block.items.join("\n") : JSON.stringify(block, null, 2)))}</pre></li>`).join("")}</ol></details>` : ""}<details open><summary>原生发布结构、顺序与设置</summary><pre class="co-json">${json(pack.nativeManifest || pack.settings || {})}</pre></details><details><summary>目标身份、真实来源与事实绑定</summary><pre class="co-json">${json({ destination: pack.destinationIdentitySnapshot || pack.destinationSnapshot, account: pack.accountIdentitySnapshot || pack.accountSnapshot, sourceEditionRefs: pack.sourceEditionRefs, sourceClaimBindings: pack.sourceClaimBindings, operatorProfileRef: pack.operatorProfileRef, rulesRef: pack.rulesRef, rightsReviewHashes: pack.rightsReviewHashes, privacyReviewHashes: pack.privacyReviewHashes })}</pre></details>${orderedMedia.length ? renderOrderedMedia(orderedMedia) : ""}<h4>真实原生附件 · ${referenced.length} 项</h4><div class="co-stack">${referenced.length ? referenced.map(ref => renderArtifactPreview(ref)).join("") : empty("此包没有原生附件", "正文与原生设置仍须完整审阅；视频和技术作品所需实物由服务端检查。")}</div>${sourceDifferences}${renderQualityReports(reportRows, candidate)}${hash("最终包", candidate.packageHash || pack.packageHash)}${hash("完整审阅快照", candidate.reviewSnapshotHash)}${canMaterialize ? `${form("materialize", candidate.id, candidate.etag)}${check("reviewed", "我已逐项阅读完整成品、全部有序项、真实附件、目标身份、源稿差异和独立报告；将这个准确版本转为待核草稿。")}${feedback()}<button class="primary-button" type="submit"${ready ? "" : " disabled"}>转为编辑出版待核草稿</button><p class="co-muted">${ready ? "这里只建立待核稿；下一步仍需独立内容批准、排期和单次外发授权。" : "需要当前包的有效独立终检、完整审阅快照、全部准确来源与附件元数据及版本校验值后才能转稿。"}</p></form>` : ""}</article>`;
+  return `<article class="co-candidate" data-candidate-id="${html(candidate.id)}"><header class="co-card-heading"><div><p class="eyebrow">${html(FORMS[pack.nativeForm] || pack.nativeForm)} · ${html(pack.locale)} · ${html(pack.platformId)}</p><h3>${html(pack.title || "无标题")}</h3><p>${html(candidate.id)} · ${html(candidate.targetKey || pack.targetKey)}</p></div>${chip(candidate.status)}</header>${pack.summary ? `<p class="co-summary">${html(pack.summary)}</p>` : ""}<h4>完整正文</h4><pre class="co-body" lang="${pack.locale === "en-US" ? "en" : "zh-CN"}">${html(pack.body || "")}</pre>${blocks.length ? `<details open><summary>有序正文结构（${blocks.length} 项）</summary><ol class="co-ordered">${blocks.map(block => `<li><strong>${html(block.type || block.key || "内容项")}</strong><pre>${html(block.text || block.body || (block.items ? block.items.join("\n") : JSON.stringify(block, null, 2)))}</pre></li>`).join("")}</ol></details>` : ""}<details open><summary>原生发布结构、顺序与设置</summary><pre class="co-json">${json(pack.nativeManifest || pack.settings || {})}</pre></details><details><summary>目标身份、真实来源与事实绑定</summary><pre class="co-json">${json({ destination: pack.destinationIdentitySnapshot || pack.destinationSnapshot, account: pack.accountIdentitySnapshot || pack.accountSnapshot, sourceEditionRefs: pack.sourceEditionRefs, sourceClaimBindings: pack.sourceClaimBindings, operatorProfileRef: pack.operatorProfileRef, rulesRef: pack.rulesRef, rightsReviewHashes: pack.rightsReviewHashes, privacyReviewHashes: pack.privacyReviewHashes })}</pre></details>${orderedMedia.length ? renderOrderedMedia(orderedMedia) : ""}<h4>真实原生附件 · ${referenced.length} 项</h4><div class="co-stack">${referenced.length ? referenced.map(ref => renderArtifactPreview(ref)).join("") : empty("此包没有原生附件", "正文与原生设置仍须完整审阅；视频和技术作品所需实物由服务端检查。")}</div>${sourceDifferences}${renderQualityReports(reportRows, candidate)}${hash("最终包", candidate.packageHash || pack.packageHash)}${hash("完整审阅快照", candidate.reviewSnapshotHash)}${canMaterialize && !candidate.finalAcceptance && !pendingAiMediaReview(candidate) && !passedAiReview(candidate) ? `${form("materialize", candidate.id, candidate.etag)}${check("reviewed", "我已逐项阅读完整成品、全部有序项、真实附件、目标身份、源稿差异和独立报告；将这个准确版本转为待核草稿。")}${feedback()}<button class="primary-button" type="submit"${ready ? "" : " disabled"}>转为编辑出版待核草稿</button><p class="co-muted">${ready ? "这里只建立待核稿；下一步仍需独立内容批准、排期和单次外发授权。" : "需要当前包的有效独立终检、完整审阅快照、全部准确来源与附件元数据及版本校验值后才能转稿。"}</p></form>` : ""}</article>`;
 }
 
 export function createContentOpsRequester({ api, createKey = () => `co-web-${globalThis.crypto.randomUUID()}` } = {}) {
@@ -776,13 +801,27 @@ export function mountContentOps({ api, getData = () => null, afterMaterialize, a
       }
       return result;
     }
-    if (action === "quality-review") {
+    if (action === "quality-review" || action === "final-acceptance") {
       const candidate = state.candidate;
       if (!candidate || candidate.id !== id) throw new Error("准确候选已变化，请重新读取最终完整成品。");
-      const input = buildHumanQualityReview(candidate, fields);
-      const result = await send(`/api/content-ops/candidates/${encodeURIComponent(id)}/quality-reports`, input, { etag, needsEtag: true });
+      const acceptance = action === "final-acceptance";
+      const passed = passedAiReview(candidate);
+      const aiReview = pendingAiMediaReview(candidate);
+      let input;
+      if (acceptance && passed) {
+        assertNativeReviewConfirmations(candidate, fields);
+        if (fields.get("reviewed") !== "on") throw new Error("请在完整核对这一成品后明确确认验收。");
+        input = { accepted: true, aiReportHash: passed.reportHash, packageHash: candidate.packageHash, checkContextHash: candidate.checkContextHash };
+      } else {
+        if (acceptance && !aiReview) throw new Error("此成品的独立 AI 初审结果已变化，请重新读取。");
+        const review = buildHumanQualityReview(candidate, fields);
+        input = acceptance ? { accepted: true, aiReportHash: aiReview.reportHash, review } : review;
+      }
+      const endpoint = acceptance ? "final-acceptance" : "quality-reports";
+      const result = await send(`/api/content-ops/candidates/${encodeURIComponent(id)}/${endpoint}`, input, { etag, needsEtag: true });
       state.candidate = await api(`/api/content-ops/candidates/${encodeURIComponent(id)}`);
-      state.notice = result.status === "passed" ? "真实独立终检已保存，报告绑定这一准确最终包。仍需完整人工内容审核与另行外发授权。" : "实际独立检查记录已保存；未核实维度或未解决问题保持待输入，不会因提交报告自动通过。";
+      state.notice = acceptance ? `最终验收已完成，渠道稿 ${result.id} 已批准。外发仍需另行授权。`
+        : result.status === "passed" ? "真实独立终检已保存，报告绑定这一准确最终包。仍需完整人工内容审核与另行外发授权。" : "实际独立检查记录已保存；未核实维度或未解决问题保持待输入，不会因提交报告自动通过。";
       return result;
     }
     if (action === "usage-reconcile") {

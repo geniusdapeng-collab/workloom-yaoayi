@@ -12,6 +12,7 @@ import { createEditorialBackup } from "../src/services/editorial-backup.mjs";
 import { GeoOsService } from "../src/services/geo-os-service.mjs";
 import { EditorialService } from "../src/services/editorial-service.mjs";
 import { ContentDirectorService } from "../src/services/content-director-service.mjs";
+import { fixtureArticleIllustrationVerifier, processIllustratedArticle } from "./article-illustration-fixture.mjs";
 
 const MODEL_RECEIPT = {
   requestedModel: "offline-fixture",
@@ -110,6 +111,7 @@ test("thirty technology, product, case and thought themes pass offline article s
     store,
     model: new OfflineModel(),
     editorial,
+    articleIllustrationVerifier: fixtureArticleIllustrationVerifier,
     artifactRoot: join(directory, "content-director"),
     autoStart: false,
   });
@@ -123,7 +125,7 @@ test("thirty technology, product, case and thought themes pass offline article s
       claimIds: ["C003"],
       targetLength: { minCharacters: 500, maxCharacters: 1200 },
     }, ctx());
-    const result = await director.processJob(job.id);
+    const result = await processIllustratedArticle(director, job.id, ctx());
     if (result.status !== "needs_review") {
       failures.push({ index, topic, status: result.status, findings: result.findings });
       continue;
@@ -134,6 +136,10 @@ test("thirty technology, product, case and thought themes pass offline article s
     }
     if (!result.reports.some(report => report.phase === "quality.final" && report.contentHash === result.result.contentHash)) {
       failures.push({ index, topic, status: "FINAL_AUDIT_MISSING" });
+    }
+    const illustrations = result.result.visuals.filter(visual => visual.spec.kind === "editorial_illustration");
+    if (illustrations.length !== 3 || !illustrations.every(visual => result.result.article.visualSpecRefs.includes(visual.id))) {
+      failures.push({ index, topic, status: "REQUIRED_ILLUSTRATIONS_MISSING" });
     }
   }
   assert.deepEqual(failures, []);

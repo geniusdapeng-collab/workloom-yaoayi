@@ -43,6 +43,27 @@ test("worker credential routes stay separate from administrator cookies and rest
   response = await fetch(`${f.origin}/api/content-ops/profiles`); assert.equal(response.status, 401);
   response = await fetch(`${f.origin}/api/content-ops/profiles`, { headers: { "x-fixture-admin": "yes" } }); assert.equal(response.status, 200);
 });
+test("native final acceptance route requires administrator authentication and forwards exact conditional and idempotent context", async t => {
+  const editorial = {};
+  const f = await fixture(t, {
+    acceptCandidate(id, body, ctx, service) {
+      assert.equal(service, editorial);
+      f.calls.push({ id, body, ctx });
+      return { id: "CNT-fixture", status: "approved", etag: '"accepted-version"' };
+    },
+  }, { editorial });
+  const path = "/api/content-ops/candidates/CAND-fixture/final-acceptance";
+  const body = { accepted: true, aiReportHash: "a".repeat(64), packageHash: "b".repeat(64), checkContextHash: "c".repeat(64) };
+  assert.equal((await f.send(path, body)).status, 401);
+  assert.equal((await f.send(path, body, { Authorization: `Bearer ${f.credential}` })).status, 403);
+  assert.equal(f.calls.length, 0);
+  const response = await f.send(path, body, { "x-fixture-admin": "yes", "If-Match": '"candidate-version"' });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("etag"), '"accepted-version"');
+  assert.deepEqual(f.calls[0], { id: "CAND-fixture", body, ctx: { actor: "isolated owner", method: "session",
+    idempotencyKey: "isolated-request-001", ifMatch: '"candidate-version"' } });
+});
+
 test("plan import rejects duplicate keys and oversized bytes before any service call; raw inner plan is preserved", async t => {
   const f = await fixture(t);
   let response = await f.send("/api/content-ops/plan-imports/validate", '{"plan":{},"plan":{}}', { "x-fixture-admin": "yes" });

@@ -6,7 +6,15 @@ import { ApiError } from "../domain/errors.mjs";
 import { hashObject } from "../domain/hash.mjs";
 import { YAO_AYI_PERSONA_CONTRACT } from "../domain/persona.mjs";
 import { requirePublicUrl } from "../domain/public-url.mjs";
-import { CONTENT_ARTIFACT_KINDS, resolveContentIntent } from "../domain/content-intent.mjs";
+import {
+  ARTICLE_ILLUSTRATION_HANDOFF,
+  ARTICLE_ILLUSTRATION_SOURCE_TYPES,
+  ARTICLE_MIN_ILLUSTRATIONS,
+  EDITORIAL_VISUAL_REQUIREMENT,
+  isMeaningfulIllustrationText,
+  normalizeOpenImageAttribution,
+} from "../domain/article-illustration-policy.mjs";
+import { articleVisualForm, CONTENT_ARTIFACT_KINDS, resolveContentIntent } from "../domain/content-intent.mjs";
 import {
   CONTENT_DIRECTOR_STATUSES,
   assertContentDirectorStateIntegrity,
@@ -21,6 +29,7 @@ import {
 } from "../domain/content-director.mjs";
 import { JsonStore } from "../storage/json-store.mjs";
 import { inspectProductionArtifact } from "./production-artifacts.mjs";
+import { assertEditorialImageBytes, editorialImagesMatch, normalizeIllustrationWorkshopProof } from "./article-illustration-receipts.mjs";
 import { inspectRenderedVisual, mermaidSource, normalizeVisualPlan, renderVisualPng, renderVisualSvg } from "./visual-renderer.mjs";
 import { createContentVideoHandoff } from "../video-runtime/content-video-router.mjs";
 
@@ -31,6 +40,7 @@ const SHA256 = /^[a-f0-9]{64}$/;
 const ATTACHMENT_ID = /^CDU-[a-f0-9]{32}$/;
 const MAX_JOBS_RUNNING = 2;
 const MAX_SOURCE_MATERIAL_CHARACTERS = 120_000;
+const EDITORIAL_ILLUSTRATION_KIND = "editorial_illustration";
 const attachmentQueues = new WeakMap();
 const ATTACHMENT_ROLES = Object.freeze({
   document: new Set(["application/pdf", "text/plain", "text/markdown"]),
@@ -44,6 +54,87 @@ const ATTACHMENT_ROLES = Object.freeze({
 
 function fail(status, code, message, details) {
   throw new ApiError(status, code, message, details);
+}
+
+function isArticleJob(job) {
+  return ["article", "article_visual"].includes(job.artifactKind);
+}
+
+function jobArticleVisualForm(job) {
+  return isArticleJob(job) ? articleVisualForm(job.input?.intent ?? job.route?.intent ?? "") : null;
+}
+
+function canBindIllustrations(job) {
+  const stage = job.editorialIllustration?.status;
+  return isArticleJob(job) && (stage === "waiting_for_images" && job.status === "needs_input" ||
+    stage === "bound" && ["blocked", "failed", "needs_review"].includes(job.status) && !job.review);
+}
+
+function isEditorialIllustration(visual) {
+  return visual?.spec?.kind === EDITORIAL_ILLUSTRATION_KIND;
+}
+
+function summarizeIllustrationProvenance(value, outputSha256) {
+  const type = value?.source?.type ?? value?.sourceKind;
+  if (!ARTICLE_ILLUSTRATION_SOURCE_TYPES.includes(type)) {
+    fail(422, "ARTICLE_ILLUSTRATION_SOURCE_UNVERIFIED", "文章配图缺少已核验的来源分类。");
+  }
+  const source = { type };
+  if (type === "licensed") {
+    if (!value.source?.attribution) {
+      fail(422, "ARTICLE_ILLUSTRATION_ATTRIBUTION_REQUIRED", "授权配图缺少公开来源、作者署名及可回读的开放许可证。");
+    }
+    source.attribution = normalizeOpenImageAttribution(value.source.attribution);
+  }
+  if (/compositor/iu.test(value.renderer ?? "") && !value.workshop) {
+    fail(422, "ARTICLE_ILLUSTRATION_WORKSHOP_PROOF_REQUIRED", "Compositor 工位配图缺少实际修图与核验回执。");
+  }
+  return {
+    source,
+    proofHash: hashObject(value),
+    rights: { approved: value.rights?.approved === true },
+    privacy: { approved: value.privacy?.approved === true },
+    relevance: { approved: value.relevance?.approved === true },
+    ...(value.workshop ? { workshop: normalizeIllustrationWorkshopProof(value.workshop, outputSha256) } : {}),
+  };
+}
+
+function hideLegacyIllustrationProof(visual) {
+  if (!isEditorialIllustration(visual) || !visual.production?.provenance || SHA256.test(visual.production.provenance.proofHash ?? "")) return visual;
+  const { receiptId, receiptHash, provenance } = visual.production;
+  return { ...visual, production: {
+    receiptId,
+    receiptHash,
+    provenance: { source: { type: provenance.source?.type ?? provenance.sourceKind ?? null }, proofHash: hashObject(provenance) },
+  } };
+}
+
+function editorialVisualGate(job) {
+  if (!isArticleJob(job) || job.editorialIllustration?.status === "bound") return null;
+  if (job.editorialIllustration?.status !== "waiting_for_images" && !["needs_review", "approved", "completed"].includes(job.status)) return null;
+  return {
+    code: "EDITORIAL_VISUAL_DESIGN_REQUIRED",
+    message: EDITORIAL_VISUAL_REQUIREMENT,
+    approvalEligible: false,
+    handoff: ARTICLE_ILLUSTRATION_HANDOFF,
+    requestId: job.editorialIllustration?.requestId ?? null,
+  };
+}
+
+function jobWithVisualGate(job) {
+  const visualGate = editorialVisualGate(job);
+  return { ...contentDirectorEntity(job), ...(visualGate ? { visualGate } : {}) };
+}
+
+function assertTechnicalVisualKinds(form, specs, status = 502) {
+  if (!form) return;
+  const actual = [...new Set(specs.map(spec => spec?.kind ?? null))];
+  if (actual.some(kind => !form.kinds.includes(kind)) || form.kinds.some(kind => !actual.includes(kind))) {
+    fail(status, "ARTICLE_VISUAL_FORM_MISMATCH", "视觉包的图形类型与用户指定的配图类型不一致。", {
+      requiredKinds: form.kinds,
+      actualKinds: actual,
+    });
+  }
 }
 
 function jobId() {
@@ -225,7 +316,30 @@ function articleHash(article, persona = YAO_AYI_PERSONA_CONTRACT) {
     body: article.body,
     sections: article.sections,
     visualSpecRefs: article.visualSpecRefs ?? [],
+    ...(article.visualBundleHash ? { visualBundleHash: article.visualBundleHash } : {}),
   });
+}
+
+function withArticleVisuals(article, visuals, binding) {
+  const visualSpecRefs = visuals.map(row => row.id);
+  if (!binding) return { ...article, visualSpecRefs };
+  const visualBundleHash = hashObject({
+    requestId: binding.requestId,
+    draftHash: binding.draftHash,
+    receiptHash: binding.receiptHash,
+    images: visuals.map(row => ({
+      id: row.id, specHash: row.specHash, artifacts: row.artifacts.map(artifact => ({ mime: artifact.mime, sha256: artifact.sha256 })),
+    })),
+  });
+  const images = visuals.map(row => {
+    const attribution = row.production?.provenance?.source?.attribution;
+    return {
+      sectionKey: row.spec.sectionKey,
+      block: { type: "image", visualSpecId: row.id, alt: row.spec.alt, caption: row.spec.caption,
+        ...(attribution ? { attribution, creditLine: `照片署名 · ${attribution.credit} · ${attribution.licenseId} · ${attribution.modifications}` } : {}) },
+    };
+  });
+  return { ...article, blocks: buildArticleBlocks(article.sections, images), visualSpecRefs, visualBundleHash };
 }
 
 function bytesHash(bytes) {
@@ -339,6 +453,7 @@ export class ContentDirectorService {
   constructor({
     store,
     model,
+    articleIllustrationVerifier = null,
     editorial = null,
     mediaAssets = null,
     contentOps = null,
@@ -351,6 +466,7 @@ export class ContentDirectorService {
     if (!store) throw new Error("ContentDirectorService requires a store.");
     this.store = store;
     this.model = model;
+    this.articleIllustrationVerifier = articleIllustrationVerifier;
     this.editorial = editorial;
     this.mediaAssets = mediaAssets;
     this.contentOps = contentOps;
@@ -787,7 +903,7 @@ export class ContentDirectorService {
       items: [...state.contentDirectorJobs]
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
         .map(job => ({
-          ...contentDirectorEntity(job),
+          ...jobWithVisualGate(job),
           steps: state.contentDirectorSteps.filter(step => step.jobId === job.id),
         })),
     };
@@ -910,6 +1026,13 @@ export class ContentDirectorService {
   }
 
   async getJob(id) {
+    const job = await this.#readJob(id);
+    job.visualSpecs = job.visualSpecs.map(hideLegacyIllustrationProof);
+    if (job.result?.visuals) job.result.visuals = job.result.visuals.map(hideLegacyIllustrationProof);
+    return job;
+  }
+
+  async #readJob(id) {
     const state = this.state();
     const job = state.contentDirectorJobs.find(row => row.id === id);
     if (!job) fail(404, "CONTENT_JOB_NOT_FOUND", "找不到内容 Job。");
@@ -920,11 +1043,13 @@ export class ContentDirectorService {
         fail(503, "CONTENT_RESULT_UNAVAILABLE", "已冻结内容结果无法读取；不会把它当作空结果继续。", { cause: error?.code ?? "CONTENT_RESULT_READ_FAILED" });
       }
     }
+    const draft = !result?.article?.visualBundleHash && job.editorialIllustration?.draftArtifact ? await this.#readIllustrationDraft(job) : null;
     return {
-      ...contentDirectorEntity(job),
+      ...jobWithVisualGate(job),
       steps: state.contentDirectorSteps.filter(step => step.jobId === id),
       visualSpecs: (job.visualSpecIds ?? []).map(visualId => state.visualSpecs.find(spec => spec.id === visualId && spec.jobId === id)).filter(Boolean),
       reports: state.contentAuditReports.filter(report => report.jobId === id).sort((a, b) => b.generatedAt.localeCompare(a.generatedAt)),
+      ...(draft ? { articleDraft: { article: draft.article, preflightReportHash: draft.preflightReportHash } } : {}),
       result,
     };
   }
@@ -1005,6 +1130,7 @@ export class ContentDirectorService {
       job.error = null;
       job.pauseRequested = false;
       job.outlineRef = null;
+      job.editorialIllustration = null;
       job.revision += 1;
       job.updatedAt = now.toISOString();
       return contentDirectorEntity(job);
@@ -1048,6 +1174,7 @@ export class ContentDirectorService {
       job.resultHash = null;
       job.visualSpecIds = [];
       job.findings = [];
+      job.editorialIllustration = null;
       job.revision += 1;
       job.updatedAt = now.toISOString();
       return contentDirectorEntity(job);
@@ -1056,9 +1183,133 @@ export class ContentDirectorService {
     return this.getJob(id);
   }
 
+  async bindArticleIllustrations(id, input, ctx) {
+    const actor = assertionAdmin(ctx);
+    if (this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前模式无法接收文章配图回执。");
+    if (!input || typeof input !== "object" || Array.isArray(input) ||
+        Object.keys(input).length !== 1 || !Object.hasOwn(input, "receiptId") ||
+        typeof input.receiptId !== "string" || !/^AIR-[a-f0-9]{24}$/u.test(input.receiptId)) {
+      fail(400, "ARTICLE_ILLUSTRATION_RECEIPT_INVALID", "必须提交已登记的原生设计回执 ID。");
+    }
+    const scope = "article_illustrations_bound:" + id;
+    const keyHash = hashObject({ actor, scope, key: ctx.idempotencyKey });
+    const prior = this.state().contentDirectorRequests.find(row => row.keyHash === keyHash);
+    if (prior) {
+      if (prior.requestHash !== hashObject(input)) fail(409, "IDEMPOTENCY_CONFLICT", "幂等键已用于不同配图回执。");
+      return this.getJob(id);
+    }
+    const job = this.state().contentDirectorJobs.find(row => row.id === id);
+    if (!job) fail(404, "CONTENT_JOB_NOT_FOUND", "找不到内容 Job。");
+    assertJobVersion(job, ctx.ifMatch);
+    const design = job.editorialIllustration;
+    if (!canBindIllustrations(job)) {
+      fail(409, "ARTICLE_ILLUSTRATION_BINDING_NOT_READY", "当前 Job 没有可绑定的正文图文设计请求。");
+    }
+    if (design.receiptId === input.receiptId) return this.getJob(id);
+    if (typeof this.articleIllustrationVerifier !== "function") {
+      fail(503, "ARTICLE_ILLUSTRATION_VERIFIER_UNAVAILABLE", "原生视觉工位回执核验未配置。");
+    }
+    const draft = await this.#readIllustrationDraft(job);
+    const verified = await this.articleIllustrationVerifier({
+      jobId: id, requestId: design.requestId, draftHash: design.draftHash, article: draft.article, input,
+    });
+    const images = verified?.images;
+    if (verified?.receiptId !== input.receiptId || !SHA256.test(verified?.receiptHash ?? "") ||
+        !Array.isArray(images) || images.length < ARTICLE_MIN_ILLUSTRATIONS || new Set(images.map(row => row?.sha256)).size !== images.length) {
+      fail(422, "ARTICLE_ILLUSTRATION_RECEIPT_INVALID", "原生回执没有提供足量、互异的实际配图。");
+    }
+    const sectionKeys = new Set(draft.article.sections.map(section => section.key));
+    const checked = [];
+    const decodedImages = [];
+    for (const [index, image] of images.entries()) {
+      if (!Buffer.isBuffer(image.bytes) || !["image/png", "image/jpeg"].includes(image.mime) ||
+          bytesHash(image.bytes) !== image.sha256 || !sectionKeys.has(image.sectionKey) ||
+          !isMeaningfulIllustrationText(image.alt) || !isMeaningfulIllustrationText(image.caption) ||
+          !image.provenance || typeof image.provenance !== "object" || Array.isArray(image.provenance)) {
+        fail(422, "ARTICLE_ILLUSTRATION_RECEIPT_INVALID", "配图字节、原生来源或关联正文段落未通过核验。");
+      }
+      const { title, alt, caption, sectionKey } = image;
+      const provenance = summarizeIllustrationProvenance(image.provenance, image.sha256);
+      const generated = provenance.source.type === "generated";
+      const aiDisclosure = job.input.language === "en-US" ? "AI-generated illustration" : "AI 合成示意";
+      const disclosure = generated ? aiDisclosure : "";
+      const spec = {
+        kind: EDITORIAL_ILLUSTRATION_KIND,
+        title: boundedText(title, "配图标题", 200),
+        alt: boundedText(alt, "配图替代文本", 1000),
+        caption: boundedText(disclosure && !caption.includes(disclosure) ? caption + "（" + disclosure + "）" : caption, "配图说明", 2000),
+        sectionKey,
+      };
+      const specHash = hashObject({ ...spec, provenance, sha256: image.sha256 });
+      const visualId = stableVisualId(id, index, hashObject({ draftHash: design.draftHash, receiptHash: verified.receiptHash, specHash }));
+      let metrics;
+      try {
+        metrics = await assertEditorialImageBytes(image.bytes, { mime: image.mime });
+      } catch (error) {
+        if (error?.code?.startsWith("ARTICLE_ILLUSTRATION_")) throw error;
+        fail(422, "ARTICLE_ILLUSTRATION_IMAGE_INVALID", "配图字节未通过实际图片格式校验。");
+      }
+      if (decodedImages.some(previous => editorialImagesMatch(previous, metrics))) {
+        fail(422, "ARTICLE_ILLUSTRATION_DUPLICATE", "配图解码后的画面必须互异。");
+      }
+      decodedImages.push(metrics);
+      const rendered = { width: metrics.width, height: metrics.height, pixelHash: metrics.pixelHash };
+      checked.push({ image, index, provenance, rendered, spec, specHash, visualId });
+    }
+    const rows = [];
+    for (const { image, index, provenance, rendered, spec, specHash, visualId } of checked) {
+      const mime = image.mime;
+      const asset = await this.#writeArtifact(id, visualId + (mime === "image/png" ? ".png" : ".jpg"), image.bytes, mime);
+      rows.push({
+        id: visualId, schema: "pengmanager.article-illustration/v1", jobId: id, index, spec, specHash,
+        sourceHash: design.draftHash, rendered, artifacts: [asset],
+        production: { receiptId: verified.receiptId, receiptHash: verified.receiptHash, provenance },
+        createdAt: this.clock().toISOString(),
+      });
+    }
+    await this.#write(scope, input, ctx, state => {
+      const row = state.contentDirectorJobs.find(item => item.id === id);
+      assertJobVersion(row, ctx.ifMatch);
+      if (!canBindIllustrations(row) || row.editorialIllustration?.requestId !== design.requestId) {
+        fail(409, "ARTICLE_ILLUSTRATION_BINDING_NOT_READY", "正文快照或配图请求已变化，请刷新后核对。");
+      }
+      for (const visual of rows) {
+        if (!state.visualSpecs.some(item => item.id === visual.id)) state.visualSpecs.push(visual);
+        for (const artifact of visual.artifacts) {
+          if (!row.artifacts.some(item => item.name === artifact.name)) row.artifacts.push(artifact);
+        }
+      }
+      const visualIds = rows.map(visual => visual.id);
+      const bindingHistory = [...(design.bindingHistory ?? [])];
+      if (design.status === "bound") bindingHistory.push({
+        receiptId: design.receiptId, receiptHash: design.receiptHash, visualIds: design.visualIds,
+        resultRef: row.resultRef, resultHash: row.resultHash,
+      });
+      row.editorialIllustration = { ...design, status: "bound", receiptId: verified.receiptId, receiptHash: verified.receiptHash, visualIds,
+        ...(bindingHistory.length ? { bindingHistory } : {}) };
+      row.visualSpecIds = visualIds;
+      row.resultRef = null;
+      row.resultHash = null;
+      row.findings = [];
+      row.status = "queued";
+      row.missing = row.missing.filter(value => value !== EDITORIAL_VISUAL_REQUIREMENT);
+      row.error = null;
+      row.currentStep = "article.illustration.bind";
+      row.revision += 1;
+      row.updatedAt = this.clock().toISOString();
+      return contentDirectorEntity(row);
+    });
+    if (this.autoStart) this.#schedule(id);
+    return this.getJob(id);
+  }
+
   async startJob(id, ctx) {
-    assertionAdmin(ctx);
-    const job = await this.getJob(id);
+    const actor = assertionAdmin(ctx);
+    const job = await this.#readJob(id);
+    const scope = "article_illustration_upgrade:" + id;
+    const keyHash = hashObject({ actor, scope, key: ctx.idempotencyKey });
+    if (this.state().contentDirectorRequests.some(row => row.keyHash === keyHash)) return this.getJob(id);
+    if (job.status === "needs_review" && editorialVisualGate(job)) return this.#stageHistoricalArticle(job, scope, ctx);
     if (job.missing.length) fail(409, "CONTENT_JOB_NEEDS_INPUT", "任务仍缺少必要输入。", { missing: job.missing });
     if (!["queued", "needs_resume", "blocked", "failed"].includes(job.status)) {
       fail(409, "CONTENT_JOB_NOT_STARTABLE", `当前状态 ${job.status} 不能启动。`);
@@ -1078,6 +1329,67 @@ export class ContentDirectorService {
     });
     if (this.autoStart) this.#schedule(id);
     return this.getJob(id);
+  }
+
+  async #stageHistoricalArticle(job, scope, ctx) {
+    if (this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前模式无法冻结历史文章配图请求。");
+    assertJobVersion(job, ctx.ifMatch);
+    const original = job.result;
+    const oldArticle = original?.article;
+    const persona = job.persona ?? YAO_AYI_PERSONA_CONTRACT;
+    if (!oldArticle || !Array.isArray(oldArticle.sections) || oldArticle.sections.length < 3 ||
+        !Array.isArray(original.research?.sources) || !original.outline ||
+        oldArticle.body !== composeArticleBody(oldArticle.sections) ||
+        articleHash(oldArticle, persona) !== job.resultHash || original.contentHash !== job.resultHash) {
+      fail(409, "ARTICLE_ILLUSTRATION_HISTORY_UNVERIFIED", "历史文章的全文、章节与冻结摘要无法准确核对。");
+    }
+    const article = { ...oldArticle, blocks: buildArticleBlocks(oldArticle.sections), visualSpecRefs: [] };
+    delete article.visualBundleHash;
+    const bareHash = articleHash(article, persona);
+    const report = job.reports
+      .filter(item => item.phase === "quality.review" && item.contentHash === bareHash)
+      .sort((a, b) => (b.repairRound ?? 0) - (a.repairRound ?? 0))[0];
+    const brief = await this.#briefContext(job);
+    const deterministic = deterministicArticleFindings(article, {
+      ...brief.targetLength,
+      allowedUrls: [...original.research.sources.map(row => row.url), ...brief.claims.map(row => row.source)
+        .filter(value => /^https?:\/\//iu.test(String(value)))],
+      mustKeep: brief.mustKeep,
+      mustAvoid: brief.mustAvoid,
+      persona,
+    });
+    if (!report || !Array.isArray(report.findings) || !SHA256.test(report.reportHash ?? "") ||
+        openArticleBlockers(report.findings, { preflight: true }).length ||
+        deterministic.some(row => row.severity === "blocker" || row.severity === "major") ||
+        hashObject(brief.claims) !== hashObject(original.research.claims ?? [])) {
+      fail(409, "ARTICLE_ILLUSTRATION_HISTORY_UNVERIFIED", "历史文章没有可复用的同一正文、真实来源与通过初审的证据。");
+    }
+    const draft = { article, outline: original.outline, research: original.research, briefHash: hashObject(brief), preflightReportHash: report.reportHash };
+    const design = await this.#writeIllustrationDraft(job, draft);
+    await this.#write(scope, { resultHash: job.resultHash }, ctx, state => {
+      const current = state.contentDirectorJobs.find(row => row.id === job.id);
+      assertJobVersion(current, ctx.ifMatch);
+      if (current.status !== "needs_review" || current.resultHash !== job.resultHash || current.editorialIllustration?.status === "bound") {
+        fail(409, "ARTICLE_ILLUSTRATION_HISTORY_CHANGED", "历史文章状态或冻结结果已变化，请读取最新版本。");
+      }
+      if (!current.artifacts.some(item => item.name === design.draftArtifact.name)) current.artifacts.push(design.draftArtifact);
+      current.editorialIllustration = {
+        ...design, previousResultRef: current.resultRef, previousResultHash: current.resultHash,
+      };
+      current.status = "needs_input";
+      current.missing = upsertMissing([...current.missing, EDITORIAL_VISUAL_REQUIREMENT]);
+      current.currentStep = "article.illustration.request";
+      current.resultRef = null;
+      current.resultHash = null;
+      current.visualSpecIds = [];
+      current.findings = report.findings.filter(row => !isPrematureVisualFinding(row));
+      current.review = null;
+      current.error = null;
+      current.revision += 1;
+      current.updatedAt = this.clock().toISOString();
+      return contentDirectorEntity(current);
+    });
+    return this.getJob(job.id);
   }
 
   async processJob(id) {
@@ -1191,9 +1503,10 @@ export class ContentDirectorService {
   async approveJob(id, input, ctx) {
     assertionAdmin(ctx);
     if (input?.reviewed !== true) fail(422, "EXACT_REVIEW_REQUIRED", "必须明确确认已阅读完整结果、审核问题和视觉附件。");
-    const job = await this.getJob(id);
+    const job = await this.#readJob(id);
     assertJobVersion(job, ctx.ifMatch);
     if (job.status !== "needs_review" || !job.result) fail(409, "CONTENT_JOB_NOT_REVIEWABLE", "只有待审且结果完整的 Job 可以批准。");
+    await this.#assertArticleVisualsReady(job);
     const expectedResultHash = job.artifactKind === "pure_visual"
       ? job.result.contentHash
       : job.result.article
@@ -1223,34 +1536,47 @@ export class ContentDirectorService {
   async materializeEdition(id, input, ctx) {
     assertionAdmin(ctx);
     if (!this.editorial) fail(503, "EDITORIAL_SERVICE_UNAVAILABLE", "编辑出版服务未配置。");
-    const job = await this.getJob(id);
+    const job = await this.#readJob(id);
     assertJobVersion(job, ctx.ifMatch);
     if (job.status !== "approved" || !job.result?.article) fail(409, "CONTENT_JOB_NOT_APPROVED", "只有已批准文章可以物化为 Edition。");
-    if (input?.contentHash !== job.result.contentHash) fail(409, "CONTENT_RESULT_CHANGED", "物化目标不是已批准快照。");
+    await this.#assertArticleVisualsReady(job);
+    if (input?.contentHash !== job.result.contentHash || job.review?.contentHash !== job.result.contentHash) {
+      fail(409, "CONTENT_RESULT_CHANGED", "物化目标不是已批准快照。");
+    }
     const assetRefs = [];
     if (job.result.visuals?.length) {
       if (!this.mediaAssets) fail(503, "MEDIA_SERVICE_UNAVAILABLE", "视觉包物化需要媒体服务。");
       if (input.visualRightsConfirmed !== true) fail(422, "VISUAL_RIGHTS_REVIEW_REQUIRED", "请核对每张图的内容、来源、版权与隐私后再物化。");
       const rightsNote = boundedText(input.visualRightsNote, "visualRightsNote", 2000);
       for (const visual of job.result.visuals) {
-        const png = visual.artifacts.find(item => item.mime === "image/png");
-        if (!png) fail(409, "VISUAL_PNG_MISSING", "视觉包缺少真实 PNG。");
-        const bytes = (await this.readArtifact(id, png.name)).bytes;
+        const provenance = visual.production?.provenance;
+        const illustrationSourceType = provenance?.source?.type ?? provenance?.sourceKind;
+        if (isEditorialIllustration(visual) && !ARTICLE_ILLUSTRATION_SOURCE_TYPES.includes(illustrationSourceType)) {
+          fail(409, "ARTICLE_ILLUSTRATION_SOURCE_UNVERIFIED", "文章配图缺少已核验的来源分类。");
+        }
+        const illustrationAttribution = illustrationSourceType === "licensed"
+          ? normalizeOpenImageAttribution(provenance.source?.attribution)
+          : null;
+        const image = visual.artifacts.find(item => ["image/png", "image/jpeg"].includes(item.mime));
+        if (!image) fail(409, "VISUAL_IMAGE_MISSING", "视觉包缺少已核验的 PNG 或 JPEG。");
+        const bytes = (await this.readArtifact(id, image.name)).bytes;
         const uploadCtx = {
           ...ctx,
           idempotencyKey: hashObject({ jobId: id, visualId: visual.id, action: "upload" }).slice(0, 64),
         };
         const asset = await this.mediaAssets.upload(Readable.from([bytes]), {
-          contentType: "image/png",
+          contentType: image.mime,
           contentLength: bytes.length,
-          name: `${visual.id}.png`,
-          expectedSha256: png.sha256,
+          name: image.name,
+          expectedSha256: image.sha256,
         }, uploadCtx);
         const reviewed = await this.mediaAssets.review(asset.id, {
           sha256: asset.sha256,
           rightsConfirmed: true,
           privacyConfirmed: true,
           rightsNote,
+          ...(isEditorialIllustration(visual) ? { illustrationSourceType } : {}),
+          ...(illustrationAttribution ? { illustrationAttribution } : {}),
         }, {
           ...uploadCtx,
           ifMatch: asset.etag,
@@ -1283,7 +1609,10 @@ export class ContentDirectorService {
       }, ctx);
     }
     const currentStory = this.editorial.getStory(story.id);
-    const visualBlocks = assetRefs.map(ref => ({ type: "image", assetId: ref.assetId, alt: ref.alt, caption: ref.caption }));
+    const imageBlocks = assetRefs.map((ref, index) => ({
+      sectionKey: job.result.visuals[index].spec.sectionKey,
+      block: { type: "image", assetId: ref.assetId, alt: ref.alt, caption: ref.caption },
+    }));
     const pureVisual = job.artifactKind === "pure_visual";
     const visualBody = pureVisual
       ? job.result.visuals.map(visual => visual.spec.caption || visual.spec.alt).filter(Boolean).join("\n\n") || "视觉内容包"
@@ -1294,7 +1623,9 @@ export class ContentDirectorService {
       title: job.result.article.title,
       summary: pureVisual ? (job.result.visuals[0]?.spec.caption || job.result.visuals[0]?.spec.alt || "") : job.result.article.summary,
       body: visualBody,
-      blocks: [...(pureVisual ? [] : job.result.article.blocks), ...visualBlocks],
+      blocks: pureVisual
+        ? imageBlocks.map(row => row.block)
+        : buildArticleBlocks(job.result.article.sections, imageBlocks),
       claimIds,
       assetRefs,
     }, { ...ctx, ifMatch: currentStory.etag });
@@ -1331,11 +1662,12 @@ export class ContentDirectorService {
   async createContentOpsPlan(id, input, ctx) {
     assertionAdmin(ctx);
     if (!this.contentOps) fail(503, "CONTENT_OPS_UNAVAILABLE", "内容运营师服务未配置。");
-    const job = await this.getJob(id);
+    const job = await this.#readJob(id);
     assertJobVersion(job, ctx.ifMatch);
     if (job.status !== "completed" || !job.editorialRef?.editionId) {
       fail(409, "CONTENT_EDITION_REQUIRED", "先物化不可变 Edition，再创建平台适配计划。");
     }
+    await this.#assertArticleVisualsReady(job);
     const planInput = {
       storyId: job.editorialRef.storyId,
       editionId: job.editorialRef.editionId,
@@ -1397,12 +1729,13 @@ export class ContentDirectorService {
 
   async reviseVisuals(id, input, ctx) {
     assertionAdmin(ctx);
-    const job = await this.getJob(id);
+    const job = await this.#readJob(id);
     assertJobVersion(job, ctx.ifMatch);
-    if (!["article_visual", "pure_visual"].includes(job.artifactKind)) fail(409, "CONTENT_VISUAL_REVISION_NOT_APPLICABLE", "当前 Job 没有可修订的视觉包。");
+    if (!isArticleJob(job) && job.artifactKind !== "pure_visual") fail(409, "CONTENT_VISUAL_REVISION_NOT_APPLICABLE", "当前 Job 没有可修订的视觉包。");
     if (!["needs_review", "blocked", "approved"].includes(job.status) || !job.result) {
       fail(409, "CONTENT_VISUAL_REVISION_NOT_EDITABLE", "当前状态不能修订视觉包。");
     }
+    await this.#assertArticleVisualsReady(job, { requireAudit: false });
     if (!Array.isArray(input?.orderedVisualIds) || input.orderedVisualIds.length !== job.visualSpecs.length ||
         new Set(input.orderedVisualIds).size !== input.orderedVisualIds.length ||
         input.orderedVisualIds.some(visualId => !job.visualSpecs.some(row => row.id === visualId))) {
@@ -1413,19 +1746,25 @@ export class ContentDirectorService {
         !job.visualSpecs.some(row => row.id === update.visualId))) {
       fail(400, "CONTENT_VISUAL_UPDATE_INVALID", "视觉更新必须绑定当前图表，最多 4 项。");
     }
-    const sourceHash = job.artifactKind === "article_visual"
-      ? articleHash(job.result.article, job.persona ?? YAO_AYI_PERSONA_CONTRACT)
-      : null;
+    const sourceHash = job.editorialIllustration?.draftHash ?? null;
     const authorizedClaimIds = job.input.claimIds ?? [];
     const activeById = new Map(job.visualSpecs.map(row => [row.id, row]));
-    const nextVisuals = [];
-    for (const [index, visualId] of input.orderedVisualIds.entries()) {
+    const revisions = input.orderedVisualIds.map(visualId => {
       const source = activeById.get(visualId);
       const update = updates.find(row => row.visualId === visualId);
+      if (update && isEditorialIllustration(source)) {
+        fail(409, "ARTICLE_ILLUSTRATION_IMMUTABLE", "原生配图的字节、图注和段落归属随其已核验回执冻结。");
+      }
       const spec = update?.spec
         ? normalizeVisualPlan({ visuals: [update.spec] }, { articleHash: sourceHash, authorizedClaimIds }).visuals[0]
         : structuredClone(source.spec);
-      const specHash = hashObject(spec);
+      return { source, spec };
+    });
+    const visualForm = jobArticleVisualForm(job);
+    assertTechnicalVisualKinds(visualForm, revisions.filter(row => !isEditorialIllustration(row.source)).map(row => row.spec), 409);
+    const nextVisuals = [];
+    for (const [index, { source, spec }] of revisions.entries()) {
+      const specHash = isEditorialIllustration(source) ? source.specHash : hashObject(spec);
       if (specHash === source.specHash) {
         nextVisuals.push({ ...source, index });
         continue;
@@ -1454,15 +1793,17 @@ export class ContentDirectorService {
         specHash,
         sourceHash,
         rendered,
+        ...(visualForm ? { production: { renderer: "content-director.visual-renderer", form: spec.kind } } : {}),
         supersedes: source.id,
         artifacts,
         createdAt: this.clock().toISOString(),
       });
     }
-    let article = job.result.article ? { ...job.result.article, visualSpecRefs: nextVisuals.map(row => row.id) } : null;
+    const article = job.result.article ? withArticleVisuals(job.result.article, nextVisuals, job.editorialIllustration) : null;
+    if (nextVisuals.length === job.result.visuals?.length && nextVisuals.every((row, index) => row.id === job.result.visuals[index].id)) return job;
     let findings = [];
     let report = null;
-    if (job.artifactKind === "article_visual") {
+    if (isArticleJob(job)) {
       const allowedUrls = [
         ...(job.result.research?.sources ?? []).map(row => row.url),
         ...(job.input.claimIds ?? []).map(claimId => this.state().claims.find(claim => claim.id === claimId)?.source)
@@ -1542,6 +1883,7 @@ export class ContentDirectorService {
     const statuses = {
       routed: true,
       generated: Boolean(job.resultRef),
+      ...(isArticleJob(job) ? { articleIllustrationsBound: job.editorialIllustration?.status === "bound" } : {}),
       reviewed: Boolean(job.review),
       editionMaterialized: Boolean(job.editorialRef?.editionId),
       contentOpsPlanned: Boolean(job.contentOpsPlan),
@@ -1895,11 +2237,26 @@ export class ContentDirectorService {
   }
 
   async #processArticle(id) {
-    if (!this.model) fail(503, "CONTENT_MODEL_UNAVAILABLE", "文章生产线需要当前授权模型。");
     const state = this.state();
     const job = state.contentDirectorJobs.find(row => row.id === id);
+    if (!this.model) fail(503, "CONTENT_MODEL_UNAVAILABLE", "文章生产线需要当前授权模型。");
     const brief = await this.#briefContext(job);
     const briefHash = hashObject(brief);
+    if (job.editorialIllustration?.status === "waiting_for_images") {
+      await this.#updateJob(id, { status: "needs_input", missing: upsertMissing([...job.missing, EDITORIAL_VISUAL_REQUIREMENT]) },
+        "content_director.visual_design_required");
+      return;
+    }
+    if (job.editorialIllustration?.status === "bound") {
+      const draft = await this.#readIllustrationDraft(job);
+      const preflight = state.contentAuditReports.find(row => row.jobId === id && row.phase === "quality.review" &&
+        row.contentHash === job.editorialIllustration.draftHash && row.reportHash === draft.preflightReportHash);
+      if (draft.briefHash !== briefHash || !preflight || openArticleBlockers(preflight.findings, { preflight: true }).length) {
+        fail(409, "ARTICLE_ILLUSTRATION_DRAFT_CHANGED", "正文简报、事实 Claim 或初审快照已变化，请重新生产后绑定实际配图。");
+      }
+      await this.#finalizeArticle(id, { job, article: draft.article, outline: draft.outline, research: draft.research, brief, retainedFindings: [] });
+      return;
+    }
     let step = await this.#beginStep(id, "brief.compile", `brief:${briefHash}`, brief);
     const briefArtifact = await this.#writeArtifact(id, `brief-${briefHash.slice(0, 12)}.json`, brief, "application/json");
     await this.#finishStep(id, step, { output: { briefHash }, artifact: briefArtifact });
@@ -2028,7 +2385,7 @@ export class ContentDirectorService {
       sections.push(drafted);
     }
 
-    const buildArticle = (rows, visuals = []) => ({
+    const buildArticle = rows => ({
       title: outline.title,
       summary: outline.summary,
       body: composeArticleBody(rows),
@@ -2037,7 +2394,7 @@ export class ContentDirectorService {
       tags: deriveTags(brief),
       language: brief.language,
       claimIds: brief.claimIds,
-      visualSpecRefs: visuals.map(row => row.id),
+      visualSpecRefs: [],
     });
     let article = buildArticle(sections);
     const assembleKey = hashObject({ outlineHash, sections: sections.map(section => hashObject(section)) });
@@ -2112,40 +2469,140 @@ export class ContentDirectorService {
       blocking = openArticleBlockers(report.findings, { preflight: true });
     }
 
-    const requiresVisuals = job.route.needs.visuals || job.input.enableVisuals;
-    let visuals = [];
-    if (!blocking.length && requiresVisuals) {
+    if (!blocking.length) {
+      const draft = { article, outline, research, briefHash, preflightReportHash: report.reportHash };
+      const design = await this.#writeIllustrationDraft(job, draft);
       await this.#assertLive(id);
-      visuals = await this.#createVisuals(id, article, brief);
+      await this.store.mutate({
+        type: "content_director.article_draft_frozen",
+        actor: "content-director-worker",
+        payload: { jobId: id, requestId: design.requestId, draftHash: design.draftHash, preflightReportHash: report.reportHash },
+      }, state => {
+        const row = state.contentDirectorJobs.find(item => item.id === id);
+        if (row.status === "cancelled") fail(409, "CONTENT_JOB_CANCELLED", "任务已取消。");
+        if (row.pauseRequested) fail(409, "CONTENT_JOB_PAUSED", "任务已请求暂停。");
+        if (!row.artifacts.some(item => item.name === design.draftArtifact.name)) row.artifacts.push(design.draftArtifact);
+        row.editorialIllustration = design;
+        row.status = "needs_input";
+        row.missing = upsertMissing([...row.missing, EDITORIAL_VISUAL_REQUIREMENT]);
+        row.currentStep = "article.illustration.request";
+        row.revision += 1;
+        row.updatedAt = this.clock().toISOString();
+        return row;
+      });
+      return;
     }
-    article = buildArticle(sections, visuals);
-    deterministicFindings = deterministicArticleFindings(article, {
+    await this.#finalizeArticle(id, { job, article, outline, research, brief, retainedFindings: blocking });
+  }
+
+  async #writeIllustrationDraft(job, draft) {
+    const draftHash = articleHash(draft.article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
+    const draftIdentity = hashObject(draft);
+    const requestId = "CDI-" + hashObject({ id: job.id, draftIdentity }).slice(0, 24);
+    const draftArtifact = await this.#writeArtifact(job.id, "article-draft-" + draftIdentity.slice(0, 24) + ".json", draft, "application/json");
+    return { status: "waiting_for_images", requestId, draftHash, draftArtifact, minImages: ARTICLE_MIN_ILLUSTRATIONS };
+  }
+
+  async #readIllustrationDraft(job) {
+    const design = job.editorialIllustration;
+    const draft = await this.#stepJsonArtifact(job.id, { artifact: design?.draftArtifact });
+    if (!draft?.article || !Array.isArray(draft.article.sections) ||
+        articleHash(draft.article, job.persona ?? YAO_AYI_PERSONA_CONTRACT) !== design.draftHash ||
+        "CDI-" + hashObject({ id: job.id, draftIdentity: hashObject(draft) }).slice(0, 24) !== design.requestId) {
+      fail(409, "ARTICLE_ILLUSTRATION_DRAFT_CHANGED", "绑定的正文和图文设计请求不是当前冻结快照。");
+    }
+    return draft;
+  }
+
+  async #readBoundIllustrations(job) {
+    const binding = job.editorialIllustration;
+    if (binding?.status !== "bound" || !Array.isArray(binding.visualIds) || binding.visualIds.length < ARTICLE_MIN_ILLUSTRATIONS ||
+        !SHA256.test(binding.receiptHash ?? "")) {
+      fail(409, "EDITORIAL_VISUAL_DESIGN_REQUIRED", EDITORIAL_VISUAL_REQUIREMENT);
+    }
+    const visuals = this.state().visualSpecs;
+    const hashes = new Set();
+    const rows = [];
+    for (const id of binding.visualIds) {
+      const row = visuals.find(visual => visual.id === id && visual.jobId === job.id);
+      const artifact = row?.artifacts?.[0];
+      if (!row || !isEditorialIllustration(row) || row.sourceHash !== binding.draftHash ||
+          row.production?.receiptId !== binding.receiptId || row.production?.receiptHash !== binding.receiptHash ||
+          row.artifacts.length !== 1 || !["image/png", "image/jpeg"].includes(artifact?.mime) || hashes.has(artifact.sha256) ||
+          hashObject({ ...row.spec, provenance: row.production.provenance, sha256: artifact.sha256 }) !== row.specHash) {
+        fail(409, "ARTICLE_ILLUSTRATION_BINDING_CHANGED", "配图来源、字节摘要或设计回执与原绑定不一致。");
+      }
+      const stored = await this.readArtifact(job.id, artifact.name);
+      if (artifact.sha256 !== stored.sha256 || artifact.mime !== stored.mime || artifact.bytes !== stored.bytes.length) {
+        fail(409, "ARTICLE_ILLUSTRATION_BINDING_CHANGED", "配图存储文件与核验回执不一致。");
+      }
+      hashes.add(artifact.sha256);
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  async #assertArticleVisualsReady(job, { requireAudit = true } = {}) {
+    if (!isArticleJob(job)) return;
+    const editorial = await this.#readBoundIllustrations(job);
+    const { article, visuals } = job.result ?? {};
+    if (!article || !Array.isArray(visuals)) fail(409, "ARTICLE_ILLUSTRATION_BINDING_CHANGED", "当前文章缺少完整配图快照。");
+    const rowHash = ({ index, ...row }) => hashObject(row);
+    const expected = new Map(editorial.map(row => [row.id, rowHash(row)]));
+    const actual = visuals.filter(isEditorialIllustration);
+    const expectedArticle = withArticleVisuals(article, visuals, job.editorialIllustration);
+    if (actual.length !== expected.size || actual.some(row => expected.get(row.id) !== rowHash(row)) ||
+        new Set(actual.map(row => row.id)).size !== expected.size ||
+        articleHash({ ...article, visualSpecRefs: [], visualBundleHash: null }, job.persona ?? YAO_AYI_PERSONA_CONTRACT) !== job.editorialIllustration.draftHash ||
+        articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT) !== job.result.contentHash ||
+        hashObject(article.visualSpecRefs) !== hashObject(visuals.map(row => row.id)) ||
+        article.visualBundleHash !== expectedArticle.visualBundleHash || hashObject(article.blocks) !== hashObject(expectedArticle.blocks)) {
+      fail(409, "ARTICLE_ILLUSTRATION_BINDING_CHANGED", "正文与配图内容已变化，需要重新冻结并完成终审。");
+    }
+    assertTechnicalVisualKinds(jobArticleVisualForm(job), visuals.filter(row => !isEditorialIllustration(row)).map(row => row.spec), 409);
+    if (requireAudit && !job.reports.some(report => report.phase === "quality.final" && report.contentHash === job.result.contentHash &&
+        openArticleBlockers(report.findings).length === 0)) {
+      fail(409, "CONTENT_FINAL_AUDIT_REQUIRED", "当前配图快照没有通过最终独立审核。");
+    }
+  }
+
+  async #finalizeArticle(id, { job, article, outline, research, brief, retainedFindings }) {
+    const binding = job.editorialIllustration;
+    const visuals = binding?.status === "bound" ? await this.#readBoundIllustrations(job) : [];
+    if (!retainedFindings.length && jobArticleVisualForm(job).kinds.length) {
+      await this.#assertLive(id);
+      visuals.push(...await this.#createVisuals(id, article, brief));
+    }
+    article = withArticleVisuals(article, visuals, binding);
+    const allowedUrls = [...research.sources.map(row => row.url), ...brief.claims.map(row => row.source).filter(value => /^https?:\/\//i.test(String(value)))];
+    const deterministicFindings = deterministicArticleFindings(article, {
       ...brief.targetLength,
       allowedUrls,
       mustKeep: brief.mustKeep,
       mustAvoid: brief.mustAvoid,
       persona: YAO_AYI_PERSONA_CONTRACT,
     });
-    if (requiresVisuals && !visuals.length) {
+    if (visuals.filter(isEditorialIllustration).length < ARTICLE_MIN_ILLUSTRATIONS) {
       deterministicFindings.push({
         severity: "blocker",
         dimension: "technical",
         code: "REQUIRED_VISUAL_PACKAGE_MISSING",
         location: "visualSpecRefs",
-        message: "当前任务需要视觉包，但还没有绑定真实 SVG 和 PNG。",
+        message: EDITORIAL_VISUAL_REQUIREMENT,
       });
     }
-    report = await this.#auditArticle(id, {
+    const report = await this.#auditArticle(id, {
       phase: "quality.final",
       article,
       brief,
       research,
       deterministicFindings,
-      retainedFindings: blocking,
+      retainedFindings,
       visuals,
       final: true,
     });
-    blocking = openArticleBlockers(report.findings);
+    const blocking = openArticleBlockers(report.findings);
+    await this.#assertLive(id);
 
     const findings = report.findings;
     const contentHash = articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
@@ -2260,8 +2717,16 @@ export class ContentDirectorService {
     const deterministicSignatures = new Set(deterministic.map(signature));
     const retained = retainedFindings.filter(row => !deterministicSignatures.has(signature(row)))
       .map(row => ({ ...row, id: `P-${row.id}` }));
+    const visualContract = final ? {
+      policy: "article-photo-review/v2",
+      attributionPresentation: "Each image block attribution and creditLine are displayed below that figure with original source and license links.",
+      minEditorialImages: ARTICLE_MIN_ILLUSTRATIONS,
+      requiredDiagramKinds: jobArticleVisualForm(job)?.kinds ?? [],
+    } : null;
+    const visualContractHash = visualContract ? hashObject(visualContract) : null;
     const reports = this.state().contentAuditReports.filter(report =>
-      report.jobId === id && report.phase === phase && report.contentHash === contentHash && (report.repairRound ?? 0) === repairRound);
+      report.jobId === id && report.phase === phase && report.contentHash === contentHash && (report.repairRound ?? 0) === repairRound &&
+      (!visualContractHash || report.visualContractHash === visualContractHash));
     const mustRetain = [...deterministic, ...retained];
     const existing = reports.find(report => {
       const previous = new Set(report.findings.map(signature));
@@ -2279,15 +2744,36 @@ export class ContentDirectorService {
       },
       artifact: deterministicArtifact,
     });
-    const auditKey = `${contentHash}:round-${repairRound}:${final ? "final" : "review"}${reports.length ? `:${hashObject(mustRetain)}` : ""}`;
-    const step = await this.#beginStep(id, final ? "quality.final" : "quality.review", auditKey, { article, brief, research, visuals });
+    const auditKey = `${contentHash}:round-${repairRound}:${final ? "final" : "review"}${visualContractHash ? `:${visualContractHash.slice(0, 12)}` : ""}${reports.length ? `:${hashObject(mustRetain)}` : ""}`;
+    const step = await this.#beginStep(id, final ? "quality.final" : "quality.review", auditKey, { article, brief, research, visuals, ...(visualContract ? { visualContract } : {}) });
     const method = final ? (this.model.finalAuditArticle ?? this.model.auditArticle) : this.model.auditArticle;
     if (typeof method !== "function") fail(503, "CONTENT_AUDIT_UNAVAILABLE", "当前模型适配器不支持独立审核。");
     await this.#assertLive(id);
     let result;
     let report;
     try {
-      result = await method.call(this.model, { article, brief, research, visuals, deterministicFindings, retainedFindings });
+      const visualReviewInput = visuals.map(row => isEditorialIllustration(row) ? {
+        id: row.id,
+        spec: row.spec,
+        rendered: row.rendered,
+        visualReview: {
+          receiptHash: row.production.receiptHash,
+          sourceType: row.production.provenance.source?.type ?? null,
+          mediaSource: row.production.provenance.source?.type === "licensed" ? "open_licensed_photo_reference"
+            : row.production.provenance.source?.type === "generated" ? "AI_generated_illustration" : "owner_supplied_image",
+          publicAttribution: row.production.provenance.source?.attribution
+            ? { credit: row.production.provenance.source.attribution.credit, license: row.production.provenance.source.attribution.licenseId, title: row.production.provenance.source.attribution.title }
+            : null,
+          relevanceReviewed: row.production.provenance.relevance?.approved === true,
+          rightsReviewed: row.production.provenance.rights?.approved === true,
+          privacyReviewed: row.production.provenance.privacy?.approved === true,
+        },
+      } : row);
+      const reviewerBrief = final && job.editorialIllustration?.previousResultRef
+        ? { ...brief, authorThoughts: brief.authorThoughts.filter(note => !/\bVisualSpec\b.*"visuals"\s*:/iu.test(note)) }
+        : brief;
+      result = await method.call(this.model, { article, brief: reviewerBrief, research, visuals: visualReviewInput,
+        ...(visualContract ? { visualContract } : {}), deterministicFindings, retainedFindings });
       const coverage = result.value?.coverage;
       if (final && (!coverage || typeof coverage !== "object" || Array.isArray(coverage) ||
           ["facts", "structure", "expression", "policy", "technical", "visual"].some(key => !Object.hasOwn(coverage, key)))) {
@@ -2301,6 +2787,7 @@ export class ContentDirectorService {
         phase,
         repairRound,
         contentHash,
+        ...(visualContractHash ? { visualContractHash } : {}),
         assessment: boundedText(String(result.value.assessment ?? ""), "审核结论", 20_000, { optional: true }),
         coverage: coverage && typeof coverage === "object" && !Array.isArray(coverage) ? coverage : {},
         findings: [...mustRetain, ...modelFindings],
@@ -2384,16 +2871,29 @@ export class ContentDirectorService {
   async #createVisuals(id, article, brief) {
     const state = this.state();
     const job = state.contentDirectorJobs.find(row => row.id === id);
+    const visualForm = jobArticleVisualForm(job);
     const sourceHash = articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
     const planKey = `visuals:${sourceHash}`;
     const cachedPlan = this.#successfulStep(id, "visual.plan", planKey);
     let plan = await this.#stepJsonArtifact(id, cachedPlan);
-    if (!plan) {
-      const planStep = await this.#beginStep(id, "visual.plan", planKey, { article: sourceHash, brief });
-      const result = await this.model.planVisuals({ article, brief, contract: "architecture|flow nodes+edges; chart data; infographic items" });
+    if (plan) {
+      assertTechnicalVisualKinds(visualForm, plan.visuals);
+    } else {
+      const planStep = await this.#beginStep(id, "visual.plan", planKey, { article: sourceHash, brief, requestedKinds: visualForm.kinds });
+      const result = await this.model.planVisuals({
+        article,
+        brief,
+        requestedKinds: visualForm.kinds,
+        contract: "architecture|flow nodes+edges; chart data; infographic items",
+      });
       plan = normalizeVisualPlan(result.value, { articleHash: sourceHash, authorizedClaimIds: brief.claimIds });
+      assertTechnicalVisualKinds(visualForm, plan.visuals);
       const planArtifact = await this.#writeArtifact(id, `visual-plan-${hashObject(plan).slice(0, 12)}.json`, plan, "application/json");
-      await this.#finishStep(id, planStep, { output: { visualCount: plan.visuals.length }, artifact: planArtifact, receipt: result.receipt });
+      await this.#finishStep(id, planStep, {
+        output: { visualCount: plan.visuals.length, requestedKinds: visualForm.kinds },
+        artifact: planArtifact,
+        receipt: result.receipt,
+      });
     }
     const rows = [];
     for (const [index, spec] of plan.visuals.entries()) {
@@ -2432,6 +2932,7 @@ export class ContentDirectorService {
         specHash: png.specHash,
         sourceHash,
         rendered,
+        production: { renderer: "content-director.visual-renderer", form: spec.kind },
         artifacts: [specArtifact, svgArtifact, pngArtifact],
         createdAt: this.clock().toISOString(),
       };
@@ -2676,12 +3177,14 @@ export class ContentDirectorService {
   }
 }
 
-function buildArticleBlocks(sections) {
+function buildArticleBlocks(sections, images = []) {
   const blocks = [];
   for (const section of sections) {
     blocks.push({ type: "heading", level: 2, text: section.title });
     for (const paragraph of section.paragraphs) blocks.push({ type: "paragraph", text: paragraph });
+    blocks.push(...images.filter(row => row.sectionKey === section.key).map(row => row.block));
   }
+  blocks.push(...images.filter(row => !row.sectionKey).map(row => row.block));
   return blocks;
 }
 

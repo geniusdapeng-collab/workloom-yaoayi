@@ -30,6 +30,8 @@ video_mixed
 
 正式回归集位于 `tests/content-intent-regression.test.mjs`，覆盖七类 × 20 条中文变体，共 140 条。
 
+所有文章路由都在 `route.articleIllustrations` 记录至少三张正文配图的硬性要求，正文可先启动生产。明确要求架构图、流程图、数据图表或信息图时，`route.visualForm.kinds` 保存要额外生成的技术图类型。文章主题里提到某种图形、或者明确拒绝某种图形，都不会触发对应技术图。
+
 ## 3. Job 与批次
 
 `ContentJob` 支持：
@@ -87,7 +89,9 @@ article.assemble
 quality.deterministic
 quality.review
 article.repair（最多 2 轮）
-visual.plan / visual.render（需要配图时）
+article.illustration.request（冻结初审正文并等待实际图片）
+article.illustration.bind（本机已核验回执）
+visual.plan / visual.render（明确要求额外技术图时）
 quality.final
 package.freeze
 edition.materialize（人工批准后）
@@ -101,11 +105,47 @@ edition.materialize（人工批准后）
 - 正文出现未进入 ResearchBundle/Claim 的 URL 即 blocker。
 - 敏感凭据和个人资料不能进入结果包。
 - 定点修复只接收当前 finding 和允许范围，并通过新 revision 留痕。
-- `approve` 必须绑定当前 `contentHash` 和准确 ETag，且要求同一 hash 的 `quality.final`。
+- `approve` 必须绑定当前 `contentHash` 和准确 ETag，至少三张已抄存和核验的正文图，以及同一 hash 的 `quality.final`。
 
 30 个离线主题的结构回归位于 `tests/article-pipeline-regression.test.mjs`。
 
 ## 6. 视觉生产线
+
+### 文章正文配图
+
+文章初审通过后，同一个 Job 冻结正文并进入 `needs_input`。详情中的 `articleDraft.article` 给出正文和章节键，`editorialIllustration` 给出配图请求 ID、正文摘要和最低张数。三张不同的应景图片必须实际落盘、通过解码与尺寸核验、绑定正文里的章节，并逐张核对来源、权利、隐私和相关性。技术图可随文章一同交付。
+
+优先选择与冻结章节相符的真实照片。开放素材检索命令接收结构化的公开检索词，返回 Commons 候选、原图地址和许可信息。私有稿件和人物资料保留在本机。
+
+```bash
+node scripts/article-photo-sources.mjs --input-file /private/staging/photo-queries.json
+node scripts/article-visual-preparation.mjs --input-file /private/staging/visual-preparation.json
+```
+
+自主处理开放许可照片时，使用带原生视觉设计师、Compositor、Apple Vision 和已授权模型的 macOS 工位。运行账号将选中的原图和清单存放在同一私有目录。清单的 `schema` 为 `yaoayi.article-visual-preparation/v1`，`job` 为当前 `needs_input` 的详情回执。每条 `images` 包含 `file`、`sha256`、`sectionKey`、`title`、`alt`、`caption` 和结构化 `attribution`。该工位复验原图字节、来源与许可，实际检测人脸，并由独立模型初审章节相关性、图注和纪实参考用途。通过后，原生视觉设计师调用 `visualwrite.compose` 输出实际图片和可编辑工程，再调用 `visualread.verify` 回读成品。成功结果包含用于原 Job 的 `receiptId`。证据不足或工位异常时，任务保留为待补输入。
+
+已有自有照片、其他已授权照片和获准的生成场景图也可以通过本机配图清单入库。生成或合成的画面须在成品图注中标明。运行账号在仅本人可访问的目录内准备审核清单和 PNG/JPEG，每张文件至多 20 MiB。以下字段为入库清单契约，所有摘要依据实际文件计算。
+
+| 字段 | 内容 |
+| --- | --- |
+| `schema` | `yaoayi.article-illustration-receipt/v1` |
+| `jobId`、`requestId`、`draftHash` | 原 Job 和本轮冻结正文的准确值 |
+| `reviewedBy`、`reviewedAt`、`renderer` | 实际审阅人、ISO UTC 时间和成品来源工位 |
+| `images` | 3–12 项。逐项填写 `file`、`sha256`、`sectionKey`、`title`、`alt`、`caption` |
+| 每张图的 `source` | `type` 为 `owned`、`licensed` 或 `generated`，`ref` 填入素材或工位证据编号 |
+| 每张图的 `rights`、`privacy`、`relevance` | 对象包含 `approved: true` 和记载实际核对依据的 `note` |
+
+以运行服务的同一系统账号执行，使用同一份 `DATA_FILE` 配置。目录权限须为仅该系统账号可读写，清单和图片文件不得向其他账号开放。
+
+```bash
+node scripts/article-illustration-receipt.mjs --input-file /private/staging/manifest.json
+```
+
+命令返回 `receiptId`。管理员可在创作总控输入此 ID，或向 `POST /api/content-director/jobs/:id/illustrations` 提交 `{"receiptId":"AIR-…"}`，并携带 `If-Match` 和 `Idempotency-Key`。服务从私有目录复验字节、检测重复画面与明显占位，并要求回执和当前正文完全一致。成功绑定后继续终审，批准快照同时覆盖正文和图；修改正文需重新绑定图片。未绑定的历史任务保留文件、初审和失败历史。
+
+直接从“编辑出版”录入文章时，将至少三张已审核的不同照片或插画作为正文图片块，逐张补充替代文字和图注，并在媒体审核登记真实来源。AI 生成或合成图必须在正文中的图注披露。新审批、排期、外发和新官网激活都核对实际图片；已激活的旧官网修订保留历史可见性。旧 GEO 纯正文稿可继续作为草稿，批准文章请使用上述支持图片绑定的入口。
+
+### 技术图
 
 `visual.v1` 支持架构图、流程图、柱状/折线图和信息图。每个视觉项必须包含：
 
@@ -119,6 +159,8 @@ PNG 渲染文件
 ```
 
 视觉质量门会检查节点/边数量、重复 ID、非法引用、标签行数、alt/caption、Claim 授权、源图哈希和 PNG 实际解码。失败时不会用生成式图片冒充技术图。
+
+文章技术图只接受用户指定的图形类型，新增图形与视觉修订记录确定性渲染器来源。生成、复用和修订时发现图形类型不符，返回 `ARTICLE_VISUAL_FORM_MISMATCH`。
 
 Mermaid 文本源随 JSON/SVG 一并冻结。P0 SVG 渲染使用仓内确定性渲染器，不依赖浏览器执行 Mermaid CLI；D2、GPT-Vis、AntV Infographic 和外部云架构适配器属于后续增强通道，未配置时必须明确返回未就绪，不能伪造渲染成功。
 
@@ -171,6 +213,7 @@ POST   /api/content-director/jobs/:id/pause
 POST   /api/content-director/jobs/:id/resume
 POST   /api/content-director/jobs/:id/cancel
 POST   /api/content-director/jobs/:id/repair
+POST   /api/content-director/jobs/:id/illustrations
 POST   /api/content-director/jobs/:id/final-review
 PATCH  /api/content-director/jobs/:id/visuals
 POST   /api/content-director/jobs/:id/materialize-edition
@@ -184,7 +227,7 @@ GET    /api/content-director/jobs/:id/publication-status
 
 - `state.json` 使用加法迁移 `content-director-v1`，schema v4。
 - 正文、报告、图源、PNG 和研究包写入 `var/content-director/<jobId>/`。
-- 用户上传写入 `var/content-director/attachments/`。
+- 用户上传写入 `var/content-director/attachments/`。私有配图回执默认在 `DATA_FILE` 同目录的 `article-illustration-receipts/`，可通过 `ARTICLE_ILLUSTRATION_RECEIPTS_DIR` 设置。
 - 路径、大小和 SHA-256 进入状态；同名不同字节拒绝覆盖。
 - 迁移前必须完成完整状态/媒体备份；线上更新继续使用 `deploy/aliyun` 的整目录停服备份。
 - v4 接受写入后，旧二进制必须拒绝启动；回滚代码时不能对 v4 做破坏性降级。

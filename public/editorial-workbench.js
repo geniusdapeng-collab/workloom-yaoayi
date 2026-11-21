@@ -1,7 +1,7 @@
 import { escapeHtml as html, safePublicUrl, documentBlocksFromText, renderDocumentBlocks } from "./publication-view.js";
 import { EDITORIAL_NATIVE_SCHEMA, renderNativePackageReview, nativeReviewConfirmationFields, assertNativeReviewConfirmations, loadNativePackageReview, bindNativePackagePreviews } from "./content-ops.js";
 
-const STATUS = { draft: "草稿", active: "已启用", paused: "已暂停", archived: "已归档", unverified: "待核对", verified: "身份已核对", fact_check: "事实核验中", approved: "此版本已批准", scheduled: "已排期", candidate: "私有候选", live_unverified: "已激活 · 待回读", published: "回读已核验", withdrawn: "已撤稿", staged: "私有待审核", reviewed: "素材已审核", revoked: "已撤销使用" };
+const STATUS = { draft: "草稿", active: "已启用", paused: "已暂停", archived: "已归档", unverified: "待核对", verified: "身份已核对", fact_check: "等待最终审核", approved: "此版本已批准", scheduled: "已排期", candidate: "私有候选", live_unverified: "已激活 · 待回读", published: "回读已核验", withdrawn: "已撤稿", staged: "私有待审核", reviewed: "素材已审核", revoked: "已撤销使用" };
 const FORMATS = { article: "文章", image_text: "图文", video: "视频" };
 const CONTENT_FORM_LABELS = { ...FORMATS, answer: "回答", channel_message: "频道消息", code_example: "代码示例", comment: "评论", community_post: "社区帖子", dataset_card_if_dataset_exists: "数据集说明（有真实数据集时）", dataset_if_exists: "数据集（真实存在时）", demo: "演示", demo_link: "演示链接", discussion: "讨论", document_carousel: "文档图卡", forum_post: "论坛帖子", image_carousel: "多图", link_or_media_if_allowed: "链接或媒体（规则允许时）", media_embed: "媒体展示", model_card_if_model_exists: "模型说明（有真实模型时）", model_if_exists: "模型（真实存在时）", notebook_if_exists: "实验笔记（真实存在时）", online_demo: "在线演示", photo: "照片", photo_post: "图片帖子", professional_post: "专业观点", readme: "项目说明", reel: "竖版短片", release: "版本发布说明", repository: "代码仓库", short_post: "短帖", short_video: "短视频", social_post: "社交帖子", space_demo: "Space 演示", technical_article: "技术文章", technical_blog_optional: "技术博客（可选）", thread: "串文", thread_reply: "讨论回复", video_reel: "视频短片", video_with_transcript: "视频与完整文稿" };
 const PLATFORM_KIND_LABELS = { owned_site: "自有官网", social: "社交内容", technical_artifact: "技术作品", community: "主题社区" };
@@ -40,7 +40,11 @@ function empty(title, copy = "") { return `<div class="editorial-empty"><strong>
 function exactDocument(row, assets) {
   const document = snapshot(row);
   const references = document.assetRefs || row.assetRefs || [];
-  const resolved = references.map(ref => ({ ...assets.find(asset => asset.id === ref.assetId), ...ref, assetId: ref.assetId, url: `/api/media/assets/${encodeURIComponent(ref.assetId)}/bytes` }));
+  const resolved = references.map(ref => {
+    const asset = assets.find(item => item.id === ref.assetId);
+    return { ...asset, ...ref, attribution: asset?.review?.illustrationAttribution, assetId: ref.assetId,
+      url: `/api/media/assets/${encodeURIComponent(ref.assetId)}/bytes` };
+  });
   const blocks = Array.isArray(document.blocks) ? document.blocks : documentBlocksFromText(document.body || "");
   return `<details class="editorial-exact"><summary>核对完整标题、正文、结构与素材</summary><div class="editorial-exact-content"><h4>${html(document.title || row.title)}</h4>${document.summary ? `<p class="editorial-summary">${html(document.summary)}</p>` : ""}<h5>完整原文</h5><pre class="editorial-body-source">${html(document.body || "")}</pre><h5>正文阅读结构</h5><div class="editorial-reading-preview">${renderDocumentBlocks(blocks.filter(block => !["image", "video"].includes(block.type)), { assets: resolved, lang: document.locale === "en-US" ? "en" : "zh", idPrefix: `review-${row.id}` })}</div><details class="editorial-structure"><summary>精确结构数据（包含图片与视频的位置）</summary><pre>${html(JSON.stringify(blocks, null, 2))}</pre></details>${references.length ? `<h5>素材顺序与文字</h5><ol class="editorial-reference-list">${references.map(ref => `<li><strong>${html(ROLE_LABELS[ref.role] || ref.role)} · ${html(ref.assetId)}</strong><p>替代文字：${html(ref.alt || "未提供")}<br />图注 / 字幕说明：${html(ref.caption || "未提供")}</p><code>${html(ref.sha256)}</code>${externalLink(`/api/media/assets/${encodeURIComponent(ref.assetId)}/bytes`, "查看此素材字节")}</li>`).join("")}</ol>` : ""}${hashLine(snapshotHash(row))}</div></details>`;
 }
@@ -180,12 +184,27 @@ export function mountEditorialWorkbench({ api, getData, showError, afterMutation
     const destination = rows("destinations").find(item => item.id === variant.destinationId);
     const native = variant.snapshotSchema === EDITORIAL_NATIVE_SCHEMA;
     const review = nativeReviews.get(nativeKey(variant));
-    const next = { draft: ["fact_check", "提交事实核验"], fact_check: ["approved", "批准这个精确渠道版本"], approved: ["scheduled", "确认排期"], blocked: ["draft", "返回草稿"] }[variant.status];
-    const transition = next ? `${formStart("variant-transition", variant, snapshotHash(variant))}<input type="hidden" name="target" value="${next[0]}" /><label><span>${next[0] === "approved" ? "本次审阅说明" : "处理说明"}</span><textarea name="note" maxlength="2000" rows="2"${next[0] === "approved" ? " required" : ""}></textarea></label>${next[0] === "approved" ? `${native ? nativeReviewConfirmationFields(variant) : ""}${reviewCheck("我具有本次审阅权限，已核对上方完整标题、正文、页面结构、语言、素材顺序与目的地；批准的仅是这个校验值对应的版本。")}` : ""}${feedback()}<button class="primary-button" type="submit"${native && next[0] === "approved" && !review?.ready ? " disabled" : ""}>${next[1]}</button>${native && next[0] === "approved" && !review?.ready ? '<p class="operation-field-hint">先读取下方准确原生候选、全部附件与终检。缺失或未核实维度不能批准。</p>' : ""}</form>` : "";
+    const preflight = variant.aiPreflight;
+    const textReady = preflight?.status === "passed" && preflight.snapshotHash === variant.snapshotHash && variant.aiReviewCurrent !== false;
+    const needsAiReview = !native && variant.status === "fact_check" && !textReady;
+    const reviewStale = preflight?.status === "passed" && !textReady;
+    const status = needsAiReview ? "初审待处理" : statusLabel(variant.status);
+    const next = {
+      draft: ["fact_check", native ? "提交最终审核" : "运行 AI 初审"],
+      fact_check: native || textReady ? ["approved", "批准这个精确渠道版本"] : ["fact_check", "重新运行 AI 初审"],
+      approved: ["scheduled", "确认排期"],
+      blocked: ["draft", "返回草稿"],
+    }[variant.status];
+    const aiReport = !native && preflight ? `<details class="editorial-disclosure"${textReady ? "" : " open"}><summary>${textReady ? "AI 初审已通过" : reviewStale ? "依据已变化，需重新初审" : "AI 初审发现待修问题"}</summary><div class="editorial-exact-content"><p class="editorial-summary">${html(preflight.assessment)}</p>${preflight.findings.length ? `<ul class="editorial-reference-list">${preflight.findings.map(finding => `<li><strong>${html(finding.location)}</strong> · ${html(finding.message)}</li>`).join("")}</ul>` : ""}${textReady || reviewStale ? "" : '<p class="operation-field-hint">请按初审意见建立新渠道稿，再提交 AI 核对。无法核对的维度需要补齐证据。</p>'}</div></details>` : "";
+    const article = variant.format === "article" && (!native || variant.publicationPackage?.nativeForm === "article");
+    const confirmDocument = article
+      ? "我具有本次审阅权限，已核对全文和目的地，并实际查看三张或以上不同的正文配图。图片与所在段落相关，来源、图注及必要的 AI 披露准确。"
+      : "我具有本次审阅权限，已核对上方完整标题、正文、页面结构、语言、素材顺序与目的地；批准的仅是这个校验值对应的版本。";
+    const transition = next ? `${formStart("variant-transition", variant, snapshotHash(variant))}<input type="hidden" name="target" value="${next[0]}" />${!native && next[0] === "fact_check" ? "" : `<label><span>${next[0] === "approved" ? "本次审阅说明" : "处理说明"}</span><textarea name="note" maxlength="2000" rows="2"${next[0] === "approved" ? " required" : ""}></textarea></label>`}${next[0] === "approved" ? `${native ? nativeReviewConfirmationFields(variant) : ""}${reviewCheck(confirmDocument)}` : ""}${feedback()}<button class="primary-button" type="submit"${native && next[0] === "approved" && !review?.ready ? " disabled" : ""}>${next[1]}</button>${native && next[0] === "approved" && !review?.ready ? '<p class="operation-field-hint">先读取下方准确原生候选、全部附件与终检。缺失或未核实维度不能批准。</p>' : ""}</form>` : "";
     const owned = destination?.kind === "owned_origin" || destination?.platformId === "official-site";
     const release = variant.status === "scheduled" && owned ? `<details class="editorial-disclosure"><summary>建立官网私有发布候选</summary>${formStart("release-create", variant)}<label><span>固定地址 slug（小写英文、数字和连字符）</span><input name="slug" required maxlength="100" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="a-concrete-product-question" /></label><p class="operation-note">这里只建立私有候选。还需要核对公开预览、独立批准、激活和真实回读，才会形成官网发布回执。更新同一地址时请填写原 slug。</p>${feedback()}<button class="primary-button" type="submit">建立私有候选</button></form></details>` : variant.status === "scheduled" && !owned ? '<p class="operation-note">外部平台仍需在“运营动作”逐账号授权、实际执行与回读；渠道排期不会自动发帖。</p><a class="text-link" href="#operations">进入运营动作 →</a>' : "";
     const document = native ? `<button class="ghost-button" type="button" data-editorial-native="${html(variant.id)}"${nativeLoading.has(variant.id) ? " disabled" : ""}>${nativeLoading.has(variant.id) ? "正在读取准确成品与真实附件…" : "读取完整原生包、真实附件与独立终检"}</button>${nativeErrors.has(variant.id) ? `<p class="form-error" role="alert">${html(nativeErrors.get(variant.id))}</p>` : ""}${renderNativePackageReview(variant, review)}` : exactDocument(variant, state.assets);
-    return `<article class="editorial-card" data-editorial-variant="${html(variant.id)}"><header class="editorial-card-heading"><div><p class="eyebrow">${html(LOCALES[variant.locale])} · ${html(FORMATS[variant.format])} · ${html(destination?.name || variant.destinationId)}</p><h3>${html(variant.title)}</h3><p>${html(variant.id)} · ${html(variant.editionId)}</p></div><span class="status-chip ${html(variant.status)}">${html(statusLabel(variant.status))}</span></header>${document}${transition}${release}</article>`;
+    return `<article class="editorial-card" data-editorial-variant="${html(variant.id)}"><header class="editorial-card-heading"><div><p class="eyebrow">${html(LOCALES[variant.locale])} · ${html(FORMATS[variant.format])} · ${html(destination?.name || variant.destinationId)}</p><h3>${html(variant.title)}</h3><p>${html(variant.id)} · ${html(variant.editionId)}</p></div><span class="status-chip ${html(variant.status)}">${html(status)}</span></header>${document}${aiReport}${transition}${release}</article>`;
   }
 
   function releasePanel() {
@@ -216,7 +235,18 @@ export function mountEditorialWorkbench({ api, getData, showError, afterMutation
   function assetCard(asset) {
     const privateUrl = `/api/media/assets/${encodeURIComponent(asset.id)}/bytes`;
     const preview = asset.kind === "image" ? `<img class="editorial-asset-preview" src="${privateUrl}" loading="lazy" alt="私有素材预览" />` : asset.kind === "video" ? `<video class="editorial-asset-preview" src="${privateUrl}" controls playsinline preload="metadata"></video>` : externalLink(privateUrl, "打开原始字幕文件");
-    const approve = asset.status === "staged" ? `${formStart("asset-approve", asset, asset.sha256)}<label><span>素材来源、许可与隐私核对说明</span><textarea name="rightsNote" required minlength="8" maxlength="2000" rows="3" placeholder="记录真实来源、使用许可与是否包含他人信息。不上传许可证中的私密账号或凭据。"></textarea></label>${reviewCheck("我已核对这份精确字节素材的来源和使用权，允许本项目按已审阅范围使用。", "rightsConfirmed")}${reviewCheck("我已检查这份素材不包含未获准公开的个人、客户或其他私密信息。", "privacyConfirmed")}${feedback()}<button class="primary-button" type="submit">批准这份素材的使用范围</button></form>` : "";
+    const photoSource = asset.kind === "image"
+      ? `<label><span>图片来源</span><select name="illustrationSourceType" required><option value="">选择实际来源</option><option value="owned">自有素材</option><option value="licensed">开放授权照片</option><option value="generated">AI 生成或合成</option></select></label>
+        <details class="editorial-disclosure"><summary>开放授权照片需填写的署名</summary>
+          <label><span>原始素材说明页</span><input type="url" name="attributionLandingUrl" /></label>
+          <label><span>摄影者 / 署名</span><input name="attributionCredit" maxlength="240" /></label>
+          <label><span>许可编号</span><input name="attributionLicenseId" maxlength="32" placeholder="CC-BY-SA-4.0" /></label>
+          <label><span>许可链接</span><input type="url" name="attributionLicenseUrl" /></label>
+          <label><span>修改说明</span><input name="attributionModifications" maxlength="240" placeholder="例如按正文构图裁切和轻调色" /></label>
+        </details>`
+      : "";
+    const needsSource = asset.kind === "image" && asset.status === "reviewed" && !asset.review?.illustrationSourceType;
+    const approve = asset.status === "staged" || needsSource ? `${formStart("asset-approve", asset, asset.sha256)}${photoSource}<label><span>素材来源、许可与隐私核对说明</span><textarea name="rightsNote" required minlength="8" maxlength="2000" rows="3" placeholder="记录真实来源、使用许可与是否包含他人信息。不上传许可证中的私密账号或凭据。"></textarea></label>${reviewCheck("我已核对这份精确字节素材的来源和使用权，允许本项目按已审阅范围使用。", "rightsConfirmed")}${reviewCheck("我已检查这份素材不包含未获准公开的个人、客户或其他私密信息。", "privacyConfirmed")}${feedback()}<button class="primary-button" type="submit">批准这份素材的使用范围</button></form>` : "";
     const revoke = asset.status === "reviewed" ? `<details class="editorial-disclosure editorial-danger"><summary>撤销此素材的公开使用</summary>${formStart("asset-revoke", asset, asset.sha256)}<label><span>撤销原因</span><textarea name="reason" required maxlength="2000" rows="2"></textarea></label>${reviewCheck("停止此素材的公开交付；引用它的发布版本可能随之不再具备公开条件，历史仍保留。", "confirm")}${feedback()}<button class="ghost-button" type="submit">撤销使用</button></form></details>` : "";
     return `<article class="editorial-card" data-editorial-asset="${html(asset.id)}"><header class="editorial-card-heading"><div><p class="eyebrow">${html(asset.kind)} · ${html(asset.mime)} · ${byteSize(asset.size)}</p><h3>${html(asset.name || asset.id)}</h3><p>${html(asset.id)} · ${html(timestamp(asset.createdAt))}${asset.width && asset.height ? ` · ${html(asset.width)} × ${html(asset.height)}` : ""}</p></div><span class="status-chip ${asset.status === "reviewed" ? "approved" : ""}">${html(statusLabel(asset.status))}</span></header><details class="editorial-disclosure"><summary>查看私有原文件</summary>${preview}<p class="operation-field-hint">此预览使用管理员权限；审核通过本身不会生成匿名可读素材地址，仍须有符合条件的活跃官网版本引用它。</p></details>${hashLine(asset.sha256)}${asset.review ? `<p class="operation-note">最近审核：${html(asset.review.actor || asset.review.reviewedBy || "管理员会话")} · ${html(timestamp(asset.review.at || asset.review.reviewedAt))}<br />${html(asset.review.rightsNote || "")}</p>` : ""}${approve}${revoke}</article>`;
   }
@@ -522,7 +552,20 @@ export function mountEditorialWorkbench({ api, getData, showError, afterMutation
     if (action === "asset-approve") {
       const asset = state.assets.find(item => item.id === id);
       if (fields.get("rightsConfirmed") !== "on" || fields.get("privacyConfirmed") !== "on") throw new Error("请分别实际核对素材使用权和隐私范围。");
-      return mutate(`/api/media/assets/${encodeURIComponent(id)}/approve`, { sha256: asset?.sha256, rightsConfirmed: true, privacyConfirmed: true, rightsNote: fields.get("rightsNote") }, parent);
+      const illustrationSourceType = fields.get("illustrationSourceType");
+      const attribution = illustrationSourceType === "licensed" ? {
+        landingUrl: String(fields.get("attributionLandingUrl")).trim(),
+        credit: String(fields.get("attributionCredit")).trim(),
+        licenseId: String(fields.get("attributionLicenseId")).trim(),
+        licenseUrl: String(fields.get("attributionLicenseUrl")).trim(),
+        modifications: String(fields.get("attributionModifications")).trim(),
+      } : null;
+      if (attribution && Object.values(attribution).some(value => !value)) throw new Error("请先补齐此开放授权照片的原图说明页、署名、许可和修改说明。");
+      return mutate(`/api/media/assets/${encodeURIComponent(id)}/approve`, {
+        sha256: asset?.sha256, rightsConfirmed: true, privacyConfirmed: true, rightsNote: fields.get("rightsNote"),
+        ...(illustrationSourceType ? { illustrationSourceType } : {}),
+        ...(attribution ? { illustrationAttribution: attribution } : {}),
+      }, parent);
     }
     if (action === "asset-revoke") return mutate(`/api/media/assets/${encodeURIComponent(id)}/revoke`, { reason: fields.get("reason") }, parent);
     throw new Error("无法识别此操作，请刷新编辑数据后重试。");
@@ -540,7 +583,10 @@ export function mountEditorialWorkbench({ api, getData, showError, afterMutation
     errorPanel.textContent = "";
     form.setAttribute("aria-busy", "true");
     for (const [element] of controls) element.disabled = true;
-    status.textContent = form.dataset.editorialForm === "asset-upload" ? "正在校验并上传文件，尚未批准公开…" : "正在保存这一次操作…";
+    const aiPreflight = form.dataset.editorialForm === "variant-transition" && fields.get("target") === "fact_check"
+      && rows("variants").some(variant => variant.id === form.dataset.entityId && variant.snapshotSchema !== EDITORIAL_NATIVE_SCHEMA);
+    status.textContent = aiPreflight ? "AI 正在初审正文、结构和事实依据…" : form.dataset.editorialForm === "asset-upload"
+      ? "正在校验并上传文件，尚未批准公开…" : "正在保存这一次操作…";
     let saved = false;
     let failureMessage = "";
     try {
@@ -551,7 +597,9 @@ export function mountEditorialWorkbench({ api, getData, showError, afterMutation
       completedForms.add(form);
       completedKeys.add(key);
       if (form.dataset.editorialForm === "release-create") state.tab = "releases";
-      state.notice = result.status === "live_unverified" ? "版本已激活，仍需实际回读页面与媒体。" : result.status === "published" ? "服务器真实回读已通过，发布回执已保存。" : result.status === "withdrawn" ? "当前版本已撤回，正文、审批与历史回执保留。" : "已保存。请继续核对当前状态；草稿或审批成功不代表已经发布。";
+      state.notice = aiPreflight ? result.aiPreflight?.status === "passed"
+        ? "AI 初审已通过，可以核对完整版本并进行最终批准。" : "AI 初审已完成，请查看待处理问题。"
+        : result.status === "live_unverified" ? "版本已激活，仍需实际回读页面与媒体。" : result.status === "published" ? "服务器真实回读已通过，发布回执已保存。" : result.status === "withdrawn" ? "当前版本已撤回，正文、审批与历史回执保留。" : "已保存。请继续核对当前状态；草稿或审批成功不代表已经发布。";
       await load();
       if (afterMutation) {
         const [refresh] = await Promise.allSettled([afterMutation()]);

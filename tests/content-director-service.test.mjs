@@ -1,9 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
-import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { appendFile, mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import sharp from "sharp";
 import { JsonStore } from "../src/storage/json-store.mjs";
 import { loadSeedState, migrateEditorialState } from "../src/services/bootstrap.mjs";
 import { migrateContentOpsState } from "../src/services/content-ops-migration.mjs";
@@ -15,6 +16,7 @@ import { ContentDirectorService } from "../src/services/content-director-service
 import { ContentDirectorModel } from "../src/services/content-director-model.mjs";
 import { MediaAssets } from "../src/services/media-assets.mjs";
 import { hashObject } from "../src/domain/hash.mjs";
+import { bindFixtureArticleIllustrations, fixtureArticleIllustrationVerifier, processIllustratedArticle } from "./article-illustration-fixture.mjs";
 
 const context = () => ({ method: "local", actor: "isolated content director reviewer", idempotencyKey: randomUUID() });
 const auditCoverage = { facts: "checked", structure: "checked", expression: "checked", policy: "checked", technical: "checked", visual: "checked" };
@@ -88,7 +90,7 @@ test("a second invalid final audit leaves the Job failed and retains both metere
     targetLength: { minCharacters: 1500, maxCharacters: 2500 },
   }, context());
   await assert.rejects(
-    f.director.processJob(job.id),
+    processIllustratedArticle(f.director, job.id, context()),
     error => {
       assert.equal(error.code, "AUDIT_FINDING_INVALID");
       assert.match(error.message, /severity is invalid/u);
@@ -214,7 +216,7 @@ class StubModel {
   }
 }
 
-async function fixture(t, model = new StubModel()) {
+async function fixture(t, model = new StubModel(), articleIllustrationVerifier = fixtureArticleIllustrationVerifier) {
   const directory = await mkdtemp(join(await realpath(tmpdir()), "pm-content-director-"));
   const store = new JsonStore({ filePath: join(directory, "state.json") });
   await store.open(() => loadSeedState(resolve(import.meta.dirname, "../data/seed")));
@@ -232,11 +234,12 @@ async function fixture(t, model = new StubModel()) {
     model,
     editorial,
     mediaAssets,
+    articleIllustrationVerifier,
     artifactRoot: join(directory, "content-director"),
     autoStart: false,
   });
   t.after(async () => { await store.close(); await rm(directory, { recursive: true, force: true }); });
-  return { store, editorial, mediaAssets, director };
+  return { directory, store, editorial, mediaAssets, director };
 }
 
 test("article Job writes complete sections, independent audit and editable visuals", async t => {
@@ -269,7 +272,9 @@ test("article Job writes complete sections, independent audit and editable visua
     targetLength: { minCharacters: 1500, maxCharacters: 2500 },
   }, context());
   assert.equal(job.artifactKind, "article_visual");
-  const completed = await f.director.processJob(job.id);
+  assert.equal(job.route.visualForm.mode, "technical");
+  assert.deepEqual(job.route.visualForm.kinds, ["architecture"]);
+  const completed = await processIllustratedArticle(f.director, job.id, context());
   assert.equal(completed.status, "needs_review");
   assert.equal(completed.result.article.sections.length, 3);
   assert.ok(completed.result.article.body.length > 1000);
@@ -281,17 +286,266 @@ test("article Job writes complete sections, independent audit and editable visua
   assert.equal(final.findings[0].code, finalFinding.code);
   assert.equal(final.findings[0].severity, finalFinding.severity);
   assert.equal(final.findings.some(row => ["blocker", "major"].includes(row.severity)), false);
-  assert.equal(completed.result.visuals.length, 1);
-  const svg = await f.director.readArtifact(job.id, `${completed.result.visuals[0].id}.svg`);
+  const diagrams = completed.result.visuals.filter(visual => visual.spec.kind === "architecture");
+  assert.equal(diagrams.length, 1);
+  assert.equal(completed.result.visuals.filter(visual => visual.spec.kind === "editorial_illustration").length, 3);
+  const svg = await f.director.readArtifact(job.id, `${diagrams[0].id}.svg`);
   assert.equal(svg.mime, "image/svg+xml");
   assert.match(svg.bytes.toString("utf8"), /Agent 产品工程闭环/);
-  const png = await f.director.readArtifact(job.id, `${completed.result.visuals[0].id}.png`);
+  const png = await f.director.readArtifact(job.id, `${diagrams[0].id}.png`);
   assert.equal(png.mime, "image/png");
   assert.equal(png.bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
   assert.deepEqual(completed.result.article.visualSpecRefs, completed.result.visuals.map(visual => visual.id));
   assert.equal(completed.persona.id, "yao_ayi_yimeng_coffee_courtyard");
   assert.equal(completed.persona.version, "1.0.1");
   assert.match(completed.persona.documentSha256, /^[a-f0-9]{64}$/);
+});
+
+test("ordinary articles preserve drafted text while waiting for three verified scene images", async t => {
+  const model = new StubModel();
+  const unexpectedCalls = [];
+  for (const method of ["planVisuals", "finalAuditArticle"]) {
+    model[method] = async () => {
+      unexpectedCalls.push(method);
+      throw new Error(`unexpected model call: ${method}`);
+    };
+  }
+  const f = await fixture(t, model);
+  const job = await f.director.createJob({
+    intent: "写一篇关于小院秋日生活的文章，并为正文配图",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 1500, maxCharacters: 2500 },
+  }, context());
+  assert.equal(job.artifactKind, "article_visual");
+  assert.equal(job.status, "queued");
+  const handoff = job.route.articleIllustrations;
+  assert.equal(handoff.minimum, 3);
+  assert.equal(handoff.executor, "visual-designer");
+  assert.equal(handoff.composeTool, "visualwrite.compose");
+  const readback = await f.director.processJob(job.id);
+  assert.equal(readback.id, job.id);
+  assert.equal(readback.status, "needs_input");
+  assert.equal(readback.result, null);
+  assert.equal(readback.editorialIllustration.status, "waiting_for_images");
+  assert.equal(readback.editorialIllustration.minImages, 3);
+  assert.match(readback.editorialIllustration.draftHash, /^[a-f0-9]{64}$/u);
+  assert.ok(readback.steps.some(step => step.kind === "section.draft" && step.status === "succeeded"));
+  assert.ok(readback.reports.some(report => report.phase === "quality.review"));
+  assert.equal(readback.reports.some(report => report.phase === "quality.final"), false);
+  assert.equal(readback.steps.some(step => ["visual.plan", "visual.render", "package.freeze"].includes(step.kind)), false);
+  assert.deepEqual(f.store.snapshot().visualSpecs, []);
+  assert.deepEqual(unexpectedCalls, []);
+});
+
+test("article review requires three distinct, decodable and section-bound images", async t => {
+  let scenario = "two";
+  const fixtureVerifier = async input => {
+    const verified = await fixtureArticleIllustrationVerifier(input);
+    const [first, second, third] = verified.images;
+    if (scenario === "two") verified.images = [first, second];
+    if (scenario === "duplicate") {
+      verified.images = [first, { ...second, bytes: first.bytes, sha256: first.sha256 }, third];
+    }
+    if (scenario === "same-pixels") {
+      const reencoded = await sharp(first.bytes).png({ compressionLevel: 0 }).toBuffer();
+      const sha256 = createHash("sha256").update(reencoded).digest("hex");
+      assert.notEqual(sha256, first.sha256);
+      verified.images = [first, { ...second, bytes: reencoded, sha256 }, third];
+    }
+    if (scenario === "placeholder") {
+      const placeholder = Buffer.from("图片稍后补齐");
+      verified.images = [first, second, { ...third, bytes: placeholder, sha256: createHash("sha256").update(placeholder).digest("hex") }];
+    }
+    if (scenario === "wrong-section") {
+      verified.images = [first, second, { ...third, sectionKey: "not-a-draft-section" }];
+    }
+    if (scenario === "placeholder-caption") {
+      verified.images = [first, second, { ...third, caption: "此处配图待补充" }];
+    }
+    return verified;
+  };
+  const f = await fixture(t, new StubModel(), fixtureVerifier);
+  const job = await f.director.createJob({
+    intent: "围绕小院的日常写一篇文章",
+    explicitKind: "article",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 1500, maxCharacters: 2500 },
+  }, context());
+  const waiting = await f.director.processJob(job.id);
+  for (scenario of ["two", "duplicate", "same-pixels", "placeholder", "wrong-section", "placeholder-caption"]) {
+    await assert.rejects(bindFixtureArticleIllustrations(f.director, waiting, context()), {
+      code: /^ARTICLE_ILLUSTRATION_/u,
+    }, scenario);
+    const current = await f.director.getJob(job.id);
+    assert.equal(current.editorialIllustration.status, "waiting_for_images", scenario);
+    assert.equal(current.result, null, scenario);
+    assert.deepEqual(f.store.snapshot().visualSpecs, [], scenario);
+    const files = await readdir(join(f.directory, "content-director", job.id));
+    assert.equal(files.some(name => /\.(png|jpg)$/u.test(name)), false, scenario);
+  }
+  scenario = "valid";
+  const bindingContext = context();
+  const bound = await bindFixtureArticleIllustrations(f.director, waiting, bindingContext);
+  assert.equal(bound.id, waiting.id);
+  assert.equal(bound.editorialIllustration.status, "bound");
+  const replay = await bindFixtureArticleIllustrations(f.director, waiting, bindingContext);
+  assert.deepEqual(replay.editorialIllustration, bound.editorialIllustration);
+  const reviewed = await f.director.processJob(job.id);
+  assert.equal(reviewed.status, "needs_review");
+  assert.equal(reviewed.review, null);
+  assert.equal(reviewed.result.visuals.length, 3);
+  assert.deepEqual(reviewed.result.article.visualSpecRefs, reviewed.result.visuals.map(visual => visual.id));
+  assert.equal(new Set(reviewed.result.visuals.map(visual => visual.artifacts[0].sha256)).size, 3);
+  for (const visual of reviewed.result.visuals) {
+    const image = await f.director.readArtifact(job.id, `${visual.id}.png`);
+    assert.equal(image.mime, "image/png");
+    assert.equal(image.bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  }
+  const firstImage = reviewed.result.visuals[0].artifacts[0];
+  await appendFile(join(f.directory, "content-director", job.id, firstImage.name), "changed");
+  await assert.rejects(f.director.approveJob(job.id, {
+    reviewed: true,
+    contentHash: reviewed.result.contentHash,
+  }, { ...context(), ifMatch: reviewed.etag }), { code: "CONTENT_ARTIFACT_CHANGED" });
+});
+
+test("a technical article rejects a rendered-form mismatch before producing any image", async t => {
+  const f = await fixture(t);
+  const job = await f.director.createJob({
+    intent: "写一篇技术文章解释工程交付，并配一张柱状图",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 1500, maxCharacters: 2500 },
+  }, context());
+  assert.equal(job.route.visualForm.mode, "technical");
+  assert.deepEqual(job.route.visualForm.kinds, ["chart"]);
+  // StubModel deliberately returns an architecture diagram instead of the requested chart.
+  await assert.rejects(processIllustratedArticle(f.director, job.id, context()), { code: "ARTICLE_VISUAL_FORM_MISMATCH" });
+  const failed = await f.director.getJob(job.id);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.result, null);
+  assert.equal(failed.steps.some(step => step.kind === "visual.render"), false);
+  assert.equal(f.store.snapshot().visualSpecs.some(visual => visual.spec.kind === "architecture"), false);
+});
+
+test("historical editorial illustrations made of text cards remain readable but cannot advance through review", async t => {
+  const model = new StubModel();
+  model.planVisuals = async () => ({
+    value: {
+      visuals: [{
+        kind: "infographic",
+        title: "今日小院",
+        alt: "两张正文摘录文字卡片",
+        caption: "正文摘录",
+        items: [{ label: "小院", description: "先把院子扫干净。" }, { label: "待客", description: "来坐坐，先喝口水。" }],
+      }],
+    },
+    receipt: modelReceipt("legacy-text-card"),
+  });
+  const f = await fixture(t, model);
+  const job = await f.director.createJob({
+    intent: "写一篇小院文章，并配一张信息图",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 1500, maxCharacters: 2500 },
+  }, context());
+  const finished = await processIllustratedArticle(f.director, job.id, context());
+  assert.equal(finished.status, "needs_review");
+  const { contentHash } = finished.result;
+  const card = finished.result.visuals.find(visual => visual.spec.kind === "infographic");
+  const approved = await f.director.approveJob(job.id, { reviewed: true, contentHash }, { ...context(), ifMatch: finished.etag });
+  const genericIntent = "写一篇小院文章，并为正文配图";
+  // Simulate a previously queued package with a pre-gate route and real frozen card artifacts.
+  await f.store.mutate({ type: "fixture.legacy_visual_intent", actor: "isolated reviewer" }, state => {
+    const row = state.contentDirectorJobs.find(item => item.id === job.id);
+    row.status = "needs_review";
+    row.review = null;
+    row.input.intent = genericIntent;
+    row.route.intent = genericIntent;
+    delete row.editorialIllustration;
+    delete row.route.visualForm;
+    const { routeHash, ...route } = row.route;
+    row.route.routeHash = hashObject(route);
+  });
+  const pending = await f.director.getJob(job.id);
+  assert.equal(pending.status, "needs_review");
+  assert.equal(pending.visualGate.approvalEligible, false);
+  assert.deepEqual(f.director.listJobs().items.find(item => item.id === job.id).visualGate, pending.visualGate);
+  assert.equal(pending.result.contentHash, contentHash);
+  assert.ok(pending.result.article.visualSpecRefs.includes(card.id));
+  assert.equal((await f.director.readArtifact(job.id, `${card.id}.png`)).mime, "image/png");
+  await assert.rejects(f.director.approveJob(job.id, { reviewed: true, contentHash }, { ...context(), ifMatch: pending.etag }), {
+    code: "EDITORIAL_VISUAL_DESIGN_REQUIRED",
+  });
+  await assert.rejects(f.director.reviseVisuals(job.id, { orderedVisualIds: [card.id], updates: [] }, { ...context(), ifMatch: pending.etag }), {
+    code: "EDITORIAL_VISUAL_DESIGN_REQUIRED",
+  });
+  await f.store.mutate({ type: "fixture.legacy_visual_approval", actor: "isolated reviewer" }, state => {
+    const row = state.contentDirectorJobs.find(item => item.id === job.id);
+    row.status = approved.status;
+    row.review = approved.review;
+  });
+  const legacyApproved = await f.director.getJob(job.id);
+  await assert.rejects(f.director.materializeEdition(job.id, {
+    contentHash,
+    visualRightsConfirmed: true,
+    visualRightsNote: "Fixture only.",
+  }, { ...context(), ifMatch: legacyApproved.etag }), { code: "EDITORIAL_VISUAL_DESIGN_REQUIRED" });
+  assert.equal((await f.director.getJob(job.id)).status, "approved");
+  assert.deepEqual(f.store.snapshot().editions, []);
+  assert.deepEqual(f.store.snapshot().mediaAssets, []);
+});
+
+test("starting an exact historical article reuses the same Job and its frozen text without model calls", async t => {
+  const model = new StubModel();
+  const f = await fixture(t, model);
+  const job = await f.director.createJob({
+    intent: "围绕小院日常写一篇文章",
+    explicitKind: "article",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 1500, maxCharacters: 2500 },
+  }, context());
+  const completed = await processIllustratedArticle(f.director, job.id, context());
+  const { articleDraft } = await f.director.getJob(job.id);
+  const article = { ...(articleDraft?.article ?? completed.result.article), visualSpecRefs: [] };
+  delete article.visualBundleHash;
+  const { title, summary, body, sections, visualSpecRefs } = article;
+  const oldHash = hashObject({ persona: completed.persona, title, summary, body, sections, visualSpecRefs });
+  const historicPackage = { ...completed.result, article, visuals: [], contentHash: oldHash };
+  const bytes = Buffer.from(JSON.stringify(historicPackage, null, 2) + "\n");
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const artifact = { id: `CDA-${sha256.slice(0, 24)}`, name: "legacy-package.json", mime: "application/json", bytes: bytes.length, sha256 };
+  await writeFile(join(f.directory, "content-director", job.id, artifact.name), bytes, { mode: 0o600, flag: "wx" });
+  await f.store.mutate({ type: "fixture.legacy_article", actor: "isolated reviewer" }, state => {
+    const row = state.contentDirectorJobs.find(item => item.id === job.id);
+    row.resultRef = artifact;
+    row.resultHash = oldHash;
+    row.visualSpecIds = [];
+    row.editorialIllustration = null;
+    row.artifacts.push(artifact);
+  });
+  const legacy = await f.director.getJob(job.id);
+  assert.equal(legacy.status, "needs_review");
+  assert.equal(legacy.visualGate.approvalEligible, false);
+  for (const method of ["generateOutline", "draftSection", "auditArticle", "finalAuditArticle", "planVisuals"]) {
+    model[method] = async () => { assert.fail(`historical staging unexpectedly called ${method}`); };
+  }
+  await assert.rejects(f.director.startJob(job.id, { ...context(), ifMatch: job.etag }), { code: "PRECONDITION_FAILED" });
+  const operation = { ...context(), ifMatch: legacy.etag };
+  const staged = await f.director.startJob(job.id, operation);
+  assert.equal(staged.id, job.id);
+  assert.equal(staged.status, "needs_input");
+  assert.equal(staged.editorialIllustration.status, "waiting_for_images");
+  assert.equal(staged.editorialIllustration.minImages, 3);
+  assert.equal(staged.articleDraft.article.body, body);
+  assert.deepEqual(staged.articleDraft.article.sections, sections);
+  assert.equal(staged.editorialIllustration.previousResultHash, oldHash);
+  assert.deepEqual(staged.editorialIllustration.previousResultRef, artifact);
+  assert.equal(staged.result, null);
+  assert.deepEqual(staged.visualSpecIds, []);
+  assert.deepEqual((await f.director.readArtifact(job.id, artifact.name)).bytes, bytes);
+  const replay = await f.director.startJob(job.id, operation);
+  assert.equal(replay.editorialIllustration.requestId, staged.editorialIllustration.requestId);
+  assert.deepEqual(replay.reports, legacy.reports);
+  assert.equal(f.store.snapshot().contentDirectorJobs.length, 1);
 });
 
 test("preflight ignores only premature missing-visual findings and final audit still blocks them", async t => {
@@ -341,7 +595,7 @@ test("preflight ignores only premature missing-visual findings and final audit s
     claimIds: ["C003"],
     targetLength: { minCharacters: 1500, maxCharacters: 2500 },
   }, context());
-  const completed = await f.director.processJob(job.id);
+  const completed = await processIllustratedArticle(f.director, job.id, context());
   assert.equal(completed.status, "blocked");
   const preflight = completed.reports.find(report => report.phase === "quality.review");
   const final = completed.reports.find(report => report.phase === "quality.final");
@@ -382,11 +636,14 @@ test("retry resumes the original Job through a historical missing-visual preflig
     claimIds: ["C003"],
     targetLength: { minCharacters: 1500, maxCharacters: 2500 },
   }, context());
-  await assert.rejects(f.director.processJob(job.id), /fixture visual plan interrupted/u);
-  const failed = await f.director.getJob(job.id);
-  assert.equal(failed.status, "failed");
-  // Simulate a pre-fix report in the store where this finding was still kept.
+  const drafted = await f.director.processJob(job.id);
+  assert.equal(drafted.editorialIllustration.status, "waiting_for_images");
+  // Install a pre-gate report before freezing the new draft that will bind the design.
   const { result: historical } = await f.store.mutate({ type: "fixture.legacy_audit", actor: "isolated reviewer" }, state => {
+    const legacy = state.contentDirectorJobs.find(row => row.id === job.id);
+    legacy.editorialIllustration = null;
+    legacy.status = "failed";
+    legacy.missing = [];
     const report = state.contentAuditReports.find(row => row.jobId === job.id && row.phase === "quality.review");
     report.findings.push({
       id: "F-001",
@@ -402,6 +659,11 @@ test("retry resumes the original Job through a historical missing-visual preflig
     report.reportHash = hashObject(body);
     return structuredClone(report);
   });
+  const legacy = await f.director.getJob(job.id);
+  await f.director.startJob(job.id, { ...context(), ifMatch: legacy.etag });
+  await assert.rejects(processIllustratedArticle(f.director, job.id, context()), /fixture visual plan interrupted/u);
+  const failed = await f.director.getJob(job.id);
+  assert.equal(failed.status, "failed");
   await f.director.startJob(job.id, { ...context(), ifMatch: failed.etag });
   const completed = await f.director.processJob(job.id);
   assert.equal(completed.id, job.id);
@@ -411,7 +673,8 @@ test("retry resumes the original Job through a historical missing-visual preflig
   assert.deepEqual(completed.reports.find(report => report.id === historical.id), historical);
   assert.equal(completed.findings.some(row => row.code === "MISSING_VISUAL_SPEC_AND_DISCLOSURE"), false);
   assert.deepEqual(completed.result.article.visualSpecRefs, completed.result.visuals.map(visual => visual.id));
-  assert.equal(completed.result.visuals.length, 1);
+  assert.equal(completed.result.visuals.filter(visual => visual.spec.kind === "architecture").length, 1);
+  assert.equal(completed.result.visuals.filter(visual => visual.spec.kind === "editorial_illustration").length, 3);
 });
 
 test("unscoped global-length and Chinese section-title findings receive bounded section repair", async t => {
@@ -453,7 +716,7 @@ test("unscoped global-length and Chinese section-title findings receive bounded 
         claimIds: ["C003"],
         targetLength: { minCharacters: 1500, maxCharacters: 2500 },
       }, context());
-      const completed = await f.director.processJob(job.id);
+      const completed = await processIllustratedArticle(f.director, job.id, context());
       assert.equal(model.repairs.length, 1);
       assert.deepEqual(model.repairs[0].findings[0].allowedChanges, [`section:${sectionIndex}`]);
       assert.equal(model.repairs[0].section.title, completed.result.outline.sections[sectionIndex].title);
@@ -578,21 +841,21 @@ test("persona violations found in generated copy block the Job before review", a
   assert.equal(completed.persona.id, "yao_ayi_yimeng_coffee_courtyard");
 });
 
-test("article visuals are imported, reviewed and bound to the materialized edition", async t => {
+test("verified illustrations and optional technical diagrams are imported into the materialized edition", async t => {
   const f = await fixture(t);
   const job = await f.director.createJob({
     intent: "围绕 Agent 产品如何进入真实业务写一篇文章，并配一张系统架构图",
     claimIds: ["C003"],
     targetLength: { minCharacters: 1500, maxCharacters: 2500 },
   }, context());
-  const completed = await f.director.processJob(job.id);
+  const completed = await processIllustratedArticle(f.director, job.id, context());
   await f.director.approveJob(job.id, { reviewed: true, contentHash: completed.result.contentHash }, { ...context(), ifMatch: completed.etag });
   const materialized = await f.director.materializeEdition(job.id, {
     contentHash: completed.result.contentHash,
     visualRightsConfirmed: true,
     visualRightsNote: "Isolated generated fixture reviewed for exact content, rights and privacy.",
   }, { ...context(), ifMatch: (await f.director.getJob(job.id)).etag });
-  assert.equal(materialized.edition.assetRefs.length, 1);
+  assert.equal(materialized.edition.assetRefs.length, 4);
   assert.equal(materialized.edition.assetRefs[0].role, "image");
   assert.equal(f.mediaAssets.getAsset(materialized.edition.assetRefs[0].assetId).status, "reviewed");
   assert.ok(materialized.edition.blocks.some(block => block.type === "image"));
@@ -605,10 +868,14 @@ test("approved article materializes as an immutable editorial edition", async t 
     claimIds: ["C003"],
     targetLength: { minCharacters: 1500, maxCharacters: 2500 },
   }, context());
-  const completed = await f.director.processJob(job.id);
+  const completed = await processIllustratedArticle(f.director, job.id, context());
   const approved = await f.director.approveJob(job.id, { reviewed: true, contentHash: completed.result.contentHash, note: "read complete package" }, { ...context(), ifMatch: completed.etag });
   assert.equal(approved.status, "approved");
-  const materialized = await f.director.materializeEdition(job.id, { contentHash: completed.result.contentHash }, { ...context(), ifMatch: approved.etag });
+  const materialized = await f.director.materializeEdition(job.id, {
+    contentHash: completed.result.contentHash,
+    visualRightsConfirmed: true,
+    visualRightsNote: "Isolated generated fixture reviewed for rights and privacy.",
+  }, { ...context(), ifMatch: approved.etag });
   assert.equal(materialized.edition.format, "article");
   assert.equal(materialized.edition.body, completed.result.article.body);
   assert.equal(f.editorial.getEdition(materialized.edition.id).snapshotHash, materialized.edition.snapshotHash);

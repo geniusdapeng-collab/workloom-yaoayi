@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { editorialEditionSnapshot, EDITORIAL_SCHEMA } from "../src/domain/editorial.mjs";
 import { hashObject } from "../src/domain/hash.mjs";
 import { editorialFixture, readyWebsite, createEditionVariant, scheduleVariant, approvedRelease, activateRelease,
-  context, FIXED_TIME } from "./editorial-fixtures.mjs";
+  context, FIXED_TIME, fixtureEditorialAudit } from "./editorial-fixtures.mjs";
 
 test("isolated article flow has separate language/content/public approvals, true activation state and a trusted-verifier receipt", async t => {
   const f = await editorialFixture(t); await readyWebsite(f);
@@ -26,6 +26,46 @@ test("isolated article flow has separate language/content/public approvals, true
   assert.equal(verified.status, "published"); assert.equal(verified.receipt.verificationMethod, "server_readback");
   assert.equal(f.calls.readbacks, 1); assert.equal(f.service.getVariant(variant.id).status, "published");
   assert.equal(f.store.snapshot().publications.length, 0, "website revisions use their own ledger");
+});
+
+test("the direct article editor counts only distinct reviewed inline pictures and keeps insufficient versions as drafts", async t => {
+  const f = await editorialFixture(t);
+  await readyWebsite(f);
+  const { edition } = await createEditionVariant(f);
+  const [one, two, three] = edition.assetRefs;
+  const thirdAsset = f.actualAssets.getAsset(three.assetId);
+  const reviewed = await f.actualAssets.review(three.assetId, {
+    sha256: three.sha256, rightsConfirmed: true, privacyConfirmed: true,
+    rightsNote: "离线生成的隔离回归样本，本轮仅用于验证 AI 披露。",
+    illustrationSourceType: "generated",
+  }, context(thirdAsset));
+  await assert.rejects(f.actualAssets.review(three.assetId, {
+    sha256: three.sha256, rightsConfirmed: true, privacyConfirmed: true,
+    rightsNote: "试图重分类同一张图的来源。",
+    illustrationSourceType: "owned",
+  }, context(reviewed)), { code: "ARTICLE_ILLUSTRATION_SOURCE_CHANGED" });
+  const paragraph = { type: "paragraph", text: "院门打开，白瓷杯摆在木桌上。山货和煎饼各有自己的来处。" };
+  const inline = ({ assetId, alt, caption }) => ({ type: "image", assetId, alt, caption });
+  const cases = [
+    [paragraph],
+    [paragraph, inline(one), inline(two)],
+    [paragraph, inline(one), inline(two), inline(one)],
+    [paragraph, inline(one), inline(two), inline(three)],
+    [paragraph, inline(one), inline(two), { ...inline(three), caption: "图片占位，待补图" }],
+  ];
+  for (const blocks of cases) {
+    const { variant } = await createEditionVariant(f, { body: paragraph.text, assetRefs: edition.assetRefs, blocks });
+    const pending = await f.service.transitionVariant(variant.id, { target: "fact_check" }, context(variant));
+    await assert.rejects(f.service.transitionVariant(pending.id, {
+      target: "approved", reviewed: true, snapshotHash: pending.snapshotHash,
+    }, context(pending)), { code: "ARTICLE_ILLUSTRATIONS_REQUIRED" });
+    assert.equal(f.service.getVariant(variant.id).status, "fact_check");
+  }
+  const { variant } = await createEditionVariant(f, { body: paragraph.text, assetRefs: edition.assetRefs,
+    blocks: [paragraph, inline(one), inline(two), { ...inline(three), caption: `AI 合成示意。 ${three.caption}` }] });
+  const scheduled = await scheduleVariant(f, variant);
+  assert.equal(scheduled.status, "scheduled");
+  assert.equal(scheduled.blocks.filter(block => block.type === "image").length, 3);
 });
 
 test("new writes enforce principal scope, exact ETags and durable idempotency before stale-retry checks", async t => {
@@ -211,7 +251,11 @@ test("stable canonical routes retain old snapshots; atomic activation has one wi
   const variant2 = await scheduleVariant(f, second.variant);
   await assert.rejects(f.service.createRelease({ contentId: variant2.id, slug: "must-not-silently-change" }, context(variant2)), { code: "CANONICAL_ROUTE_MISMATCH" });
   const release2 = await approvedRelease(f, variant2);
-  const anotherVariant = await f.service.createVariant(second.edition.id, { destinationId: "official-site", body: "Alternative independently approved text." }, context(f.service.getEdition(second.edition.id)));
+  const alternative = "Alternative independently approved text.";
+  const anotherVariant = await f.service.createVariant(second.edition.id, {
+    destinationId: "official-site", body: alternative,
+    blocks: [{ type: "paragraph", text: alternative }, ...second.edition.blocks.filter(block => block.type === "image")],
+  }, context(f.service.getEdition(second.edition.id)));
   const release3 = await approvedRelease(f, anotherVariant);
   const attempts = await Promise.allSettled([activateRelease(f, release2, release1.id), activateRelease(f, release3, release1.id)]);
   assert.equal(attempts.filter(row => row.status === "fulfilled").length, 1);
@@ -264,4 +308,66 @@ test("account setup is explicit, history is retained, and unresolved external re
   assert.equal(archived.status, "archived"); assert.equal(f.service.getAccount(account.id).handle, "isolated-owner");
   assert.ok(f.service.accountHistory(account.id).items.some(row => row.reason === "Stop this channel"));
   assert.equal(f.store.snapshot().accountOperations[0].id, "OP-9999");
+});
+
+test("standalone editorial AI preflight binds the exact article and accessible evidence, while a person alone can approve", async t => {
+  const dispatched = [];
+  const f = await editorialFixture(t, { aiReviewer: { async auditArticle(input) {
+    dispatched.push(input);
+    return fixtureEditorialAudit(input, { findings: dispatched.length === 1 ? [{
+      severity: "major", dimension: "facts", code: "UNSUPPORTED", location: "段落一", message: "补齐可核对的原始事实。",
+    }] : [] });
+  } } });
+  await readyWebsite(f);
+  const { variant } = await createEditionVariant(f);
+  const final = { target: "approved", reviewed: true, snapshotHash: variant.snapshotHash };
+  await assert.rejects(f.service.transitionVariant(variant.id, final, context(variant)), { code: "EDITORIAL_AI_REVIEW_REQUIRED" });
+  const request = { target: "fact_check" };
+  const firstContext = context(variant);
+  const first = await f.service.transitionVariant(variant.id, request, firstContext);
+  assert.equal(first.aiPreflight.status, "needs_revision");
+  assert.equal(first.aiPreflight.snapshotHash, variant.snapshotHash);
+  assert.equal(first.approval, null);
+  assert.deepEqual(await f.service.transitionVariant(variant.id, request, firstContext), first);
+  assert.equal(dispatched.length, 1);
+  assert.deepEqual(dispatched[0].brief.claims.map(claim => claim.id), ["C003"]);
+  assert.equal(dispatched[0].article.body, variant.body);
+  await assert.rejects(f.service.transitionVariant(variant.id, final, context(first)), { code: "EDITORIAL_AI_REVIEW_REQUIRED" });
+  const retry = await f.service.transitionVariant(variant.id, request, context(first));
+  assert.equal(retry.aiPreflight.status, "passed");
+  assert.equal(retry.approval, null);
+  await assert.rejects(f.service.transitionVariant(variant.id, final, { ...context(retry), method: "agent" }), { code: "AGENT_SCOPE_DENIED" });
+  const approved = await f.service.transitionVariant(variant.id, final, context(retry));
+  assert.equal(approved.approval.approvedBy, "isolated unit reviewer");
+  assert.equal(approved.approval.aiReviewHash, hashObject(retry.aiPreflight));
+});
+
+test("concurrent first checks share one model call, malformed proof cannot write a result, and stale evidence invalidates AI review", async t => {
+  let modelCalls = 0, release, modelBegun;
+  const began = new Promise(resolve => { modelBegun = resolve; });
+  const hold = new Promise(resolve => { release = resolve; });
+  const f = await editorialFixture(t, { aiReviewer: { async auditArticle(input) {
+    modelCalls += 1;
+    if (modelCalls === 1) return { ...fixtureEditorialAudit(input), receipt: null };
+    modelBegun();
+    await hold;
+    return fixtureEditorialAudit(input);
+  } } });
+  await readyWebsite(f);
+  const { variant } = await createEditionVariant(f);
+  const request = { target: "fact_check" };
+  await assert.rejects(f.service.transitionVariant(variant.id, request, context(variant)), { code: "EDITORIAL_AI_REVIEW_RECEIPT_INVALID" });
+  assert.equal(f.service.getVariant(variant.id).status, "draft");
+  const attempt = f.service.transitionVariant(variant.id, request, context(variant));
+  await began;
+  const duplicate = f.service.transitionVariant(variant.id, request, context(variant));
+  try {
+    await f.geoService.approveClaim("C003", { approvedBy: "isolated unit reviewer", publicLevel: "private" });
+  } finally {
+    release();
+  }
+  const outcomes = await Promise.allSettled([attempt, duplicate]);
+  assert.equal(modelCalls, 2);
+  assert.deepEqual(outcomes.map(row => row.reason?.code), ["EDITORIAL_AI_REVIEW_STALE", "EDITORIAL_AI_REVIEW_STALE"]);
+  assert.equal(f.service.getVariant(variant.id).status, "draft");
 });

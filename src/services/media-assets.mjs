@@ -4,6 +4,7 @@ import { dirname, join, parse, resolve } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { crc32, inflateSync } from "node:zlib";
 import { ApiError } from "../domain/errors.mjs";
+import { ARTICLE_ILLUSTRATION_SOURCE_TYPES, normalizeOpenImageAttribution } from "../domain/article-illustration-policy.mjs";
 import { hashObject } from "../domain/hash.mjs";
 import { scanSensitiveText } from "../domain/policy.mjs";
 import { JsonStore } from "../storage/json-store.mjs";
@@ -468,22 +469,46 @@ export class MediaAssets {
   }
   async review(id, input, incoming) {
     const ctx = context(incoming);
-    if (!object(input) || Object.keys(input).some(key => !["sha256", "rightsConfirmed", "privacyConfirmed", "rightsNote"].includes(key))
-      || !SHA.test(input.sha256 ?? "") || input.rightsConfirmed !== true || input.privacyConfirmed !== true) {
+    if (!object(input) || Object.keys(input).some(key => !["sha256", "rightsConfirmed", "privacyConfirmed", "rightsNote", "illustrationSourceType", "illustrationAttribution"].includes(key))
+      || !SHA.test(input.sha256 ?? "") || input.rightsConfirmed !== true || input.privacyConfirmed !== true
+      || (input.illustrationSourceType !== undefined && !ARTICLE_ILLUSTRATION_SOURCE_TYPES.includes(input.illustrationSourceType))) {
       fail(400, "MEDIA_REVIEW_REQUIRED", "请核对文件哈希，并确认版权授权与隐私检查。");
     }
     const rightsNote = text(input.rightsNote, 2000, true, true);
-    const fingerprint = hashObject({ operation: "review", id, sha256: input.sha256, rightsNote, rightsConfirmed: true, privacyConfirmed: true });
+    const sourceType = input.illustrationSourceType;
+    if (input.illustrationAttribution !== undefined && sourceType !== "licensed") {
+      fail(400, "ARTICLE_IMAGE_ATTRIBUTION_INVALID", "开放许可署名仅适用于使用开放授权的图片。");
+    }
+    const attribution = input.illustrationAttribution === undefined ? null : normalizeOpenImageAttribution(input.illustrationAttribution);
+    const fingerprint = hashObject({ operation: "review", id, sha256: input.sha256, rightsNote, rightsConfirmed: true, privacyConfirmed: true,
+      ...(sourceType === undefined ? {} : { illustrationSourceType: sourceType }),
+      ...(attribution ? { illustrationAttribution: attribution } : {}) });
     return (await this.#store.mutate({ type: "media.reviewed", actor: ctx.actor, payload: { assetId: id, sha256: input.sha256 } }, async state => {
       const previous = replay(state, ctx, fingerprint);
       if (previous) return JsonStore.noChange(previous);
       const asset = findAsset(state, id); match(asset, ctx);
       if (asset.sha256 !== input.sha256) fail(409, "MEDIA_HASH_MISMATCH", "审核哈希与当前文件不符。");
       if (asset.status === "revoked") fail(409, "MEDIA_REVOKED", "已撤销素材不能重新审核，请重新上传。");
+      if (sourceType !== undefined && asset.kind !== "image") fail(400, "MEDIA_INVALID_INPUT", "配图来源仅适用于图片素材。");
+      const generated = state.mediaAssets.some(row => row.sha256 === asset.sha256 && row.review?.illustrationSourceType === "generated");
+      if (generated && sourceType !== undefined && sourceType !== "generated") {
+        fail(409, "ARTICLE_ILLUSTRATION_SOURCE_CHANGED", "同一图像字节已登记为生成图，须保留其来源和披露。");
+      }
+      const recordedSource = generated ? "generated" : sourceType ?? asset.review?.illustrationSourceType;
+      const previousAttribution = asset.review?.illustrationAttribution;
+      if (previousAttribution && (recordedSource !== "licensed" || attribution && hashObject(attribution) !== hashObject(previousAttribution))) {
+        fail(409, "ARTICLE_ILLUSTRATION_SOURCE_CHANGED", "已绑定图片的原始署名和许可必须保留。");
+      }
+      const recordedAttribution = previousAttribution ?? attribution;
+      if (recordedSource === "licensed" && !recordedAttribution) {
+        fail(422, "ARTICLE_IMAGE_ATTRIBUTION_INVALID", "开放授权图片需要准确来源、署名、许可和修改说明。");
+      }
       const opened = await this.openVerifiedAsset(id, { state });
       await opened.handle.close();
       asset.status = "reviewed";
-      asset.review = { sha256: input.sha256, rightsConfirmed: true, privacyConfirmed: true, rightsNote, reviewedBy: ctx.actor, reviewedAt: new Date().toISOString() };
+      asset.review = { sha256: input.sha256, rightsConfirmed: true, privacyConfirmed: true, rightsNote, reviewedBy: ctx.actor,
+        reviewedAt: new Date().toISOString(), ...(recordedSource ? { illustrationSourceType: recordedSource } : {}),
+        ...(recordedAttribution ? { illustrationAttribution: recordedAttribution } : {}) };
       const result = dto(asset); remember(state, ctx, fingerprint, result, asset.review.reviewedAt);
       return result;
     })).result;

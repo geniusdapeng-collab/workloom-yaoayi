@@ -190,6 +190,13 @@ export async function routeContentDirector({
     writeJson(response, 200, payload, payload.etag ? { ETag: payload.etag } : {});
     return true;
   }
+  const illustrations = path.match(new RegExp(`^/api/content-director/jobs/${ID}/illustrations$`));
+  if (illustrations) {
+    if (request.method !== "POST") { methodNotAllowed(response, ["POST"]); return true; }
+    const payload = await contentDirector.bindArticleIllustrations(illustrations[1], await readJsonBody(request), ctx);
+    writeJson(response, 202, payload, payload.etag ? { ETag: payload.etag } : {});
+    return true;
+  }
   if (path.match(new RegExp(`^/api/content-director/jobs/${ID}/create-content-ops-plan$`))) {
     const matched = path.match(new RegExp(`^/api/content-director/jobs/${ID}/create-content-ops-plan$`));
     if (request.method !== "POST") { methodNotAllowed(response, ["POST"]); return true; }
