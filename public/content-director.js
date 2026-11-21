@@ -16,8 +16,8 @@ const STATUS_LABELS = {
 };
 
 const ARTIFACT_LABELS = {
-  article: "长文",
-  article_visual: "长文 + 配图",
+  article: "文章",
+  article_visual: "文章 + 配图",
   pure_visual: "纯图片 / 信息图",
   video_ai: "AI 视频",
   video_edit: "实拍剪辑",
@@ -79,6 +79,18 @@ function list(values = []) {
 
 function artifactUrl(jobId, name) {
   return `/api/content-director/jobs/${encodeURIComponent(jobId)}/artifacts/${encodeURIComponent(name)}`;
+}
+
+function lengthInput(fields) {
+  const minCharacters = fields.get("minCharacters");
+  const maxCharacters = fields.get("maxCharacters");
+  if (!minCharacters && !maxCharacters) return {};
+  return {
+    targetLength: {
+      ...(minCharacters ? { minCharacters: Number(minCharacters) } : {}),
+      ...(maxCharacters ? { maxCharacters: Number(maxCharacters) } : {}),
+    },
+  };
 }
 
 function attachmentRole(file) {
@@ -168,12 +180,12 @@ export function mountContentDirector({ api, getData, showError } = {}) {
     return `<article class="cd-panel cd-create-panel">
       <div class="cd-panel-heading"><div><p class="cd-eyebrow">One intent · correct pipeline</p><h3>从一句意图开始</h3></div><span>路由只决定生产线，不代表发布授权</span></div>
       <form data-cd-form="single">
-        <label class="cd-wide"><span>主题、观点、想法或任务</span><textarea name="intent" required rows="7" maxlength="20000" placeholder="例如：围绕 Agent 产品如何进入真实业务写一篇 3000 字技术文章，并配一张系统架构图。"></textarea></label>
+        <label class="cd-wide"><span>主题、观点、想法或任务</span><textarea name="intent" required rows="7" maxlength="20000" placeholder="例如：写一篇记录小院日常的随笔，并配三张应景照片。"></textarea></label>
         <div class="cd-grid">
           <label><span>内容类型</span><select name="explicitKind"><option value="">自动识别（推荐）</option>${options()}</select></label>
           <label><span>目标平台</span><input name="platforms" maxlength="500" placeholder="官网, 掘金, 微信公众号" /></label>
-          <label><span>最小字数</span><input name="minCharacters" type="number" min="500" max="100000" value="2500" /></label>
-          <label><span>最大字数</span><input name="maxCharacters" type="number" min="500" max="100000" value="4000" /></label>
+          <label><span>最小字数</span><input name="minCharacters" type="number" min="500" max="100000" placeholder="按文风自动" /></label>
+          <label><span>最大字数</span><input name="maxCharacters" type="number" min="500" max="100000" placeholder="按文风自动" /></label>
           <label><span>视频总时长（秒）</span><input name="durationSec" type="number" min="5" max="180" placeholder="视频任务填写" /></label>
           <label><span>文章语言</span><select name="language"><option value="zh-CN">中文</option><option value="en-US">English</option></select></label>
         </div>
@@ -195,7 +207,7 @@ export function mountContentDirector({ api, getData, showError } = {}) {
         <label><span>批次名称</span><input name="batchName" maxlength="240" value="内容批次" /></label>
         <label><span>主题列表（每行一个）</span><textarea name="topics" required rows="8" maxlength="20000" placeholder="每个主题单独一行"></textarea></label>
         <label><span>共享目标平台</span><input name="platforms" maxlength="500" placeholder="官网, 知乎, 掘金" /></label>
-        <div class="cd-grid"><label><span>最小字数</span><input name="minCharacters" type="number" value="2500" min="500" max="100000" /></label><label><span>最大字数</span><input name="maxCharacters" type="number" value="4000" min="500" max="100000" /></label></div>
+        <div class="cd-grid"><label><span>最小字数</span><input name="minCharacters" type="number" min="500" max="100000" placeholder="按文风自动" /></label><label><span>最大字数</span><input name="maxCharacters" type="number" min="500" max="100000" placeholder="按文风自动" /></label></div>
         <label class="cd-check cd-inline"><input name="allowWebResearch" type="checkbox" /><span>允许联网研究</span></label>
         <button class="primary-button" type="submit">建立独立文章 Job</button>
       </form>
@@ -208,7 +220,10 @@ export function mountContentDirector({ api, getData, showError } = {}) {
     const visualLabel = p.articleIllustrations
       ? `至少 ${p.articleIllustrations.minimum} 张正文配图${p.visualForm?.kinds?.length ? "，另含指定技术图" : ""}`
       : p.enableVisuals ? "生成" : "不生成";
-    return `<section class="cd-route-preview"><div><p class="cd-eyebrow">执行确认卡</p><h4>${html(ARTIFACT_LABELS[p.artifactKind] || "需要澄清")}</h4></div><dl><div><dt>生产线</dt><dd>${html(p.pipeline || "—")}</dd></div><div><dt>置信度</dt><dd>${Math.round(Number(p.confidence || 0) * 100)}%</dd></div><div><dt>联网</dt><dd>${p.allowWebResearch ? "允许" : "仅本地材料"}</dd></div><div><dt>配图</dt><dd>${html(visualLabel)}</dd></div><div><dt>附件</dt><dd>${p.attachments?.length ?? 0}</dd></div><div><dt>费用等级</dt><dd>${html(p.costClass || "未估算")}</dd></div></dl><p>${html(p.rationale || p.clarifyQuestion || "")}</p>${list(p.missing ?? [])}${p.artifactKind && state.pendingInput ? `<div class="cd-actions">${state.serviceStatus?.writable === false ? "" : `<button class="primary-button" type="button" data-cd-create-confirmed>按此路由创建任务</button>`}<button class="ghost-button" type="button" data-cd-clear-preview>取消</button></div>` : ""}<p class="cd-muted">确认只表示建立 Job；事实、预算、视频生成和发布仍需分别授权。</p></section>`;
+    const lengthLabel = p.targetLength
+      ? `<div><dt>正文目标</dt><dd>${html(p.targetLength.minCharacters)}–${html(p.targetLength.maxCharacters)} 字符</dd></div>`
+      : "";
+    return `<section class="cd-route-preview"><div><p class="cd-eyebrow">执行确认卡</p><h4>${html(ARTIFACT_LABELS[p.artifactKind] || "需要澄清")}</h4></div><dl><div><dt>生产线</dt><dd>${html(p.pipeline || "—")}</dd></div>${lengthLabel}<div><dt>置信度</dt><dd>${Math.round(Number(p.confidence || 0) * 100)}%</dd></div><div><dt>联网</dt><dd>${p.allowWebResearch ? "允许" : "仅本地材料"}</dd></div><div><dt>配图</dt><dd>${html(visualLabel)}</dd></div><div><dt>附件</dt><dd>${p.attachments?.length ?? 0}</dd></div><div><dt>费用等级</dt><dd>${html(p.costClass || "未估算")}</dd></div></dl><p>${html(p.rationale || p.clarifyQuestion || "")}</p>${list(p.missing ?? [])}${p.artifactKind && state.pendingInput ? `<div class="cd-actions">${state.serviceStatus?.writable === false ? "" : `<button class="primary-button" type="button" data-cd-create-confirmed>按此路由创建任务</button>`}<button class="ghost-button" type="button" data-cd-clear-preview>取消</button></div>` : ""}<p class="cd-muted">确认只表示建立 Job；事实、预算、视频生成和发布仍需分别授权。</p></section>`;
   }
 
   function illustrationRequest(job) {
@@ -266,7 +281,7 @@ export function mountContentDirector({ api, getData, showError } = {}) {
       ${state.publication?.jobId === job.id ? `<section class="cd-result"><h4>发布状态</h4><pre>${html(JSON.stringify(state.publication.statuses, null, 2))}</pre><p>公开页面已发布：${state.publication.statuses?.publicSitePublished ? "是（真实回读）" : "否"}；外部平台已发布：${state.publication.statuses?.externalPlatformPublished ? "是（真实回执）" : "否"}。</p></section>` : ""}
       <div class="cd-actions">
         ${["queued", "running"].includes(job.status) ? `<button class="ghost-button" type="button" data-cd-action="pause">请求暂停</button>` : ""}
-        ${!visualGate && job.status === "needs_resume" && !job.missing?.length ? `<button class="primary-button" type="button" data-cd-action="resume">继续执行</button>` : ""}
+        ${!visualGate && job.status === "needs_resume" && !job.missing?.length ? `<button class="primary-button" type="button" data-cd-action="${job.awaitingExplicitStart ? "start" : "resume"}">${job.awaitingExplicitStart ? "启动写作" : "继续执行"}</button>` : ""}
         ${!visualGate && ["failed", "blocked"].includes(job.status) && !job.missing?.length ? `<button class="primary-button" type="button" data-cd-action="repair">按现有 finding 重试</button>` : ""}
         ${["queued", "running", "needs_resume", "needs_input", "blocked", "failed"].includes(job.status) ? `<button class="ghost-button" type="button" data-cd-action="cancel">取消</button>` : ""}
         ${["approved", "completed"].includes(job.status) ? `<button class="ghost-button" type="button" data-cd-action="publication">读取发布状态</button>` : ""}
@@ -338,7 +353,7 @@ export function mountContentDirector({ api, getData, showError } = {}) {
       intent: fields.get("intent"),
       ...(fields.get("explicitKind") ? { explicitKind: fields.get("explicitKind") } : {}),
       platforms,
-      targetLength: { minCharacters: Number(fields.get("minCharacters")), maxCharacters: Number(fields.get("maxCharacters")) },
+      ...lengthInput(fields),
       ...(Number(fields.get("durationSec")) ? { durationSec: Number(fields.get("durationSec")) } : {}),
       language: fields.get("language"),
       authorThoughts: String(fields.get("authorThoughts") || "").split(/\n/).map(value => value.trim()).filter(Boolean),
@@ -420,7 +435,7 @@ export function mountContentDirector({ api, getData, showError } = {}) {
         topics: topics.map(intent => ({ intent })),
         shared: {
           platforms: String(fields.get("platforms") || "").split(/[,，]/).map(value => value.trim()).filter(Boolean),
-          targetLength: { minCharacters: Number(fields.get("minCharacters")), maxCharacters: Number(fields.get("maxCharacters")) },
+          ...lengthInput(fields),
           allowWebResearch: fields.get("allowWebResearch") === "on",
           enableVisuals: true,
         },

@@ -122,4 +122,51 @@ test("content director HTTP routes preserve admin scope, idempotency and job vis
   const metrics = await jsonRequest(baseUrl, "/api/content-director/metrics");
   assert.equal(metrics.response.status, 200);
   assert.equal(metrics.payload.jobs.total, 2);
+
+  const short = { minCharacters: 500, maxCharacters: 800 };
+  const courtyard = { intent: "写一篇小院日记，并配三张照片", claimIds: ["C003"] };
+  const preview = await jsonRequest(baseUrl, "/api/content-director/resolve-intent", {
+    method: "POST", body: JSON.stringify(courtyard),
+  });
+  assert.equal(preview.response.status, 200);
+  assert.equal(preview.payload.artifactKind, "article_visual");
+  assert.deepEqual(preview.payload.targetLength, short);
+
+  const createdShort = await jsonRequest(baseUrl, "/api/content-director/jobs", {
+    method: "POST", headers: { "Idempotency-Key": randomUUID() }, body: JSON.stringify(courtyard),
+  });
+  assert.equal(createdShort.response.status, 202);
+  assert.equal(createdShort.payload.stylePolicy.version, "1.3.0");
+  assert.deepEqual(createdShort.payload.route.targetLength, short);
+  assert.deepEqual(createdShort.payload.input.targetLength, short);
+
+  const updatedShort = await jsonRequest(baseUrl, `/api/content-director/jobs/${createdShort.payload.id}/brief`, {
+    method: "PATCH", headers: { "Idempotency-Key": randomUUID(), "If-Match": createdShort.payload.etag },
+    body: JSON.stringify({ targetLength: { maxCharacters: 725 } }),
+  });
+  assert.equal(updatedShort.response.status, 200);
+  assert.deepEqual(updatedShort.payload.route.targetLength, { minCharacters: 500, maxCharacters: 725 });
+  assert.deepEqual(updatedShort.payload.stylePolicy, createdShort.payload.stylePolicy);
+
+  const updatedLong = await jsonRequest(baseUrl, `/api/content-director/jobs/${created.payload.id}/brief`, {
+    method: "PATCH", headers: { "Idempotency-Key": randomUUID(), "If-Match": detail.payload.etag },
+    body: JSON.stringify({ audience: "创业团队" }),
+  });
+  assert.equal(updatedLong.response.status, 200);
+  assert.deepEqual(updatedLong.payload.route.targetLength, { minCharacters: 2000, maxCharacters: 3000 });
+
+  const batch = await jsonRequest(baseUrl, "/api/content-director/batches", {
+    method: "POST", headers: { "Idempotency-Key": randomUUID() },
+    body: JSON.stringify({
+      name: "短稿默认篇幅",
+      shared: { claimIds: ["C003"] },
+      topics: [
+        { intent: "写一篇摊煎饼的手艺文章", explicitKind: "article" },
+        { intent: "Write an illustrated explainer", explicitKind: "article_visual", language: "en-US" },
+      ],
+    }),
+  });
+  assert.equal(batch.response.status, 202);
+  assert.deepEqual(batch.payload.jobs.map(job => job.route.targetLength), [short, short]);
+  assert.deepEqual(batch.payload.jobs.map(job => job.stylePolicy.version), ["1.3.0", "1.3.0"]);
 });

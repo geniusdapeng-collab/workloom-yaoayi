@@ -42,6 +42,10 @@ export class LivePipelineService {
     platform = "GitHub",
     contentType = "social_post",
   }) {
+    if (["article", "image_text"].includes(contentType)) {
+      throw new ApiError(409, "CONTENT_DIRECTOR_REQUIRED", "文章和图文需要从创作总控建立任务。",
+        { endpoint: "/api/content-director/jobs" });
+    }
     const state = this.service.store.snapshot();
     const claims = claimIds.map((id) => state.claims.find((claim) => claim.id === id));
     if (claims.some((claim) => !claim)) {

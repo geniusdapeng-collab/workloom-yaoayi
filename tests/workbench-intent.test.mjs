@@ -27,7 +27,7 @@ test("article intent reuses the existing route and exposes approval and delivery
   assert.equal(planned.persona.id, "yao_ayi_yimeng_coffee_courtyard");
   assert.equal(planned.persona.version, "1.0.1");
   assert.equal(planned.stylePolicy.id, "yaoayi.article.prose");
-  assert.equal(planned.stylePolicy.version, "1.0.0");
+  assert.equal(planned.stylePolicy.version, "1.3.0");
   assert.match(planned.stylePolicy.sha256, /^[a-f0-9]{64}$/);
   assert.deepEqual(planned.requiredInputs, []);
   assert.ok(planned.stages.some((stage) => stage.id === "persona-bind" && stage.status === "completed"));
@@ -170,9 +170,12 @@ test("public HTTP manifest and plan routes are read-only and reject unsupported 
   const article = await articleResponse.json();
   assert.equal(article.stylePolicy.genre, "courtyard");
   assert.deepEqual(article.stylePolicy, planWorkbenchIntent(articleIntent).stylePolicy);
+  assert.deepEqual(article.route.targetLength, { minCharacters: 500, maxCharacters: 800 });
+  assert.deepEqual(article.handoff.mcp.arguments.targetLength, article.route.targetLength);
   assert.equal(article.providerCallsPerformed, false);
   const english = planWorkbenchIntent({ ...articleIntent, language: "en-US" });
-  assert.equal(english.stylePolicy, undefined);
+  assert.equal(english.stylePolicy.version, "1.3.0");
+  assert.deepEqual(english.route.targetLength, { minCharacters: 500, maxCharacters: 800 });
   assert.equal(english.handoff.mcp.arguments.language, "en-US");
   assert.throws(() => planWorkbenchIntent({ ...articleIntent, stylePolicy: article.stylePolicy }), {
     code: "WORKBENCH_INTENT_INVALID",

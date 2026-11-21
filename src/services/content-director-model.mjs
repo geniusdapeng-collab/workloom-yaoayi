@@ -264,6 +264,14 @@ export class ContentDirectorModel {
     );
   }
 
+  async repairArticleTitle(input) {
+    return this.#json(
+      "content.repair",
+      'Revise only the main article headline in currentTitle, using the article as factual context. Return exactly a JSON object with one field, {"title":"..."} containing one line of text. Keep the headline grounded in actions or details actually in the article. Leave section titles, body, and every other field untouched.',
+      input,
+    );
+  }
+
   async auditArticle(input) {
     return this.#auditJson(
       "content.audit",

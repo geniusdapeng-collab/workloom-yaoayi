@@ -21,9 +21,7 @@ try {
     queryIds: controlQueries.map((query) => query.id),
     platform: "deepseek",
   });
-  const articles = engine.generateArticles({
-    dataMode: "draft",
-  });
+  const existingResearchDrafts = engine.listArticles(1000).length;
   const date = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Shanghai",
     year: "numeric",
@@ -39,7 +37,7 @@ try {
   const fullPath = join(evidenceDir, `personal-geo-${run.runId}.json`);
   await writeFile(
     fullPath,
-    `${JSON.stringify({ run, articles }, null, 2)}\n`,
+    `${JSON.stringify({ run, existingResearchDrafts }, null, 2)}\n`,
     { encoding: "utf8", mode: 0o600 },
   );
   const receipt = {
@@ -74,9 +72,10 @@ try {
       })),
     },
     articles: {
-      created: articles.created.length,
-      total: articles.totalArticles,
-      ids: articles.created.map((article) => article.id),
+      created: 0,
+      total: existingResearchDrafts,
+      ids: [],
+      jobEndpoint: "/api/content-director/jobs",
     },
     fullEvidence: relative(rootDir, fullPath),
   };

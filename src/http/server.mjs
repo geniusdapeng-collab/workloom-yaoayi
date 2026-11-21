@@ -583,10 +583,27 @@ export function createGeoOsServer({
             throw new ApiError(
               400,
               "LIVE_RUN_CONFIRMATION_REQUIRED",
-              "文章生成会写入数据库，请求体必须显式设置 confirm=true。",
+              "为 GEO 选题建立文章任务必须显式设置 confirm=true。",
             );
           }
-          writeJson(response, 201, geoEngine.generateArticles(body));
+          if (!contentDirector) throw new ApiError(503, "CONTENT_DIRECTOR_UNAVAILABLE", "文章生产线未启用。");
+          const topics = geoEngine.articleTopics();
+          const requested = body.topicIds ?? topics.map(({ id }) => id);
+          if (!Array.isArray(requested) || requested.some(id => !topics.some(topic => topic.id === id))) {
+            throw new ApiError(400, "GEO_ARTICLE_TOPIC_INVALID", "请选择已登记的 GEO 文章选题。");
+          }
+          const chosen = new Set(requested.length ? requested : topics.map(({ id }) => id));
+          const result = await contentDirector.createBatch({
+            name: "GEO 选题文章",
+            topics: topics.filter(({ id }) => chosen.has(id)).map(({ title }) => ({ intent: title })),
+            shared: {
+              explicitKind: "article",
+              claimIds: body.claimIds ?? [],
+              ...(body.language === undefined ? {} : { language: body.language }),
+              ...(body.targetLength === undefined ? {} : { targetLength: body.targetLength }),
+            },
+          }, { ...principal, idempotencyKey: request.headers["idempotency-key"] }, { awaitStart: true });
+          writeJson(response, 202, result);
           return;
         }
         throw new ApiError(404, "GEO_ENGINE_ENDPOINT_NOT_FOUND", "GEO 引擎接口不存在。");
@@ -610,6 +627,19 @@ export function createGeoOsServer({
         }
 
         if (path === "/api/live/generate-content") {
+          if (["article", "image_text"].includes(body.contentType)) {
+            if (!contentDirector) throw new ApiError(503, "CONTENT_DIRECTOR_UNAVAILABLE", "文章生产线未启用。");
+            const result = await contentDirector.createJob({
+              intent: body.brief,
+              explicitKind: body.contentType === "image_text" ? "article_visual" : "article",
+              claimIds: body.claimIds ?? [],
+              platforms: [body.platform ?? "GitHub"],
+              ...(body.language === undefined ? {} : { language: body.language }),
+              ...(body.targetLength === undefined ? {} : { targetLength: body.targetLength }),
+            }, { ...principal, idempotencyKey: request.headers["idempotency-key"] }, { awaitStart: true });
+            writeJson(response, 202, result);
+            return;
+          }
           writeJson(response, 200, await livePipeline.generateContent(body));
           return;
         }

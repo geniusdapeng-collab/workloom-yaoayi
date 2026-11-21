@@ -143,7 +143,7 @@ const PERSONA_FORBIDDEN_TERMS = Object.freeze([
   "零添加",
 ]);
 
-export function personaFindings(text, contract = YAO_AYI_PERSONA_CONTRACT) {
+export function personaFindings(text, contract = YAO_AYI_PERSONA_CONTRACT, { language } = {}) {
   const body = String(text ?? "");
   const findings = [];
   for (const term of PERSONA_FORBIDDEN_TERMS) {
@@ -157,13 +157,17 @@ export function personaFindings(text, contract = YAO_AYI_PERSONA_CONTRACT) {
       });
     }
   }
-  if (contract?.requireFirstPerson === true && !/(?:我|咱)/u.test(body)) {
+  const english = language === "en-US";
+  const firstPerson = english ? /\b(?:I|[Mm]y(?:self)?|[Mm]ine|[Mm]e|[Ww]e|[Oo]ur(?:selves|s)?|[Uu]s)\b/u : /(?:我|咱)/u;
+  if (contract?.requireFirstPerson === true && !firstPerson.test(body)) {
     findings.push({
       severity: "major",
       code: "PERSONA_FIRST_PERSON_MISSING",
       dimension: "expression",
       location: "body",
-      message: "默认应以姚阿姨第一人称讲述；当前正文没有出现“我”或“咱”。",
+      message: english
+        ? "默认应以姚阿姨第一人称讲述；当前英文正文缺少“I”或“my”等第一人称表达。"
+        : "默认应以姚阿姨第一人称讲述；当前正文没有出现“我”或“咱”。",
     });
   }
   return findings;

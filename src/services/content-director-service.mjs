@@ -3,7 +3,7 @@ import { link, lstat, mkdir, open, readFile, realpath, unlink } from "node:fs/pr
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { ApiError } from "../domain/errors.mjs";
-import { resolveArticleProsePolicy } from "../domain/article-prose-policy.mjs";
+import { articleProseLength, resolveArticleProsePolicy } from "../domain/article-prose-policy.mjs";
 import { hashObject } from "../domain/hash.mjs";
 import { YAO_AYI_PERSONA_CONTRACT } from "../domain/persona.mjs";
 import { scanSensitiveText } from "../domain/policy.mjs";
@@ -19,6 +19,7 @@ import {
 import { articleVisualForm, CONTENT_ARTIFACT_KINDS, resolveContentIntent } from "../domain/content-intent.mjs";
 import {
   CONTENT_DIRECTOR_STATUSES,
+  articleTextLength,
   assertContentDirectorStateIntegrity,
   composeArticleBody,
   contentDirectorEntity,
@@ -285,34 +286,122 @@ function aggregateReceiptUsage(modelReceipt) {
   return { ...Object.fromEntries(totals), responseCount, status: incomplete ? "unknown_usage" : "known_usage" };
 }
 
-function locateRepairSection(finding, outline) {
-  const location = String(finding.location ?? "").trim();
-  const locationKey = outline.sections.findIndex(section => section.key === location);
-  if (locationKey >= 0) return locationKey;
-  const explicit = /\bsection[-:](\d+)\b/iu.exec(location);
-  if (explicit) return Number(explicit[1]);
+function repairSectionIndex(value, sections, { allowTitle = false } = {}) {
+  const exactKey = sections.findIndex(section => section.key === value);
+  if (exactKey >= 0) return exactKey;
+  const numeric = /^section[-:](\d+)$/iu.exec(value);
+  if (numeric && sections[Number(numeric[1])]) return Number(numeric[1]);
+  const named = /^section:([A-Za-z0-9_-]+)$/iu.exec(value);
+  const index = named ? sections.findIndex(section => section.key === named[1]) : -1;
+  if (index >= 0 || !allowTitle) return index;
+  const matches = sections.flatMap((section, position) => section.title === value ? [position] : []);
+  return matches.length === 1 ? matches[0] : -1;
+}
 
-  for (const text of [location, finding.message ?? ""]) {
-    const matching = outline.sections
-      .map((section, index) => ({ section, index }))
-      .filter(({ section }) => text.includes(section.title)
-        || text.split(/[^A-Za-z0-9_-]+/u).includes(section.key));
-    if (matching.length) return matching.length === 1 ? matching[0].index : -1;
+function repairParagraphRange(value) {
+  const match = /^paragraph[-: ](\d+)(?:-(\d+))?$/iu.exec(value);
+  return match ? [Number(match[1]), Number(match[2] ?? match[1])] : null;
+}
+
+function locateRepairScopes(value, sections) {
+  const exact = repairSectionIndex(value, sections, { allowTitle: !/^(?:section|paragraph)[-:]/iu.test(value) });
+  if (exact >= 0) return new Map([[exact, new Set()]]);
+
+  const scopes = new Map();
+  let index = -1;
+  for (const token of value.split(/\s*[;；,，]\s*|\s+(?=paragraph[-: ]\d)/iu)) {
+    const range = repairParagraphRange(token);
+    if (range) {
+      const [first, last] = range;
+      const section = sections[index];
+      if (!section || first < 1 || last < first || last > section.paragraphs.length) return new Map();
+      for (let paragraph = first; paragraph <= last; paragraph += 1) scopes.get(index).add(paragraph);
+      continue;
+    }
+    index = repairSectionIndex(token, sections);
+    if (index < 0 || scopes.has(index)) return new Map();
+    scopes.set(index, new Set());
   }
-  const scopes = [...new Set((finding.allowedChanges ?? []).map(value => {
-    const key = outline.sections.findIndex(section => section.key === value);
-    if (key >= 0) return key;
-    const match = /^section[-:](\d+)$/iu.exec(value);
-    return match ? Number(match[1]) : -1;
-  }).filter(index => index >= 0))];
-  return scopes.length === 1 ? scopes[0] : -1;
+  return scopes;
+}
+
+function assignSectionRepairs(finding, sections, outline) {
+  const location = finding.location.trim();
+  if (/^title$/iu.test(location)) return [];
+  const scopes = locateRepairScopes(location, sections);
+  if (!scopes.size) {
+    const lengthIndex = globalLengthSection(finding, sections, outline);
+    if (lengthIndex < 0) return [];
+    scopes.set(lengthIndex, new Set());
+  }
+
+  const explicitSections = new Set();
+  const explicitParagraphs = new Set();
+  const repairNotes = [];
+  for (const value of finding.allowedChanges ?? []) {
+    const token = value.trim();
+    const index = repairSectionIndex(token, sections);
+    if (index >= 0) {
+      if (!scopes.has(index)) return [];
+      explicitSections.add(index);
+      continue;
+    }
+    const range = repairParagraphRange(token);
+    if (range) {
+      if (scopes.size !== 1) return [];
+      const [[index]] = scopes;
+      const [first, last] = range;
+      if (first < 1 || last < first || last > sections[index].paragraphs.length) return [];
+      for (let paragraph = first; paragraph <= last; paragraph += 1) explicitParagraphs.add(paragraph);
+      continue;
+    }
+    if (/^[A-Za-z0-9_-]+$/u.test(token) ||
+        /^(?:title$|(?:section|paragraph)[-:]\S+(?:$|\s*[;,；，]))/iu.test(token)) return [];
+    if (token) repairNotes.push(token);
+  }
+
+  const result = [];
+  for (const [index, paragraphs] of scopes) {
+    if (explicitSections.size && !explicitSections.has(index)) continue;
+    const candidates = explicitParagraphs.size ? explicitParagraphs : paragraphs;
+    const allowed = [...candidates].filter(paragraph => !paragraphs.size || paragraphs.has(paragraph));
+    if (candidates.size && !allowed.length) continue;
+    const canonical = allowed.length ? allowed.map(paragraph => `paragraph:${paragraph}`) : [`section:${index}`];
+    const literal = finding.allowedChanges ?? [];
+    const alreadyScoped = literal.length && literal.every(value => allowed.length
+      ? allowed.includes(Number(/^paragraph[-: ](\d+)$/iu.exec(value)?.[1]))
+      : value === sections[index].key || Number(/^section[:-](\d+)$/iu.exec(value)?.[1]) === index);
+    result.push([index, {
+      ...finding,
+      allowedChanges: alreadyScoped ? literal : canonical,
+      ...(repairNotes.length ? { repairNotes } : {}),
+    }]);
+  }
+  return result;
+}
+
+function canRepairArticleTitle(finding, stylePolicy) {
+  return Boolean(articleProseLength(stylePolicy)) && finding.dimension === "expression" &&
+    finding.location === "title" && finding.allowedChanges?.length === 1 && finding.allowedChanges[0] === "title";
+}
+
+function validateRepairedArticleTitle(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length !== 1 ||
+      !Object.hasOwn(value, "title") || typeof value.title !== "string" ||
+      !value.title.trim() || value.title.length > 240 || /[\r\n\u2028\u2029]/u.test(value.title)) {
+    fail(502, "ARTICLE_TITLE_REPAIR_INVALID", "主标题修复须仅返回有效的单行 title。");
+  }
+  if (scanSensitiveText(value.title).length || /https?:\/\//iu.test(value.title)) {
+    fail(422, "ARTICLE_TITLE_REPAIR_INVALID", "主标题修复包含链接或敏感资料。");
+  }
+  return value.title.trim();
 }
 
 function globalLengthSection(finding, sections, outline) {
   const code = finding.code.toUpperCase();
   const global = /^(?:全文|body|document)$/iu.test(String(finding.location ?? "").trim());
   const lengthCode = /^(?:ARTICLE_TOO_(?:SHORT|LONG)|(?:BELOW|ABOVE)_TARGET_LENGTH|TARGET_LENGTH(?:_[A-Z_]+)?)$/u.test(code);
-  if (finding.dimension !== "structure" || !lengthCode && !(global && /字数|篇幅|字符|length/iu.test(finding.message))) return -1;
+  if (finding.dimension !== "structure" || !global || !lengthCode) return -1;
   const tooLong = /LONG|ABOVE|OVER/u.test(code) || /过长|超出|超过|too long|above|exceeds/iu.test(finding.message);
   const ratios = sections.map((section, index) => ({
     index,
@@ -706,7 +795,7 @@ export class ContentDirectorService {
     }
   }
 
-  async createJob(input, ctx, { internalBatchId = null } = {}) {
+  async createJob(input, ctx, { internalBatchId = null, awaitStart = false } = {}) {
     const actor = assertionAdmin(ctx);
     if (this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前功能处于 shadow 或 disabled 模式，只允许路由观测。");
     if (!input || typeof input !== "object" || Array.isArray(input)) fail(400, "CONTENT_DIRECTOR_INPUT_INVALID", "任务输入必须是对象。");
@@ -719,7 +808,7 @@ export class ContentDirectorService {
     const normalized = normalizeJobInput(route, { ...input, attachments }, claimIds);
     const stylePolicy = resolveArticleProsePolicy({ artifactKind: route.artifactKind, language: normalized.language, intent: normalized.intent });
     const attachmentBindings = this.#attachmentBindings(normalized.attachments, state);
-    const outcome = await this.#write("job_created", input, ctx, (next, { actor: writeActor, now, payload }) => {
+    const outcome = await this.#write("job_created", awaitStart ? { input, awaitStart } : input, ctx, (next, { actor: writeActor, now, payload }) => {
       for (const id of claimIds) {
         const claim = next.claims.find(row => row.id === id);
         if (!claim || claim.state !== "approved") fail(409, "CLAIM_CHANGED", "创建任务期间 Claim 状态已变化。");
@@ -777,7 +866,8 @@ export class ContentDirectorService {
         persona: YAO_AYI_PERSONA_CONTRACT,
         ...articleStyleFields(stylePolicy),
         input: normalized,
-        status: route.missing.length ? "needs_input" : "queued",
+        status: route.missing.length ? "needs_input" : (awaitStart ? "needs_resume" : "queued"),
+        ...(awaitStart ? { awaitingExplicitStart: true } : {}),
         revision: 1,
         stepRefs: [routeStep.id, ...(attachmentStep ? [attachmentStep.id] : [])],
         currentStep: "route.resolve",
@@ -801,7 +891,7 @@ export class ContentDirectorService {
     return outcome;
   }
 
-  async createBatch(input, ctx) {
+  async createBatch(input, ctx, { awaitStart = false } = {}) {
     const actor = assertionAdmin(ctx);
     if (this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前功能处于 shadow 或 disabled 模式，只允许路由观测。");
     const topics = Array.isArray(input?.topics) ? input.topics : [];
@@ -832,7 +922,7 @@ export class ContentDirectorService {
         attachmentBindings: this.#attachmentBindings(normalized.attachments, state),
       });
     }
-    const result = await this.#write("batch_created", input, ctx, (state, { actor: writeActor, now }) => {
+    const result = await this.#write("batch_created", awaitStart ? { input, awaitStart } : input, ctx, (state, { actor: writeActor, now }) => {
       for (const row of prepared) {
         for (const id of row.claimIds) {
           if (state.claims.find(claim => claim.id === id)?.state !== "approved") fail(409, "CLAIM_CHANGED", "批次建立期间 Claim 状态已变化。");
@@ -875,7 +965,8 @@ export class ContentDirectorService {
           persona: YAO_AYI_PERSONA_CONTRACT,
           ...articleStyleFields(row.stylePolicy),
           input: row.normalized,
-          status: row.route.missing.length ? "needs_input" : "queued",
+          status: row.route.missing.length ? "needs_input" : (awaitStart ? "needs_resume" : "queued"),
+          ...(awaitStart ? { awaitingExplicitStart: true } : {}),
           revision: 1,
           stepRefs: [routeStep.id],
           currentStep: "route.resolve",
@@ -900,7 +991,7 @@ export class ContentDirectorService {
         schema: "pengmanager.content-batch/v1",
         name: boundedText(input.name ?? "未命名内容批次", "批次名称", 240),
         jobIds: jobs.map(job => job.id),
-        status: jobs.some(job => job.status === "needs_input") ? "needs_input" : "queued",
+        status: jobs.some(job => job.status === "needs_input") ? "needs_input" : (awaitStart ? "needs_resume" : "queued"),
         pauseRequested: false,
         createdBy: writeActor,
         createdAt: at,
@@ -913,7 +1004,7 @@ export class ContentDirectorService {
         jobs: jobs.map(job => contentDirectorEntity(job)),
       };
     });
-    if (this.autoStart) {
+    if (this.autoStart && !awaitStart) {
       for (const job of result.jobs) if (!job.missing?.length) this.#schedule(job.id);
     }
     return result;
@@ -1003,6 +1094,7 @@ export class ContentDirectorService {
     assertionAdmin(ctx);
     const action = input?.action;
     if (!["pause", "resume", "cancel"].includes(action)) fail(400, "CONTENT_BATCH_ACTION_INVALID", "批次操作必须是 pause、resume 或 cancel。");
+    if (action === "resume" && this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前模式无法启动批次。");
     const result = await this.#write(`batch_control:${id}:${action}`, input, ctx, (state, { actor, now }) => {
       const batch = state.contentBatches.find(row => row.id === id);
       if (!batch) fail(404, "CONTENT_BATCH_NOT_FOUND", "找不到内容批次。");
@@ -1019,6 +1111,7 @@ export class ContentDirectorService {
         } else if (action === "resume") {
           if (job.status !== "needs_resume") continue;
           job.pauseRequested = false;
+          delete job.awaitingExplicitStart;
           job.status = "queued";
         } else {
           if (TERMINAL.has(job.status) && job.status !== "failed") continue;
@@ -1132,7 +1225,13 @@ export class ContentDirectorService {
     if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !allowed.has(key))) {
       fail(400, "CONTENT_BRIEF_INVALID", "Brief 修改字段无效。");
     }
-    const merged = { ...current.input, ...structuredClone(input), explicitKind: current.artifactKind };
+    const priorTargetLength = current.route.targetLength ?? current.input.targetLength;
+    const merged = {
+      ...current.input,
+      ...structuredClone(input),
+      explicitKind: current.artifactKind,
+      ...(priorTargetLength ? { targetLength: { ...priorTargetLength, ...input.targetLength } } : {}),
+    };
     const route = await this.resolveIntent(merged);
     if (route.artifactKind !== current.artifactKind) {
       fail(409, "CONTENT_ROUTE_CHANGE_REQUIRES_NEW_JOB", "切换内容生产线必须创建新 Job，不能改写原执行记录。");
@@ -1152,7 +1251,7 @@ export class ContentDirectorService {
       if (stylePolicy) job.stylePolicy = stylePolicy;
       job.route = route;
       job.missing = upsertMissing(route.missing);
-      job.status = job.missing.length ? "needs_input" : "queued";
+      job.status = job.missing.length ? "needs_input" : (job.awaitingExplicitStart ? "needs_resume" : "queued");
       job.resultRef = null;
       job.resultHash = null;
       job.visualSpecIds = [];
@@ -1171,6 +1270,7 @@ export class ContentDirectorService {
 
   async freezeOutline(id, input, ctx) {
     assertionAdmin(ctx);
+    if (input?.autoContinue === true && this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前模式无法启动文章任务。");
     const current = await this.getJob(id);
     assertJobVersion(current, ctx.ifMatch);
     if (!["article", "article_visual"].includes(current.artifactKind)) fail(409, "CONTENT_OUTLINE_NOT_APPLICABLE", "只有文章生产线可以冻结提纲。");
@@ -1179,8 +1279,10 @@ export class ContentDirectorService {
     }
     const brief = await this.#briefContext(current);
     const outline = validateOutline(input?.outline, brief);
+    const autoContinue = input?.autoContinue === true;
     const artifact = await this.#writeArtifact(id, `outline-frozen-${hashObject(outline).slice(0, 12)}.json`, outline, "application/json");
-    await this.#write(`outline_frozen:${id}`, { outline }, ctx, (state, { actor, now }) => {
+    const writeInput = current.awaitingExplicitStart ? { outline, autoContinue } : { outline };
+    await this.#write(`outline_frozen:${id}`, writeInput, ctx, (state, { actor, now }) => {
       const job = state.contentDirectorJobs.find(row => row.id === id);
       assertJobVersion(job, ctx.ifMatch);
       const revision = {
@@ -1198,7 +1300,8 @@ export class ContentDirectorService {
       if (!job.artifacts.some(item => item.name === artifact.name && item.sha256 === artifact.sha256)) job.artifacts.push(artifact);
       job.outlineRef = { revisionId: revision.id, hash: revision.hash, artifact };
       job.missing = [];
-      job.status = "queued";
+      if (autoContinue) delete job.awaitingExplicitStart;
+      job.status = job.awaitingExplicitStart ? "needs_resume" : "queued";
       job.error = null;
       job.pauseRequested = false;
       job.resultRef = null;
@@ -1210,7 +1313,7 @@ export class ContentDirectorService {
       job.updatedAt = now.toISOString();
       return contentDirectorEntity(job);
     });
-    if (input?.autoContinue === true && this.autoStart) this.#schedule(id);
+    if (autoContinue && this.autoStart) this.#schedule(id);
     return this.getJob(id);
   }
 
@@ -1336,6 +1439,7 @@ export class ContentDirectorService {
 
   async startJob(id, ctx) {
     const actor = assertionAdmin(ctx);
+    if (this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前模式无法启动内容任务。");
     const job = await this.#readJob(id);
     const scope = "article_illustration_upgrade:" + id;
     const keyHash = hashObject({ actor, scope, key: ctx.idempotencyKey });
@@ -1351,6 +1455,7 @@ export class ContentDirectorService {
       payload: { jobId: id },
     }, state => {
       const row = state.contentDirectorJobs.find(item => item.id === id);
+      delete row.awaitingExplicitStart;
       row.status = "queued";
       row.error = null;
       row.pauseRequested = false;
@@ -1385,6 +1490,7 @@ export class ContentDirectorService {
     const brief = await this.#briefContext(job);
     const deterministic = deterministicArticleFindings(article, {
       ...brief.targetLength,
+      stylePolicy: job.stylePolicy,
       allowedUrls: [...original.research.sources.map(row => row.url), ...brief.claims.map(row => row.source)
         .filter(value => /^https?:\/\//iu.test(String(value)))],
       mustKeep: brief.mustKeep,
@@ -1496,6 +1602,7 @@ export class ContentDirectorService {
 
   async resumeJob(id, ctx) {
     assertionAdmin(ctx);
+    if (this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前模式无法恢复执行内容任务。");
     const job = await this.getJob(id);
     assertJobVersion(job, ctx.ifMatch);
     if (!["needs_resume", "running"].includes(job.status) || job.pauseRequested !== true) {
@@ -1505,6 +1612,7 @@ export class ContentDirectorService {
       const row = state.contentDirectorJobs.find(item => item.id === id);
       assertJobVersion(row, ctx.ifMatch);
       row.pauseRequested = false;
+      delete row.awaitingExplicitStart;
       row.status = "queued";
       row.revision += 1;
       row.updatedAt = this.clock().toISOString();
@@ -1850,6 +1958,7 @@ export class ContentDirectorService {
       ];
       const deterministicFindings = deterministicArticleFindings(article, {
         ...job.route.targetLength,
+        stylePolicy: job.stylePolicy,
         allowedUrls,
         mustKeep: job.input.mustKeep,
         mustAvoid: job.input.mustAvoid,
@@ -2131,7 +2240,8 @@ export class ContentDirectorService {
     this.#draining = Promise.resolve().then(() => this.#drain()).finally(() => {
       this.#draining = null;
       try {
-        const queued = this.store.snapshot().contentDirectorJobs.some(job => job.status === "queued" && !job.pauseRequested && !this.#running.has(job.id));
+        const queued = this.store.snapshot().contentDirectorJobs.some(job => job.status === "queued" &&
+          !job.awaitingExplicitStart && !job.pauseRequested && !this.#running.has(job.id));
         if (queued && this.#running.size < MAX_JOBS_RUNNING) this.#scheduleDrain();
       } catch (error) {
         if (error?.code !== "STATE_STORE_CLOSED") this.#schedulerError = error;
@@ -2143,7 +2253,7 @@ export class ContentDirectorService {
     while (this.#running.size < MAX_JOBS_RUNNING) {
       const state = this.state();
       const candidate = [...state.contentDirectorJobs]
-        .filter(job => job.status === "queued" && !job.pauseRequested && !this.#running.has(job.id))
+        .filter(job => job.status === "queued" && !job.awaitingExplicitStart && !job.pauseRequested && !this.#running.has(job.id))
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))[0];
       if (!candidate) return;
       this.#scheduled.delete(candidate.id);
@@ -2429,8 +2539,9 @@ export class ContentDirectorService {
       sections.push(drafted);
     }
 
+    let title = outline.title;
     const buildArticle = rows => ({
-      title: outline.title,
+      title,
       summary: outline.summary,
       body: composeArticleBody(rows),
       sections: rows,
@@ -2445,11 +2556,16 @@ export class ContentDirectorService {
     step = await this.#beginStep(id, "article.assemble", assembleKey, { sectionCount: sections.length, outlineHash });
     const assembledHash = articleHash(article, job.persona ?? YAO_AYI_PERSONA_CONTRACT);
     const assembledArtifact = await this.#writeArtifact(id, `article-${assembledHash.slice(0, 12)}.md`, article.body, "text/markdown");
-    await this.#finishStep(id, step, { output: { articleHash: assembledHash, characters: article.body.replace(/\s+/g, "").length }, artifact: assembledArtifact });
+    const lengthOptions = { ...brief.targetLength, stylePolicy: job.stylePolicy };
+    await this.#finishStep(id, step, {
+      output: { articleHash: assembledHash, characters: articleTextLength(article.body, lengthOptions).characters },
+      artifact: assembledArtifact,
+    });
 
     const allowedUrls = [...research.sources.map(row => row.url), ...brief.claims.map(row => row.source).filter(value => /^https?:\/\//i.test(String(value)))];
     let deterministicFindings = deterministicArticleFindings(article, {
       ...brief.targetLength,
+      stylePolicy: job.stylePolicy,
       allowedUrls,
       mustKeep: brief.mustKeep,
       mustAvoid: brief.mustAvoid,
@@ -2465,24 +2581,25 @@ export class ContentDirectorService {
     let blocking = openArticleBlockers(report.findings, { preflight: true });
     for (let round = 1; round <= 2 && blocking.length; round += 1) {
       const assignments = new Map();
+      const titleFindings = [];
+      const unassigned = [];
       for (const finding of blocking) {
-        let index = locateRepairSection(finding, outline);
-        if (index < 0) index = globalLengthSection(finding, sections, outline);
-        if (!outline.sections[index]) continue;
-        if (!assignments.has(index)) assignments.set(index, []);
-        assignments.get(index).push(finding);
+        if (canRepairArticleTitle(finding, job.stylePolicy)) {
+          titleFindings.push(finding);
+          continue;
+        }
+        const scopedRepairs = assignSectionRepairs(finding, sections, outline);
+        if (!scopedRepairs.length) unassigned.push(finding);
+        for (const [index, scoped] of scopedRepairs) {
+          if (!assignments.has(index)) assignments.set(index, []);
+          assignments.get(index).push(scoped);
+        }
       }
 
-      if (!assignments.size) break;
+      if (!assignments.size && !titleFindings.length) break;
 
       for (const [index, findings] of assignments) {
         await this.#assertLive(id);
-        const sectionFindings = findings.map(finding => ({
-          ...finding,
-          allowedChanges: finding.allowedChanges?.length
-            ? finding.allowedChanges
-            : [`section:${index}`],
-        }));
         sections[index] = await this.#repairSection(id, {
           brief,
           ...articleStyleFields(job.stylePolicy),
@@ -2490,14 +2607,27 @@ export class ContentDirectorService {
           outline,
           section: outline.sections[index],
           currentSection: sections[index],
-          findings: sectionFindings,
+          findings,
           round,
         }, outline.sections[index], index, authorizedClaimIds, hashObject(sections[index]));
+      }
+
+      if (titleFindings.length) {
+        await this.#assertLive(id);
+        title = await this.#repairArticleTitle(id, {
+          brief,
+          ...articleStyleFields(job.stylePolicy),
+          article: buildArticle(sections),
+          currentTitle: title,
+          findings: titleFindings,
+          round,
+        });
       }
 
       article = buildArticle(sections);
       deterministicFindings = deterministicArticleFindings(article, {
         ...brief.targetLength,
+        stylePolicy: job.stylePolicy,
         allowedUrls,
         mustKeep: brief.mustKeep,
         mustAvoid: brief.mustAvoid,
@@ -2509,11 +2639,13 @@ export class ContentDirectorService {
         brief,
         research,
         deterministicFindings,
+        retainedFindings: unassigned,
         repairRound: round,
       });
       blocking = openArticleBlockers(report.findings, { preflight: true });
     }
 
+    if (title !== outline.title) outline = { ...outline, title };
     if (!blocking.length) {
       const draft = { article, outline, research, briefHash, preflightReportHash: report.reportHash };
       const design = await this.#writeIllustrationDraft(job, draft);
@@ -2632,6 +2764,7 @@ export class ContentDirectorService {
     const allowedUrls = [...research.sources.map(row => row.url), ...brief.claims.map(row => row.source).filter(value => /^https?:\/\//i.test(String(value)))];
     const deterministicFindings = deterministicArticleFindings(article, {
       ...brief.targetLength,
+      stylePolicy: job.stylePolicy,
       allowedUrls,
       mustKeep: brief.mustKeep,
       mustAvoid: brief.mustAvoid,
@@ -2694,6 +2827,26 @@ export class ContentDirectorService {
     }, "content_director.job_result_frozen");
   }
 
+  async #repairArticleTitle(id, input) {
+    const beforeHash = hashObject(input.currentTitle);
+    const key = `article-title:round-${input.round}:${hashObject(input)}`;
+    const cached = this.#successfulStep(id, "article.repair", key);
+    if (cached?.artifact?.name) return validateRepairedArticleTitle(await this.#stepJsonArtifact(id, cached));
+    if (typeof this.model.repairArticleTitle !== "function") {
+      fail(503, "CONTENT_REPAIR_UNAVAILABLE", "当前模型适配器不支持定点主标题修复。");
+    }
+
+    const step = await this.#beginStep(id, "article.repair", key, input);
+    const result = await this.model.repairArticleTitle(input);
+    const title = validateRepairedArticleTitle(result.value);
+    const afterHash = hashObject(title);
+    const output = { location: "title", round: input.round, beforeHash, afterHash, findingIds: input.findings.map(finding => finding.id) };
+    const artifact = await this.#writeArtifact(id, `repair-article-title-r${input.round}-${afterHash.slice(0, 10)}.json`, { title }, "application/json");
+    await this.#finishStep(id, step, { output, artifact, receipt: result.receipt });
+    await this.#recordArticleRepair(id, { ...output, artifact });
+    return title;
+  }
+
   async #repairSection(id, input, section, sectionIndex, authorizedClaimIds, beforeHash) {
     const allowedChanges = input.findings.flatMap(finding => finding.allowedChanges ?? []);
     const allowsWholeSection = allowedChanges.some(value => value === section.key
@@ -2746,22 +2899,34 @@ export class ContentDirectorService {
       artifact,
       receipt: result.receipt,
     });
-    await this.store.mutate({ type: "content_director.repair_recorded", actor: "content-director-worker", payload: { jobId: id, sectionKey: section.key, round: input.round } }, state => {
+    await this.#recordArticleRepair(id, {
+      sectionKey: section.key,
+      round: input.round,
+      findingIds: input.findings.map(finding => finding.id),
+      beforeHash,
+      afterHash: hashObject(repaired),
+      artifact,
+    });
+    return repaired;
+  }
+
+  async #recordArticleRepair(id, { sectionKey, location, round, findingIds, beforeHash, afterHash, artifact }) {
+    const target = location ? { location } : { sectionKey };
+    await this.store.mutate({ type: "content_director.repair_recorded", actor: "content-director-worker", payload: { jobId: id, ...target, round } }, state => {
       state.contentRepairAttempts.push({
         id: `CRP-${randomBytes(10).toString("hex")}`,
         schema: "pengmanager.content-repair-attempt/v1",
         jobId: id,
-        sectionKey: section.key,
-        round: input.round,
-        findingIds: input.findings.map(finding => finding.id),
+        ...target,
+        round,
+        findingIds,
         beforeHash,
-        afterHash: hashObject(repaired),
+        afterHash,
         artifact,
         createdAt: this.clock().toISOString(),
       });
       return null;
     });
-    return repaired;
   }
 
   async #auditArticle(id, { phase, article, brief, research, deterministicFindings, retainedFindings = [], visuals = [], repairRound = 0, final = false }) {

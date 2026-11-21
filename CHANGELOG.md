@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.5 — 2026-11-21
+
+- Default every new text or illustrated article to 500–800 body characters and three naturally placed subheadings. Keep Yao Ayi's voice across courtyard, craft, and explainer articles in both supported languages. Explicit length requests remain supported.
+- Ground main titles in specific moments, gestures, or modest contrasts that the article delivers. Support independent title repair and re-review without changing the body.
+- Use normalized, bounded scope when an article review gives a precise location and descriptive edit instructions. Send older article generation entry points through Content Director.
+
 ## 0.6.4 — 2026-11-21
 
 - Suggest section counts from the target length of new Chinese courtyard articles. Use brief headings drawn from the corresponding passage and place section breaks where the subject changes.
