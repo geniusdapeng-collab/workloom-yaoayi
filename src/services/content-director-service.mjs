@@ -5,6 +5,7 @@ import { Readable } from "node:stream";
 import { ApiError } from "../domain/errors.mjs";
 import { hashObject } from "../domain/hash.mjs";
 import { YAO_AYI_PERSONA_CONTRACT } from "../domain/persona.mjs";
+import { scanSensitiveText } from "../domain/policy.mjs";
 import { requirePublicUrl } from "../domain/public-url.mjs";
 import {
   ARTICLE_ILLUSTRATION_HANDOFF,
@@ -1564,10 +1565,12 @@ export class ContentDirectorService {
           ...ctx,
           idempotencyKey: hashObject({ jobId: id, visualId: visual.id, action: "upload" }).slice(0, 64),
         };
+        // An internal hash can resemble a phone number. Preserve accepted display names for idempotent replays.
+        const name = scanSensitiveText(image.name).length ? undefined : image.name;
         const asset = await this.mediaAssets.upload(Readable.from([bytes]), {
           contentType: image.mime,
           contentLength: bytes.length,
-          name: image.name,
+          name,
           expectedSha256: image.sha256,
         }, uploadCtx);
         const reviewed = await this.mediaAssets.review(asset.id, {

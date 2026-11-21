@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
+import crypto, { createHash, randomUUID } from "node:crypto";
 import { appendFile, mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { Readable } from "node:stream";
 import sharp from "sharp";
 import { JsonStore } from "../src/storage/json-store.mjs";
 import { loadSeedState, migrateEditorialState } from "../src/services/bootstrap.mjs";
@@ -16,6 +18,7 @@ import { ContentDirectorService } from "../src/services/content-director-service
 import { ContentDirectorModel } from "../src/services/content-director-model.mjs";
 import { MediaAssets } from "../src/services/media-assets.mjs";
 import { hashObject } from "../src/domain/hash.mjs";
+import { scanSensitiveText } from "../src/domain/policy.mjs";
 import { bindFixtureArticleIllustrations, fixtureArticleIllustrationVerifier, processIllustratedArticle } from "./article-illustration-fixture.mjs";
 
 const context = () => ({ method: "local", actor: "isolated content director reviewer", idempotencyKey: randomUUID() });
@@ -859,6 +862,74 @@ test("verified illustrations and optional technical diagrams are imported into t
   assert.equal(materialized.edition.assetRefs[0].role, "image");
   assert.equal(f.mediaAssets.getAsset(materialized.edition.assetRefs[0].assetId).status, "reviewed");
   assert.ok(materialized.edition.blocks.some(block => block.type === "image"));
+});
+
+test("visual materialization omits a generated name that resembles private metadata and replays a legacy named upload", async t => {
+  const model = new StubModel();
+  const plan = await model.planVisuals();
+  plan.value.visuals.push({
+    ...plan.value.visuals[0],
+    kind: "flow",
+    title: "审核与回执流程",
+    alt: "从任务输入到审核和回执的流程图",
+    caption: "图 2：流程和回执",
+  });
+  model.planVisuals = async () => plan;
+  const f = await fixture(t, model);
+  const ctx = context();
+  // Pin the Job ID so the second normally rendered file always matches the phone pattern.
+  const fixedId = Buffer.from("00000000000000000034", "hex");
+  const random = t.mock.method(crypto, "randomBytes", () => fixedId, { times: 1 });
+  syncBuiltinESMExports();
+  let job;
+  try {
+    job = await f.director.createJob({
+      intent: "只做两张图：架构图和流程图",
+      explicitKind: "pure_visual",
+      claimIds: ["C003"],
+    }, ctx);
+  } finally {
+    random.mock.restore();
+    syncBuiltinESMExports();
+  }
+  assert.equal(job.id, `CDJ-${fixedId.toString("hex")}`);
+  const pending = await f.director.processJob(job.id);
+  const [legacyVisual, unnamedVisual] = pending.result.visuals;
+  const legacyImage = legacyVisual.artifacts.find(artifact => artifact.mime === "image/png");
+  const unnamedImage = unnamedVisual.artifacts.find(artifact => artifact.mime === "image/png");
+  assert.deepEqual(scanSensitiveText(legacyImage.name), []);
+  assert.deepEqual(scanSensitiveText(unnamedImage.name).map(finding => finding.kind), ["phone"]);
+  const legacyFile = await f.director.readArtifact(job.id, legacyImage.name);
+  const unnamedFile = await f.director.readArtifact(job.id, unnamedImage.name);
+  await assert.rejects(f.mediaAssets.upload(Readable.from([unnamedFile.bytes]), {
+    contentType: unnamedImage.mime,
+    name: unnamedImage.name,
+  }, context()), { code: "MEDIA_SENSITIVE_METADATA" });
+  const staged = await f.mediaAssets.upload(Readable.from([legacyFile.bytes]), {
+    contentType: legacyImage.mime,
+    contentLength: legacyFile.bytes.length,
+    name: legacyImage.name,
+    expectedSha256: legacyImage.sha256,
+  }, {
+    ...ctx,
+    idempotencyKey: hashObject({ jobId: job.id, visualId: legacyVisual.id, action: "upload" }),
+  });
+  const approved = await f.director.approveJob(job.id, {
+    reviewed: true,
+    contentHash: pending.result.contentHash,
+  }, { ...context(), ifMatch: pending.etag });
+  const materialized = await f.director.materializeEdition(job.id, {
+    contentHash: pending.result.contentHash,
+    visualRightsConfirmed: true,
+    visualRightsNote: "Isolated rendered fixture reviewed for exact content and rights.",
+  }, { ...context(), ifMatch: approved.etag });
+  const assets = materialized.edition.assetRefs.map(ref => f.mediaAssets.getAsset(ref.assetId));
+  assert.deepEqual(assets.map(asset => asset.sha256), [legacyImage.sha256, unnamedImage.sha256]);
+  assert.deepEqual(assets.map(asset => asset.status), ["reviewed", "reviewed"]);
+  assert.equal(assets[0].id, staged.id);
+  assert.equal(assets[0].name, legacyImage.name);
+  assert.equal(Object.hasOwn(assets[1], "name"), false);
+  assert.equal(f.mediaAssets.listAssets().items.length, 2);
 });
 
 test("approved article materializes as an immutable editorial edition", async t => {
