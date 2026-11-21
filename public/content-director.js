@@ -281,7 +281,7 @@ export function mountContentDirector({ api, getData, showError } = {}) {
       ${state.publication?.jobId === job.id ? `<section class="cd-result"><h4>发布状态</h4><pre>${html(JSON.stringify(state.publication.statuses, null, 2))}</pre><p>公开页面已发布：${state.publication.statuses?.publicSitePublished ? "是（真实回读）" : "否"}；外部平台已发布：${state.publication.statuses?.externalPlatformPublished ? "是（真实回执）" : "否"}。</p></section>` : ""}
       <div class="cd-actions">
         ${["queued", "running"].includes(job.status) ? `<button class="ghost-button" type="button" data-cd-action="pause">请求暂停</button>` : ""}
-        ${!visualGate && job.status === "needs_resume" && !job.missing?.length ? `<button class="primary-button" type="button" data-cd-action="resume">继续执行</button>` : ""}
+        ${!visualGate && job.status === "needs_resume" && !job.missing?.length ? `<button class="primary-button" type="button" data-cd-action="${job.awaitingExplicitStart ? "start" : "resume"}">${job.awaitingExplicitStart ? "启动写作" : "继续执行"}</button>` : ""}
         ${!visualGate && ["failed", "blocked"].includes(job.status) && !job.missing?.length ? `<button class="primary-button" type="button" data-cd-action="repair">按现有 finding 重试</button>` : ""}
         ${["queued", "running", "needs_resume", "needs_input", "blocked", "failed"].includes(job.status) ? `<button class="ghost-button" type="button" data-cd-action="cancel">取消</button>` : ""}
         ${["approved", "completed"].includes(job.status) ? `<button class="ghost-button" type="button" data-cd-action="publication">读取发布状态</button>` : ""}

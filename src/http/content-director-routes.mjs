@@ -138,7 +138,7 @@ export async function routeContentDirector({
   if (batchAction) {
     if (request.method !== "POST") { methodNotAllowed(response, ["POST"]); return true; }
     await readJsonBody(request);
-    const payload = await contentDirector.controlBatch(batch[1], { action: batchAction[2] }, ctx);
+    const payload = await contentDirector.controlBatch(batchAction[1], { action: batchAction[2] }, ctx);
     writeJson(response, 200, payload, payload.etag ? { ETag: payload.etag } : {});
     return true;
   }

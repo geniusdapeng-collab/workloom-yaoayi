@@ -355,7 +355,8 @@ function assignSectionRepairs(finding, sections, outline) {
       for (let paragraph = first; paragraph <= last; paragraph += 1) explicitParagraphs.add(paragraph);
       continue;
     }
-    if (/^(?:title$|(?:section|paragraph)[-:]\S+(?:$|\s*[;,；，]))/iu.test(token)) return [];
+    if (/^[A-Za-z0-9_-]+$/u.test(token) ||
+        /^(?:title$|(?:section|paragraph)[-:]\S+(?:$|\s*[;,；，]))/iu.test(token)) return [];
     if (token) repairNotes.push(token);
   }
 
@@ -866,6 +867,7 @@ export class ContentDirectorService {
         ...articleStyleFields(stylePolicy),
         input: normalized,
         status: route.missing.length ? "needs_input" : (awaitStart ? "needs_resume" : "queued"),
+        ...(awaitStart ? { awaitingExplicitStart: true } : {}),
         revision: 1,
         stepRefs: [routeStep.id, ...(attachmentStep ? [attachmentStep.id] : [])],
         currentStep: "route.resolve",
@@ -964,6 +966,7 @@ export class ContentDirectorService {
           ...articleStyleFields(row.stylePolicy),
           input: row.normalized,
           status: row.route.missing.length ? "needs_input" : (awaitStart ? "needs_resume" : "queued"),
+          ...(awaitStart ? { awaitingExplicitStart: true } : {}),
           revision: 1,
           stepRefs: [routeStep.id],
           currentStep: "route.resolve",
@@ -1091,6 +1094,7 @@ export class ContentDirectorService {
     assertionAdmin(ctx);
     const action = input?.action;
     if (!["pause", "resume", "cancel"].includes(action)) fail(400, "CONTENT_BATCH_ACTION_INVALID", "批次操作必须是 pause、resume 或 cancel。");
+    if (action === "resume" && this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前模式无法启动批次。");
     const result = await this.#write(`batch_control:${id}:${action}`, input, ctx, (state, { actor, now }) => {
       const batch = state.contentBatches.find(row => row.id === id);
       if (!batch) fail(404, "CONTENT_BATCH_NOT_FOUND", "找不到内容批次。");
@@ -1107,6 +1111,7 @@ export class ContentDirectorService {
         } else if (action === "resume") {
           if (job.status !== "needs_resume") continue;
           job.pauseRequested = false;
+          delete job.awaitingExplicitStart;
           job.status = "queued";
         } else {
           if (TERMINAL.has(job.status) && job.status !== "failed") continue;
@@ -1246,7 +1251,7 @@ export class ContentDirectorService {
       if (stylePolicy) job.stylePolicy = stylePolicy;
       job.route = route;
       job.missing = upsertMissing(route.missing);
-      job.status = job.missing.length ? "needs_input" : "queued";
+      job.status = job.missing.length ? "needs_input" : (job.awaitingExplicitStart ? "needs_resume" : "queued");
       job.resultRef = null;
       job.resultHash = null;
       job.visualSpecIds = [];
@@ -1265,6 +1270,7 @@ export class ContentDirectorService {
 
   async freezeOutline(id, input, ctx) {
     assertionAdmin(ctx);
+    if (input?.autoContinue === true && this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前模式无法启动文章任务。");
     const current = await this.getJob(id);
     assertJobVersion(current, ctx.ifMatch);
     if (!["article", "article_visual"].includes(current.artifactKind)) fail(409, "CONTENT_OUTLINE_NOT_APPLICABLE", "只有文章生产线可以冻结提纲。");
@@ -1273,8 +1279,10 @@ export class ContentDirectorService {
     }
     const brief = await this.#briefContext(current);
     const outline = validateOutline(input?.outline, brief);
+    const autoContinue = input?.autoContinue === true;
     const artifact = await this.#writeArtifact(id, `outline-frozen-${hashObject(outline).slice(0, 12)}.json`, outline, "application/json");
-    await this.#write(`outline_frozen:${id}`, { outline }, ctx, (state, { actor, now }) => {
+    const writeInput = current.awaitingExplicitStart ? { outline, autoContinue } : { outline };
+    await this.#write(`outline_frozen:${id}`, writeInput, ctx, (state, { actor, now }) => {
       const job = state.contentDirectorJobs.find(row => row.id === id);
       assertJobVersion(job, ctx.ifMatch);
       const revision = {
@@ -1292,7 +1300,8 @@ export class ContentDirectorService {
       if (!job.artifacts.some(item => item.name === artifact.name && item.sha256 === artifact.sha256)) job.artifacts.push(artifact);
       job.outlineRef = { revisionId: revision.id, hash: revision.hash, artifact };
       job.missing = [];
-      job.status = "queued";
+      if (autoContinue) delete job.awaitingExplicitStart;
+      job.status = job.awaitingExplicitStart ? "needs_resume" : "queued";
       job.error = null;
       job.pauseRequested = false;
       job.resultRef = null;
@@ -1304,7 +1313,7 @@ export class ContentDirectorService {
       job.updatedAt = now.toISOString();
       return contentDirectorEntity(job);
     });
-    if (input?.autoContinue === true && this.autoStart) this.#schedule(id);
+    if (autoContinue && this.autoStart) this.#schedule(id);
     return this.getJob(id);
   }
 
@@ -1430,6 +1439,7 @@ export class ContentDirectorService {
 
   async startJob(id, ctx) {
     const actor = assertionAdmin(ctx);
+    if (this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前模式无法启动内容任务。");
     const job = await this.#readJob(id);
     const scope = "article_illustration_upgrade:" + id;
     const keyHash = hashObject({ actor, scope, key: ctx.idempotencyKey });
@@ -1445,6 +1455,7 @@ export class ContentDirectorService {
       payload: { jobId: id },
     }, state => {
       const row = state.contentDirectorJobs.find(item => item.id === id);
+      delete row.awaitingExplicitStart;
       row.status = "queued";
       row.error = null;
       row.pauseRequested = false;
@@ -1591,6 +1602,7 @@ export class ContentDirectorService {
 
   async resumeJob(id, ctx) {
     assertionAdmin(ctx);
+    if (this.mode !== "enabled") fail(409, "CONTENT_DIRECTOR_READ_ONLY", "当前模式无法恢复执行内容任务。");
     const job = await this.getJob(id);
     assertJobVersion(job, ctx.ifMatch);
     if (!["needs_resume", "running"].includes(job.status) || job.pauseRequested !== true) {
@@ -1600,6 +1612,7 @@ export class ContentDirectorService {
       const row = state.contentDirectorJobs.find(item => item.id === id);
       assertJobVersion(row, ctx.ifMatch);
       row.pauseRequested = false;
+      delete row.awaitingExplicitStart;
       row.status = "queued";
       row.revision += 1;
       row.updatedAt = this.clock().toISOString();
@@ -2227,7 +2240,8 @@ export class ContentDirectorService {
     this.#draining = Promise.resolve().then(() => this.#drain()).finally(() => {
       this.#draining = null;
       try {
-        const queued = this.store.snapshot().contentDirectorJobs.some(job => job.status === "queued" && !job.pauseRequested && !this.#running.has(job.id));
+        const queued = this.store.snapshot().contentDirectorJobs.some(job => job.status === "queued" &&
+          !job.awaitingExplicitStart && !job.pauseRequested && !this.#running.has(job.id));
         if (queued && this.#running.size < MAX_JOBS_RUNNING) this.#scheduleDrain();
       } catch (error) {
         if (error?.code !== "STATE_STORE_CLOSED") this.#schedulerError = error;
@@ -2239,7 +2253,7 @@ export class ContentDirectorService {
     while (this.#running.size < MAX_JOBS_RUNNING) {
       const state = this.state();
       const candidate = [...state.contentDirectorJobs]
-        .filter(job => job.status === "queued" && !job.pauseRequested && !this.#running.has(job.id))
+        .filter(job => job.status === "queued" && !job.awaitingExplicitStart && !job.pauseRequested && !this.#running.has(job.id))
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))[0];
       if (!candidate) return;
       this.#scheduled.delete(candidate.id);

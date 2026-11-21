@@ -933,6 +933,7 @@ test("exact audit locations recover section and paragraph scopes without interpr
 test("conflicting, ambiguous and out-of-range repair scope remains blocked", async t => {
   const cases = [
     ["section:problem", ["section:system"]],
+    ["section:problem", ["s2-typo"]],
     ["around section:problem", ["删掉没有依据的句子。"]],
     ["section:problem; paragraph:2-99", ["删掉没有依据的句子。"]],
     ["section:problem; paragraph:2-3", ["paragraph:1"]],

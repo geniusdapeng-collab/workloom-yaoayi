@@ -91,6 +91,7 @@ export function assertContentDirectorStateIntegrity(state) {
         !job.route || typeof job.route !== "object" || !Array.isArray(job.stepRefs) ||
         job.stepRefs.some(id => !stepIds.has(id))) invalid();
     if (job.batchId && !state.contentBatches.some(row => row.id === job.batchId)) invalid();
+    if (Object.hasOwn(job, "awaitingExplicitStart") && job.awaitingExplicitStart !== true) invalid();
     if (job.persona && !isYaoAyiPersonaContract(job.persona)) invalid();
     if (Object.hasOwn(job, "stylePolicy") && (
       !["article", "article_visual"].includes(job.artifactKind) ||
