@@ -1,3 +1,4 @@
+import { isArticleProsePolicyRef } from "./article-prose-policy.mjs";
 import { ApiError } from "./errors.mjs";
 import { hashObject } from "./hash.mjs";
 import { isYaoAyiPersonaContract, personaFindings } from "./persona.mjs";
@@ -91,6 +92,10 @@ export function assertContentDirectorStateIntegrity(state) {
         job.stepRefs.some(id => !stepIds.has(id))) invalid();
     if (job.batchId && !state.contentBatches.some(row => row.id === job.batchId)) invalid();
     if (job.persona && !isYaoAyiPersonaContract(job.persona)) invalid();
+    if (Object.hasOwn(job, "stylePolicy") && (
+      !["article", "article_visual"].includes(job.artifactKind) || job.input?.language !== "zh-CN" ||
+      !isArticleProsePolicyRef(job.stylePolicy)
+    )) invalid();
     if (!Array.isArray(job.artifacts) || new Set(job.artifacts.map(row => row.name)).size !== job.artifacts.length) invalid();
     if (job.visualSpecIds?.some(id => !state.visualSpecs.some(row => row.id === id))) invalid();
   }

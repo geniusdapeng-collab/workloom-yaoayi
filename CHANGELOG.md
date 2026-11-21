@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2 — 2026-11-21
+
+- Freeze a versioned prose policy on new Chinese article jobs and reuse it throughout drafting, repair, AI review and final acceptance.
+- Show the proposed article policy in the read-only workbench plan. Preserve earlier jobs, photo receipts and the canonical persona contract.
+- Align the deployment package manifest with the Yao Ayi installer and test the two tools together.
+
 ## 0.6.1 — 2026-11-21
 
 - Require at least three distinct reviewed inline article photographs or illustrations before final acceptance and publication.

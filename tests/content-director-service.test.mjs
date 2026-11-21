@@ -17,6 +17,7 @@ import { EditorialService } from "../src/services/editorial-service.mjs";
 import { ContentDirectorService } from "../src/services/content-director-service.mjs";
 import { ContentDirectorModel } from "../src/services/content-director-model.mjs";
 import { MediaAssets } from "../src/services/media-assets.mjs";
+import { resolveArticleProsePolicy } from "../src/domain/article-prose-policy.mjs";
 import { hashObject } from "../src/domain/hash.mjs";
 import { scanSensitiveText } from "../src/domain/policy.mjs";
 import { bindFixtureArticleIllustrations, fixtureArticleIllustrationVerifier, processIllustratedArticle } from "./article-illustration-fixture.mjs";
@@ -244,6 +245,157 @@ async function fixture(t, model = new StubModel(), articleIllustrationVerifier =
   t.after(async () => { await store.close(); await rm(directory, { recursive: true, force: true }); });
   return { directory, store, editorial, mediaAssets, director };
 }
+
+test("new Chinese article Jobs and batch topics freeze the server-selected prose policy", async t => {
+  const f = await fixture(t);
+  const article = { intent: "写一篇姚阿姨的小院日记", explicitKind: "article", claimIds: ["C003"] };
+  const ctx = context();
+  const forgedPolicy = { id: "external", version: "3.0.0", genre: "handcraft", sha256: "0".repeat(64) };
+  const job = await f.director.createJob({ ...article, stylePolicy: forgedPolicy }, ctx);
+  assert.deepEqual(job.stylePolicy, resolveArticleProsePolicy({ artifactKind: "article", language: "zh-CN", intent: article.intent }));
+  assert.equal(job.stylePolicy.genre, "courtyard");
+  assert.equal(Object.hasOwn(job.input, "stylePolicy"), false);
+  assert.deepEqual((await f.director.createJob({ ...article, stylePolicy: forgedPolicy }, ctx)).stylePolicy, job.stylePolicy);
+  const patched = await f.director.patchBrief(job.id, { goal: "突出有依据的日常动作" }, { ...context(), ifMatch: job.etag });
+  assert.deepEqual(patched.stylePolicy, job.stylePolicy);
+  await assert.rejects(f.director.patchBrief(job.id, { language: "en-US" }, { ...context(), ifMatch: patched.etag }),
+    { code: "CONTENT_STYLE_LANGUAGE_CHANGED" });
+
+  const batch = await f.director.createBatch({
+    name: "中文体裁与语言边界",
+    shared: { claimIds: ["C003"], language: "zh-CN", stylePolicy: forgedPolicy },
+    topics: [
+      { intent: "写手工吃食和摊煎饼工序的文章并配图", explicitKind: "article_visual" },
+      { intent: "写山货笔记", explicitKind: "article" },
+      { ...article, language: "en-US" },
+      { intent: "制作架构图", explicitKind: "pure_visual" },
+    ],
+  }, context());
+  assert.deepEqual(batch.jobs.map(row => row.stylePolicy?.genre), ["handcraft", "explainer", undefined, undefined]);
+  const english = batch.jobs[2];
+  const chineseDraft = await f.director.patchBrief(english.id, { language: "zh-CN" }, { ...context(), ifMatch: english.etag });
+  assert.deepEqual(chineseDraft.stylePolicy, job.stylePolicy);
+});
+
+test("the same style binding reaches scoped repair and is required on the exact frozen approval report", async t => {
+  class ProseModel extends StubModel {
+    calls = [];
+    async generateOutline(input) {
+      this.calls.push(["outline", input]);
+      return super.generateOutline(input);
+    }
+    async draftSection(input) {
+      this.calls.push(["section", input]);
+      return super.draftSection(input);
+    }
+    async auditArticle(input) {
+      const first = !this.calls.some(([phase]) => phase === "preflight");
+      this.calls.push(["preflight", input]);
+      const result = await super.auditArticle(input);
+      if (first) {
+        result.value.findings = [{
+          severity: "major", dimension: "expression", code: "PROSE_OPENER_TOO_ABSTRACT",
+          location: "section:0 paragraph:1", message: "首段未从材料支持的动作或读者问题入手。",
+          allowedChanges: ["paragraph:1"],
+        }];
+      }
+      return result;
+    }
+    async repairSection(input) {
+      this.calls.push(["repair", input]);
+      const paragraphs = [...input.currentSection.paragraphs];
+      paragraphs[0] = "我先从怎样判断一次任务已经做完说起。" + paragraphs[0];
+      return {
+        value: { title: input.currentSection.title, paragraphs, body: paragraphs.join("\n\n"), claimIds: input.currentSection.claimIds },
+        receipt: modelReceipt("prose-repair"),
+      };
+    }
+    async finalAuditArticle(input) {
+      this.calls.push(["final", input]);
+      return super.auditArticle(input);
+    }
+  }
+
+  const model = new ProseModel();
+  const f = await fixture(t, model);
+  const job = await f.director.createJob({
+    intent: "写一篇技术文章，说明怎么核验一次真实业务交付",
+    explicitKind: "article",
+    claimIds: ["C003"],
+    targetLength: { minCharacters: 1500, maxCharacters: 2500 },
+  }, context());
+  const waiting = await f.director.processJob(job.id);
+  const frozenText = waiting.articleDraft.article.body;
+  assert.equal(waiting.status, "needs_input");
+  await bindFixtureArticleIllustrations(f.director, waiting, context());
+  const completed = await f.director.processJob(job.id);
+  assert.equal(completed.status, "needs_review");
+  assert.equal(completed.result.article.body, frozenText);
+  assert.deepEqual(model.calls.map(([phase]) => phase),
+    ["outline", "section", "section", "section", "preflight", "repair", "preflight", "final"]);
+  for (const [, input] of model.calls) {
+    assert.deepEqual(input.stylePolicy, job.stylePolicy);
+    assert.deepEqual(input.brief.stylePolicy, job.stylePolicy);
+  }
+  const repair = model.calls.find(([phase]) => phase === "repair")[1];
+  assert.deepEqual(repair.findings[0].allowedChanges, ["paragraph:1"]);
+  assert.deepEqual(completed.result.article.sections[0].paragraphs.slice(1), repair.currentSection.paragraphs.slice(1));
+  assert.deepEqual(completed.result.stylePolicy, job.stylePolicy);
+  const finalReport = completed.reports.find(row => row.phase === "quality.final");
+  assert.deepEqual(finalReport.stylePolicy, job.stylePolicy);
+  assert.match(finalReport.styleAuditContextHash, /^[a-f0-9]{64}$/);
+  assert.equal(completed.result.styleAuditReportHash, finalReport.reportHash);
+
+  await f.store.mutate({ type: "fixture.stale_style_report", actor: "test" }, state => {
+    const report = state.contentAuditReports.find(row => row.id === finalReport.id);
+    report.stylePolicy = resolveArticleProsePolicy({ artifactKind: "article", language: "zh-CN", intent: "小院日记" });
+    const { reportHash, ...payload } = report;
+    report.reportHash = hashObject(payload);
+  });
+  const acceptance = { reviewed: true, contentHash: completed.result.contentHash };
+  await assert.rejects(f.director.approveJob(job.id, acceptance, { ...context(), ifMatch: completed.etag }),
+    { code: "CONTENT_FINAL_AUDIT_REQUIRED" });
+  await f.store.mutate({ type: "fixture.return_exact_style_report", actor: "test" }, state => {
+    const index = state.contentAuditReports.findIndex(row => row.id === finalReport.id);
+    state.contentAuditReports[index] = finalReport;
+  });
+  const approved = await f.director.approveJob(job.id, acceptance, { ...context(), ifMatch: completed.etag });
+  assert.equal(approved.status, "approved");
+  assert.deepEqual(approved.review.stylePolicy, job.stylePolicy);
+  assert.equal(approved.review.styleAuditReportHash, finalReport.reportHash);
+});
+
+test("preflight and terminal audit cannot advance a styled article with unchecked expression coverage", async t => {
+  for (const phase of ["preflight", "final"]) {
+    await t.test(phase, async child => {
+      const model = new StubModel();
+      const audit = model.auditArticle.bind(model);
+      const unchecked = async input => {
+        const result = await audit(input);
+        result.value.coverage.expression = "unverified";
+        return result;
+      };
+      if (phase === "preflight") model.auditArticle = unchecked;
+      else model.finalAuditArticle = unchecked;
+      const f = await fixture(child, model);
+      const job = await f.director.createJob({
+        intent: "写一篇有材料依据的小院日常文章",
+        claimIds: ["C003"],
+        targetLength: { minCharacters: 1500, maxCharacters: 2500 },
+      }, context());
+      if (phase === "final") {
+        const waiting = await f.director.processJob(job.id);
+        await bindFixtureArticleIllustrations(f.director, waiting, context());
+      }
+      await assert.rejects(f.director.processJob(job.id), { code: "CONTENT_STYLE_COVERAGE_INVALID" });
+      const failed = await f.director.getJob(job.id);
+      assert.equal(failed.status, "failed");
+      assert.equal(failed.result, null);
+      assert.equal(failed.reports.length, phase === "preflight" ? 0 : 1);
+      assert.equal(failed.steps.find(row => row.status === "failed").auditUsage.total_tokens, 1);
+    });
+  }
+});
 
 test("article Job writes complete sections, independent audit and editable visuals", async t => {
   const finalFinding = {
@@ -506,7 +658,13 @@ test("starting an exact historical article reuses the same Job and its frozen te
     claimIds: ["C003"],
     targetLength: { minCharacters: 1500, maxCharacters: 2500 },
   }, context());
+  await f.store.mutate({ type: "fixture.pre_prose_policy_job", actor: "test" }, state => {
+    delete state.contentDirectorJobs.find(row => row.id === job.id).stylePolicy;
+  });
   const completed = await processIllustratedArticle(f.director, job.id, context());
+  assert.equal(Object.hasOwn(completed, "stylePolicy"), false);
+  assert.equal(Object.hasOwn(completed.result, "stylePolicy"), false);
+  assert.equal(completed.reports.some(row => Object.hasOwn(row, "stylePolicy")), false);
   const { articleDraft } = await f.director.getJob(job.id);
   const article = { ...(articleDraft?.article ?? completed.result.article), visualSpecRefs: [] };
   delete article.visualBundleHash;

@@ -53,13 +53,14 @@ try {
     files.push({ path, sha256: digest(data), size: data.length, mode: stat.mode & 0o111 ? 0o755 : 0o644 });
   }
   for (const required of ["package.json", "pnpm-lock.yaml", "src/server.mjs", "src/security/admin-auth.mjs",
-    "deploy/aliyun/deploy.py", "deploy/aliyun/nginx_proxy.py", "deploy/aliyun/configure.mjs", "public/index.html"]) {
+    "deploy/aliyun/runtime.json", "deploy/aliyun/deploy.py", "deploy/aliyun/nginx_proxy.py",
+    "deploy/aliyun/configure.mjs", "public/index.html"]) {
     if (!files.some((file) => file.path === required)) throw new Error(`Required file missing: ${required}`);
   }
   const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
   if (!/^pnpm@\d+\.\d+\.\d+$/.test(packageJson.packageManager)) throw new Error("packageManager must pin an exact pnpm version.");
   const contentSha256 = digest(JSON.stringify(files));
-  const manifest = { schema: "pengmanager-deployment/v1", gitSha, dirty, contentSha256,
+  const manifest = { schema: "yaoayi-deployment/v1", gitSha, dirty, contentSha256,
     createdAt: new Date().toISOString(), packageManager: packageJson.packageManager, files };
   const name = `yaoayi-system-${gitSha.slice(0, 12)}-${contentSha256.slice(0, 12)}.tar.gz`;
   if (dryRun) {

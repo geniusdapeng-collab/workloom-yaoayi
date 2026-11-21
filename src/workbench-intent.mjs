@@ -1,11 +1,13 @@
 import { ApiError } from "./domain/errors.mjs";
 import { hashObject } from "./domain/hash.mjs";
+import { resolveArticleProsePolicy } from "./domain/article-prose-policy.mjs";
 import { CONTENT_ARTIFACT_KINDS, resolveContentIntent } from "./domain/content-intent.mjs";
 import { YAO_AYI_PERSONA_CONTRACT } from "./domain/persona.mjs";
 
 const ALLOWED_INPUT_KEYS = new Set([
   "intent",
   "explicitKind",
+  "language",
   "attachments",
   "platforms",
   "allowWebResearch",
@@ -32,6 +34,7 @@ export const WORKBENCH_INTENT_SCHEMA = Object.freeze({
   properties: {
     intent: { type: "string", minLength: 1, maxLength: 20_000 },
     explicitKind: { type: "string", enum: CONTENT_ARTIFACT_KINDS },
+    language: { type: "string", enum: ["zh-CN", "en-US"] },
     attachments: {
       type: "array",
       maxItems: 200,
@@ -471,13 +474,14 @@ function authorizationGates(route, wantsPublication) {
   return gates;
 }
 
-function clientHandoff(route, claimIds) {
+function clientHandoff(route, claimIds, language) {
   const common = {
     persona: YAO_AYI_PERSONA_CONTRACT,
     mcp: {
       tool: "yaoayi_workbench_intent",
       arguments: {
         intent: route.intent,
+        ...(language ? { language } : {}),
         ...(route.artifactKind ? { explicitKind: route.artifactKind } : {}),
         ...(route.platforms.length ? { platforms: route.platforms } : {}),
         ...(claimIds.length ? { claimIds } : {}),
@@ -557,6 +561,7 @@ export function planWorkbenchIntent(input = {}) {
   if (unknown.length) invalid("请求包含未支持字段。", { fields: unknown.sort() });
   const intent = typeof input.intent === "string" ? input.intent.trim() : "";
   if (!intent) invalid("intent 不能为空。");
+  if (input.language !== undefined && !["zh-CN", "en-US"].includes(input.language)) invalid("language 必须为 zh-CN 或 en-US。");
 
   const claimIds = normalizeClaimIds(input.claimIds);
   const route = resolveContentIntent({ ...input, intent });
@@ -591,7 +596,12 @@ export function planWorkbenchIntent(input = {}) {
     ? videoStages({ ...route, missing: uniqueMissing })
     : contentDirectorStages({ ...route, missing: uniqueMissing }, claimIds);
   if (wantsPublication) stages.push(publicationStage([stages.at(-1).id]));
-  const handoff = clientHandoff({ ...route, missing: uniqueMissing }, claimIds);
+  const handoff = clientHandoff({ ...route, missing: uniqueMissing }, claimIds, input.language);
+  const stylePolicy = resolveArticleProsePolicy({
+    artifactKind: route.artifactKind,
+    language: input.language ?? "zh-CN",
+    intent,
+  });
   const status = uniqueMissing.length ? "needs_input" : "planned";
   const plan = {
     schemaVersion: "yaoayi.workbench-intent-plan/v1",
@@ -599,6 +609,7 @@ export function planWorkbenchIntent(input = {}) {
     status,
     intent,
     persona: YAO_AYI_PERSONA_CONTRACT,
+    ...(stylePolicy ? { stylePolicy } : {}),
     route: { ...route, missing: uniqueMissing },
     claimIds,
     publicationRequested: wantsPublication,
