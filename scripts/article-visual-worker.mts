@@ -235,7 +235,8 @@ async function prepare() {
       if (result.status !== "completed" || result.stepsDone !== 2) {
         return { status: "needs_input", jobId, draftHash: binding.draftHash, threadId, stage: result.status, reason: result.error ?? "ARTICLE_VISUAL_NATIVE_CHECK_REQUIRED" };
       }
-      const output = join(outputDirectory, name + ".png");
+      const file = name + ".png";
+      const output = join(prior ? handoff : outputDirectory, file);
       const bytes = await readPrivate(output);
       await assertEditorialImageBytes(bytes, { mime: "image/png" });
       const outputSha256 = sha(bytes);
@@ -249,7 +250,8 @@ async function prepare() {
       if (!accepted || !compose || !verify) throw Error("ARTICLE_VISUAL_REAL_RECEIPTS_MISSING");
       const project = join(outputDirectory, name + ".comp");
       const archive = join(handoff, name + ".comp.zip");
-      if (await realpath(project) !== project) throw Error("ARTICLE_VISUAL_PROJECT_UNSAFE");
+      // Prior jobs already have an immutable archived project in the handoff.
+      if (!prior && await realpath(project) !== project) throw Error("ARTICLE_VISUAL_PROJECT_UNSAFE");
       try { requirePrivate(await lstat(archive), true, 100 * 1024 * 1024); }
       catch (error) {
         if (error.code !== "ENOENT" || prior) throw error;
@@ -258,7 +260,6 @@ async function prepare() {
         });
         await chmod(archive, 0o600);
       }
-      const file = name + ".png";
       const target = join(handoff, file);
       try { await writeFile(target, bytes, { mode: 0o600, flag: "wx" }); }
       catch (error) {
