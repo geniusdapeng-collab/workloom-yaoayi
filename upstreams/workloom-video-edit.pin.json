@@ -10,7 +10,7 @@
   "sourceFileCount": 3650,
   "sourceBytes": 336706560,
   "snapshot": "upstreams/workloom-video-edit.snapshot.json",
-  "snapshotSha256": "f1603f5763b984cdcff69a8dfee5476e16e5a3c8a04a5d0679700e066fd0e7b7",
+  "snapshotSha256": "6ac944273583cc684ab008d3e29faf8c12cca03f7b11dc09ca2361d7e03f83ad",
   "capabilityCatalog": "engines/video-edit/pengmanager-capabilities.json",
   "capabilities": [
     "ai-video-generation",

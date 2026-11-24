@@ -1,33 +1,30 @@
-# PengManager 内嵌完整视频引擎
+# 姚阿姨系统内嵌视频制作引擎
 
-本目录是鹏经理系统自包含的视频引擎：原生后端、数据库迁移、网页、SDK、CLI、行业包、岗位、技能、围栏、生成与后期代码均随产品保留。运行入口位于鹏经理仓库根目录；它管理自己独立的 PostgreSQL、原生工作台和工具进程，持久数据放在产品私有目录。当前来源以 [`../../upstreams/workloom-video-edit.pin.json`](../../upstreams/workloom-video-edit.pin.json) 和逐文件快照为准。
+姚阿姨系统在这个目录中集成 WorkLoom Edit 的视频生成、素材剪辑、口播制作和后期交付能力，随宿主提供后端、数据库迁移、工作台、SDK、CLI 和行业包。运行入口位于姚阿姨系统仓库根目录，由宿主管理独立的 PostgreSQL、工作台、工具进程和持久数据目录。当前来源以 [`../../upstreams/workloom-video-edit.pin.json`](../../upstreams/workloom-video-edit.pin.json) 和逐文件快照为准。
 
-首次安装在鹏经理根目录执行 `pnpm video:setup`，`pnpm video:doctor` 检查真实依赖和状态，`pnpm start` 随鹏经理启动完整工作台。模型密钥通过原生向导配置并在当前进程内使用；真实连通验证、岗位技能围栏装配与业务档案都满足后才允许正式激活。供应商调用、真人声音克隆和对外发布仍各自遵循原生授权、预算与回执。
+首次安装在姚阿姨系统仓库根目录执行 `pnpm video:setup`，`pnpm video:doctor` 检查真实依赖和状态，`pnpm start` 随宿主启动完整工作台。模型密钥通过原生向导配置并在当前进程内使用；真实连通验证、岗位技能围栏装配与业务档案都满足后才允许正式激活。供应商调用、真人声音克隆和对外发布仍各自遵循原生授权、预算与回执。
 
-完整说明见 [PengManager 运行边界与工具安装](PENGMANAGER_RUNTIME.md)。[`pengmanager-capabilities.json`](pengmanager-capabilities.json) 是声明和源码引用目录，运行依赖、实际接线与真实产出分别记录。Compositor 在本机使用受控兼容 headless 引擎；TalkCraft 的商业用途须提供真实商业授权文件。
+完整说明见 [内嵌引擎运行边界与工具安装](PENGMANAGER_RUNTIME.md)。[`pengmanager-capabilities.json`](pengmanager-capabilities.json) 是声明和源码引用目录，运行依赖、实际接线与真实产出分别记录。Compositor 在本机使用受控兼容 headless 引擎；TalkCraft 的商业用途须提供真实商业授权文件。
 
-以下保留上游产品与开发参考。其独立克隆、演示种子、旧端口和工作站安装方式属于上游参考；PengManager 的安装和启动遵循上述根目录入口。
+下文介绍固定版本的 Edit 制作流程、开发入口和历史示例。宿主安装和启动采用上述根目录命令。
 
 ---
 
-# WorkLoom 视频AI剪辑系统 · 真实素材二次创作（实验车道）
+# WorkLoom Edit · AI 视频制作系统
 
-本仓复制自 **WorkLoom-growth@7509809**，在既有 AI 视频生产链路之前新增一条 **视频AI剪辑管线**：真实拍摄（或既有 AI 素材）→ 多模态理解 → 高光与关键帧挖掘 → 镜头重组与文案 → 帧级剪辑时间轴 → 本地合成 → 交回既有后期（调色/字幕/配音/配乐/封面/多风格交付）。
+WorkLoom Edit 面向内容创作者和制作团队，可从创意、商品资料、已有视频或口播稿件开始制作。商品营销与叙事项目可以规划分镜、生成镜头并完成后期。已有实拍或 AI 镜头可以分析、选段并按帧级时间轴本地剪辑。已拍口播可以按逐字稿精剪，解说稿则可以配音、对齐文字并制作图文动效或白板解说。
 
-换句话说：**替换掉"视频提示词生成"与"视频渲染"两个环节**，其余后期环节与 AI 视频生成管线共用同一批工位与同一份交付纪律。剪辑包本身是本地算力（免费、可重跑），模型只花在"理解"和"创作"上。
+素材剪辑使用真实解码时间码，口播精剪以逐字稿为字幕与剪取依据。项目可按交付规格选择字幕、配乐、调色、封面和风格版本，并保留成片与对应回执。
 
-当前生产线包含 11 个本地执行器：通用剪辑 7 个（`pnpm edit:probe / edit:verify / edit:assemble / edit:post / edit:subtitle / edit:cover / edit:danmaku`）+ **口播精剪 4 个**（`pnpm edit:talk-asr / edit:talk-emotion / edit:talk-cut / edit:talk-annotate`），并已支持**按场景组分段调色、配乐 agent 选曲（本地打标大库优先）、封面 agent 链路与烧封片头、弹幕轨、分辨率×朝向字号规则、多风格变体×三形态交付**，详见下文「AI 剪辑生产线」。
+[GitHub 固定版本](https://github.com/geniusdapeng-collab/WorkLoom-video-edit/tree/a544ab8b068790bfb14b7977efc81b33897fc9de) · [宿主来源登记](../../upstreams/workloom-video-edit.pin.json) · [产品身份](product.manifest.json) · [剪辑架构升级](docs/video-edit-architecture.md) · [提示词套件](docs/video-edit-prompt-suite.md) · [代码入口导览](docs/capabilities.auto.md) · [开发指引](AGENTS.md) · [Apache-2.0](LICENSE)
 
-[CNB 仓库](https://cnb.cool/workloom-ai/WorkLoom-video-edit) · [产品身份](product.manifest.json) · [剪辑架构升级](docs/video-edit-architecture.md) · [提示词套件](docs/video-edit-prompt-suite.md) · [代码入口导览](docs/capabilities.auto.md) · [开发指引](AGENTS.md) · [Apache-2.0](LICENSE)
-
-> 新管线入口：`bundles/video-edit/`（10+ 岗位 / 1 条管线 / 9 条围栏 / 5 份契约）+ `packages/video-studio/src/edit/`（参考实现）
-> + `pnpm edit:probe|verify|assemble|post|subtitle|cover|danmaku`（本地信号解析、后期交付、封面与弹幕轨）。原获客（GEO）能力与页面**原样保留**，可直接复用其治理机制与工作台。
+> 营销片与叙事片从[视频工作台指南](docs/ai-video-workbench-guide.md)开始。素材剪辑与真人口播精剪使用[剪辑行业包](bundles/video-edit/README.md)及本地执行器。稿件配音与图文口播见[口播解说片](docs/talkcraft-explainer.md)，手绘形式见[白板解说引擎](docs/whiteboard-engine.md)。
 
 > 本页按当前源码说明“有什么、从哪里进入、还依赖什么”，不把岗位或技能数量当作已交付能力数，也不把模拟结果当作生产效果。旧方案、截图和演示 PPT 可帮助理解背景；发生差异时，以 manifest、当前路由和实际执行代码为准。
 
 ## AI 剪辑生产线（当前可执行能力）
 
-本仓的主线不是再讲一遍“AI 视频”，而是一条**可重跑的本地剪辑 → 交付生产线**：真实素材进、多平台成片出；模型只花在“素材理解”和“创作”两步，剪辑、后期、封面、弹幕都在本地算力上完成，每步留回执。
+素材剪辑从获准使用的已有镜头出发。模型可辅助素材理解和创作，剪辑按帧级时间轴在本地执行，封面、字幕和配乐等工序依据当前交付规格留下回执。
 
 | 环节 | 入口 | 产出与纪律 |
 |---|---|---|
@@ -121,7 +118,7 @@ macOS 的 Quick Look/QuickTime 默认不会自动打开软字幕轨（AVFoundati
 | 企业负责人、项目负责人 | 看清任务交给谁、交付什么、哪里待决定 | 工作台、任务线程、协作契约与组合看板组织交接和状态 | 看板和事件存在不等于营收归因已接通；演示订单不能当实际收入 |
 | 增长策略与渠道运营人员 | 同一选题用于社媒内容与 GEO，并积累可复用作业规范 | `geo-growth` 声明岗位、技能、围栏和管线，复用视频与视觉制作能力 | query 采集、能见度监测、线索评分和分发等专用工具仍需逐项接线与验收 |
 
-本仓身份是 `workloom-ai-growth`，角色为 `industry`，默认行业包为 `geo-growth`，属于 WorkLoom 的实验车道。它与 `workloom-growthtest`、`workloom-growthmatrix` 两个隔离副本是不同实例；不把其它仓库的实验能力合并算入本仓。酒店包是组合依赖和垂直业务样例，不代表这里已经接通真实 PMS、OTA、支付或所有酒店经营数据。来源：[product.manifest.json](product.manifest.json)、[主包 manifest](bundles/geo-growth/bundle.json)。
+独立 Edit 产品标识为 `workloom-ai-video-edit`，角色为 `industry`，默认行业包为 `geo-growth`。它与 `workloom-growthtest`、`workloom-growthmatrix` 两个隔离副本是不同实例；不把其它仓库的实验能力合并算入本仓。酒店包是组合依赖和垂直业务样例，不代表这里已经接通真实 PMS、OTA、支付或所有酒店经营数据。来源：[product.manifest.json](product.manifest.json)、[主包 manifest](bundles/geo-growth/bundle.json)。
 
 ## 功能状态：代码做到哪里
 
@@ -247,8 +244,9 @@ NATS/Redis 的事件总线库可在源码中找到，但当前主业务入口未
 ### 1. 克隆、依赖与专用数据库
 
 ```bash
-git clone https://cnb.cool/workloom-ai/WorkLoom-growth.git
-cd WorkLoom-growth
+git clone https://github.com/geniusdapeng-collab/WorkLoom-video-edit.git
+cd WorkLoom-video-edit
+git checkout --detach a544ab8b068790bfb14b7977efc81b33897fc9de
 pnpm install --frozen-lockfile
 test -f .env || cp .env.example .env
 docker compose up -d postgres
