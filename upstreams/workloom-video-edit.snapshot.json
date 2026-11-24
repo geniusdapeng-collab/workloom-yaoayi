@@ -29074,9 +29074,9 @@
       "sourceMode": "100644",
       "gitBlob": "95c44e649c4745fd4b261d609cb8507f112c6f2e",
       "bytes": 40574,
-      "targetBytes": 42076,
+      "targetBytes": 41506,
       "sourceSha256": "78e2225098bb813a7b80a36eaf7af2ebf0a3f7de649625ff8041e59a35819fb6",
-      "targetSha256": "7a56a33e4660dcfe3e63a14c2eae3e64ee7fd1655fd13f243fdcfe4caedf1519",
+      "targetSha256": "920e9df63cb29c21279d1e9f6d19b2b2a3588ef7b87e09e94900ffb88422d4ef",
       "evidence": "B",
       "adaptation": "PengManager host integration preserved during the 2026-10-31 upgrade to WorkLoom-video-edit a544ab8b068790bfb14b7977efc81b33897fc9de; exact target bytes are listed here for runtime verification."
     },
@@ -41210,8 +41210,8 @@
     {
       "path": "UPSTREAM_README.md",
       "mode": "100644",
-      "bytes": 38561,
-      "targetSha256": "dfd557e58605d6ba67bd77a75c5dd91b1bc78fd98731477ebeede4b5684788c4",
+      "bytes": 38044,
+      "targetSha256": "6d89567665eabb7890884716f66e4e54a710dff5f6e7d57e8cafd067fd4b6a71",
       "evidence": "B",
       "reason": "PengManager host-owned runtime integration, capability, test, documentation, asset, or tool file retained across the full upstream rebind."
     },
